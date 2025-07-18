@@ -1,0 +1,46 @@
+.navbar {
+  width: 100vw;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+.navbar-container {
+  position: relative;
+  width: 100vw;
+  height: 64rpx;
+  z-index: 100;
+  display: flex;
+  box-sizing: border-box;
+}
+
+.navbar-btn {
+  width: 64rpx;
+  height: 64rpx;
+  z-index: 100;
+  position: absolute;
+  left: 24rpx;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.navbar_title {
+  width: 100%;
+  height: 64rpx;
+  line-height: 64rpx;
+  color: #000;
+  font-weight: 700;
+  text-align: center;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}

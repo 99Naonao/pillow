@@ -1,0 +1,26 @@
+<!--components/HeaderNavBar/headerNav.wxml-->
+<view class="navbar custom-root-class" style="height:{{navHeight}}px; background:{{bgColor}}; position: {{noSticky ? 'fixed':'sticky'}}; opacity: {{opacity}};" wx:if="{{show}}">
+  <view class="navbar-container" style="padding-top:{{navTop}}px;">
+    <!-- 导航按钮 -->
+    <view wx:if="{{showNavBtn}}">
+      <!-- 默认显示返回，若添加isShowHome属性则显示主页，添加isShowCustomIcon则显示用户自定义icon -->
+      <view class="navbar-btn" wx:if="{{navIcon}}" bindtap="navBtn">
+        <image class="navbar-icon custom-icon-class" src="{{navIcon}}"></image>
+      </view>
+      <view class="navbar-btn" wx:elif="{{navHome}}" bindtap="navHome">
+        <image class="navbar-icon custom-icon-class" src="./images/home.png"></image>
+      </view>
+      <view class="navbar-btn" wx:else bindtap="navBack">
+        <image class="navbar-icon custom-icon-class" src="./images/back.png"></image>
+      </view>
+    </view>
+    <!-- 中间标题 -->
+    <view class="navbar_title custom-title-class" style="color: {{titleColor}};">
+      <text>{{title}}</text>
+      <!-- 具名插槽 -->
+      <view style="display: inline-block;">
+        <slot name="titleSlot"></slot>
+      </view>
+    </view>
+  </view>
+</view>

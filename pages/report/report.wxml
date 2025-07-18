@@ -1,0 +1,111 @@
+<view class="report-container">
+  <!-- 顶部导航栏 -->
+  <nav-bar title="睡眠报告" showNavBtn="{{false}}" bgColor="#083869" titleColor="#fff"/>
+  <view class="report-header">
+    <view class="date-row">
+      <picker mode="date" value="{{calendarValue}}" bindchange="onDateChange">
+        <view class="date-picker-inline">
+          <text class="report-date">{{currentDate}}</text>
+          <image src="../../static/calendar.png" class="icon-calendar"/>
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- TDesign 日历弹窗 -->
+  <t-calendar
+    visible="{{showCalendar}}"
+    value="{{calendarValue}}"
+    mode="single"
+    bind:close="onCalendarClose"
+    bind:confirm="onCalendarConfirm"
+  />
+
+  <scroll-view scroll-y="true" class="report-scroll-content">
+    <!-- 睡眠时长与评分 -->
+    <view class="summary-row">
+      <view class="sleep-duration">
+        <text class="duration-title">本次睡眠时长</text>
+        <text class="duration-value">{{sleepTime}}</text>   
+        <view class="time-block">
+          <view class="time-row">
+            <image src="../../static/moon.png" class="icon-time"/>
+            <text class="time-label">开始时间</text>
+            <text class="time-value">{{sleepStartTime}}</text>
+          </view>
+          <view class="time-divider"></view>
+          <view class="time-row">
+            <image src="../../static/sun.png" class="icon-time"/>
+            <text class="time-label">结束时间</text>
+            <text class="time-value">{{sleepEndTime}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="score-circle-wrap">
+        <ec-canvas id="scoreCircleChart" canvas-id="scoreCircleChart" ec="{{scoreCircleChart}}" class="score-circle-canvas"></ec-canvas>
+        <view class="circle-score-abs">
+          <text class="score-title">睡眠质量</text>
+          <text class="score-level">良好</text>
+          <text class="score-label">综合评分</text>
+          <text class="score-value">85</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 睡眠分期饼图与比例 -->
+    <view class="stage-row">
+      <view class="stage-pie">
+        <ec-canvas id="stagePieChart" canvas-id="stagePieChart" ec="{{stagePieChart}}"></ec-canvas>
+      </view>
+      <view class="stage-legend-box">
+        <view class="stage-legend">
+          <view class="legend-row">
+            <view class="legend-dot shallow"></view>
+            <text>浅睡期</text>
+            <text class="legend-percent">{{shallowPercent}}%</text>
+          </view>
+          <view class="legend-row">
+            <view class="legend-dot rem"></view>
+            <text>清醒期</text>
+            <text class="legend-percent">{{awakePercent}}%</text>
+          </view>
+          <view class="legend-row">
+            <view class="legend-dot deep"></view>
+            <text>深睡期</text>
+            <text class="legend-percent">{{deepPercent}}%</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 心率趋势图 -->
+    <view class="trend-card">
+      <view class="trend-header">
+        <image src="../../static/heart_rate.png" class="trend-icon"/>
+        <text class="trend-title">平均心率</text>
+        <text class="trend-value">64</text>
+      </view>
+      <ec-canvas id="heartTrendChart" canvas-id="heartTrendChart" ec="{{heartTrendChart}}"></ec-canvas>
+    </view>
+
+    <!-- 呼吸频率趋势图 -->
+    <view class="trend-card">
+      <view class="trend-header">
+        <image src="../../static/breath.png" class="trend-icon"/>
+        <text class="trend-title">平均呼吸频率</text>
+        <text class="trend-value">15</text>
+      </view>
+      <ec-canvas id="breathTrendChart" canvas-id="breathTrendChart" ec="{{breathTrendChart}}"></ec-canvas>
+    </view>
+
+    <!-- 体动次数趋势图 -->
+    <view class="trend-card">
+      <view class="trend-header">
+        <image src="../../static/turn_over.png" class="trend-icon"/>
+        <text class="trend-title">累积体动</text>
+        <text class="trend-value">28</text>
+      </view>
+      <ec-canvas id="bodyMoveTrendChart" canvas-id="bodyMoveTrendChart" ec="{{bodyMoveTrendChart}}"></ec-canvas>
+    </view>
+  </scroll-view>
+</view>

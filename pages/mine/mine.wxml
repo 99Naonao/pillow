@@ -1,0 +1,55 @@
+<!--pages/mine/mine.wxml-->
+<view class="mine-bg">
+  <nav-bar title="个人中心" showNavBtn="{{false}}"  bgColor="#083869" titleColor="#fff"/>
+  <!-- 个人信息卡片 -->
+  <view class="mine-card">
+    <block wx:if="{{isLogin}}">
+      <image class="mine-avatar" src="{{avatarUrl}}" mode="aspectFill"/>
+      <view class="mine-userinfo">
+        <text class="mine-username">{{userName}}</text>
+        <view class="mine-score-row">
+          <text class="mine-score-label">我的积分</text>
+          <text class="mine-score-value">{{score}}</text>
+          <button class="mine-btn" bindtap="goToShop">前往商城使用</button>
+        </view>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="not-login-content">
+        <button class="mine-btn-not-login" bindtap="goLogin">立即登录</button>
+        <text class="not-login-tip">登录享受更多功能</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- 功能区卡片 -->
+  <view class="mine-func-card">
+    <view class="mine-func-row">
+      <image class="mine-func-icon" src="../../static/warn.png"/>
+      <text class="mine-func-label">告警通知</text>
+      <switch class="mine-switch" checked="{{alarmEnabled}}" bindchange="onToggleAlarm"/>
+    </view>
+    <view class="mine-func-row" bindtap="onShowProtocol">
+      <image class="mine-func-icon" src="../../static/service.png"/>
+      <text class="mine-func-label">服务协议</text>
+      <image class="mine-arrow" src="../../static/right.png"/>
+    </view>
+    <view class="mine-func-row" bindtap="onShowAbout">
+      <image class="mine-func-icon" src="../../static/info.png"/>
+      <text class="mine-func-label">关于我们</text>
+      <image class="mine-arrow" src="../../static/right.png"/>
+    </view>
+  </view>
+</view>
+
+<!-- 手机号输入弹窗 -->
+<view wx:if="{{showPhoneModal}}" class="phone-modal-mask">
+  <view class="phone-modal">
+    <view class="phone-modal-title">绑定告警手机号</view>
+    <input class="phone-modal-input" type="number" maxlength="11" placeholder="请输入手机号" value="{{phoneInput}}" bindinput="onPhoneInput"/>
+    <view class="phone-modal-btns">
+      <button class="phone-modal-btn cancel" bindtap="onPhoneModalCancel">取消</button>
+      <button class="phone-modal-btn confirm" bindtap="onPhoneModalConfirm">确定</button>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,143 @@
+/* pages/mine/mine.wxss */
+.mine-bg {
+  background: #083869;
+  min-height: 100vh;
+  padding: 0 0 40rpx 0;
+}
+
+.mine-card {
+  background: #1561a7;
+  border-radius: 24rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 32rpx 24rpx;
+  margin: 32rpx 24rpx 0 24rpx;
+  box-shadow: 0 4rpx 24rpx rgba(0,0,0,0.08);
+  min-height: 160rpx;
+}
+
+.mine-avatar {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: #eaeaea;
+  margin-right: 24rpx;
+  border: 2rpx solid #fff;
+}
+
+.mine-userinfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.mine-username {
+  font-size: 32rpx;
+  color: #fff;
+  font-weight: bold;
+  margin-bottom: 18rpx;
+  margin-top: 18rpx;
+}
+
+.mine-score-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18rpx;
+}
+
+.mine-score-label {
+  font-size: 26rpx;
+  color: #fff;
+  margin-right: 8rpx;
+}
+
+.mine-score-value {
+  font-size: 28rpx;
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.mine-btn {
+  background: #fff;
+  color: #1976d2;
+  border: 2rpx solid #1976d2;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  font-weight: bold;
+  width: 220rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+}
+
+.mine-func-card {
+  background: #1561a7;
+  border-radius: 20rpx;
+  margin: 32rpx 24rpx 0 24rpx;
+  padding: 16rpx 0;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06);
+}
+
+.mine-func-row {
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+  height: 72rpx;
+  border-bottom: 1rpx solid #195b9a;
+}
+
+.mine-func-row:last-child {
+  border-bottom: none;
+}
+
+.mine-func-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 16rpx;
+}
+
+.mine-func-label {
+  font-size: 28rpx;
+  color: #fff;
+  flex: 1;
+}
+
+.mine-switch {
+  transform: scale(0.8);
+}
+
+.mine-arrow {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.not-login-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.mine-btn-not-login {
+  background: #fff;
+  color: #1976d2;
+  border: 2rpx solid #1976d2;
+  border-radius: 24rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+  padding: 18rpx 0;
+  width: 220rpx;
+  height: 72rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(25,118,210,0.08);
+}
+
+.not-login-tip {
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: bold;
+  letter-spacing: 1rpx;
+}

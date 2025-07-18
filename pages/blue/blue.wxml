@@ -1,0 +1,120 @@
+<nav-bar title="设备连接" bgColor="#083869" titleColor="#fff" bind:tap="onBack"></nav-bar>
+<view class="page-container">
+  <!-- 进度条 -->
+  <view class="progress-container"></view>
+
+  <!-- 步骤条 -->
+  <view class="steps-bar">
+    <view class="step-btn {{currentTab==0?'step-btn-active':''}}">第一步</view>
+    <view class="step-btn {{currentTab==1?'step-btn-active':''}}">第二步</view>
+    <view class="step-btn {{currentTab==2?'step-btn-active':''}}">第三步</view>
+  </view>
+
+  <!-- 蓝牙连接按钮（只在第一步显示） -->
+  <view wx:if="{{currentTab==0}}">
+    <view class="bluetooth-wifi-btn-row">
+      <button class="bluetooth-wifi-btn">
+        <image src="/static/bluetooth.png" class="bluetooth-icon" />
+        蓝牙连接
+      </button>
+    </view>
+  </view>
+  <view wx:if="{{currentTab==1}}">
+    <view class="wifi-wifi-btn-row">
+      <button class="bluetooth-wifi-btn">
+        <image src="/static/wifi.png" class="bluetooth-icon"/>
+        WIFI配置
+      </button>
+    </view>
+  </view>
+  <!-- 内容区 -->
+  <scroll-view
+    class="content-scroll"
+    scroll-y="true"
+    refresher-enabled="{{currentTab == 0}}"
+    refresher-triggered="{{isRefreshing}}"
+    bindrefresherrefresh="onContentRefresh"
+    style="height: calc(100vh - 120rpx - 60rpx - 100rpx);"
+  >
+    <!-- 步骤一：蓝牙设备列表 -->
+    <view wx:if="{{currentTab==0}}">
+      <view class="refresh-tip">下拉重新搜索</view>
+      <view class="search-result-title">搜索到以下{{devices.length}}个设备</view>
+      <view class="device-list">
+        <block wx:for="{{devices}}" wx:key="deviceId">
+          <view class="device-card">
+            <view class="device-card-info">
+              <view class="device-name">{{item.name}}</view>
+              <view class="device-mac">MAC: {{item.deviceId}}</view>
+            </view>
+            <view class="custom-switch {{item.deviceId === connectedDeviceId ? 'switch-on' : 'switch-off'}}" 
+                  bindtap="onCustomSwitchTap" data-deviceid="{{item.deviceId}}">
+              <view class="switch-slider"></view>
+            </view>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 步骤二：WiFi配网 -->
+    <view wx:if="{{currentTab==1}}">
+      <!-- 已选择WiFi（包括手机已连接WiFi） -->
+      <view wx:if="{{wifiSelected}}">
+        <view class="wifi-card">
+          <view class="wifi-card-header">
+            <view class="wifi-name">{{wifiName}}</view>
+            <view wx:if="{{is5GConnected}}" class="wifi-5g-badge">5G</view>
+          </view>
+          <input
+            class="wifi-password-input"
+            type="password"
+            placeholder="请输入WiFi密码"
+            bindinput="onInputPassword"
+            value="{{wifiPassword}}"
+            disabled="{{is5GConnected}}"
+          />
+          <view class="wifi-btn-row">
+            <button
+              class="wifi-action-btn"
+              type="primary"
+              bindtap="sendWifiConfig"
+              disabled="{{is5GConnected}}"
+            >连接Wifi</button>
+            <button class="wifi-action-btn" bindtap="showWifiList">更换WiFi</button>
+          </view>
+          <view wx:if="{{is5GConnected}}" class="wifi-5g-tip">
+            当前WiFi为5G信号，仅支持2.4G WiFi，请更换WiFi
+          </view>
+        </view>
+      </view>
+      <!-- 选择WiFi列表 -->
+      <view wx:elif="{{showWifiList}}">
+        <view class="wifi-tip">请选择要连接的WiFi</view>
+        <view class="wifi-list">
+          <block wx:for="{{wifiList}}" wx:key="SSID">
+            <view
+              class="wifi-item"
+              bindtap="selectWifi"
+              data-ssid="{{item.SSID}}"
+              wx:if="{{item.frequency < 3000}}"
+            >
+              {{item.SSID}} <text class="wifi-type">2.4G</text>
+            </view>
+          </block>
+          <view wx:if="{{wifiList.length === 0}}" class="wifi-tip">
+            未获取到WiFi列表，请确保已打开手机WiFi开关并授权位置信息。
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 步骤三：完成 -->
+    <view wx:if="{{currentTab==2}}">
+      <view class="finish-card">
+        <image src="/static/success.png" class="finish-icon" mode="aspectFit" />
+        <view class="finish-title">配网成功</view>
+        <button type="primary" class="finish-btn" bindtap="finishAndReturn">完成并返回首页</button>
+      </view>
+    </view>
+  </scroll-view>
+</view>

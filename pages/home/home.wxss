@@ -1,0 +1,122 @@
+.container {
+  background: #083869;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.top-space {
+  height: 20rpx;
+}
+
+.pillow-img-wrapper {
+  width: 90%;
+  /* 高度用padding-top實現等比例，這裡60%是寬度的60% */
+  padding-top: 60%;
+  position: relative;
+  margin: 0 auto 32rpx auto;
+}
+
+.pillow-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 32rpx;
+  box-shadow: 0 4rpx 24rpx rgba(0,0,0,0.10);
+  background: #fff;
+}
+
+.device-bar {
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  border-radius: 60rpx;
+  background: linear-gradient(179.41deg, rgba(163, 151, 116, 1) 41.22%, rgba(194, 178, 129, 1) 73.61%, rgba(204, 188, 141, 1) 94.91%);
+  margin: 0 24rpx 32rpx 24rpx;
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: bold;
+  justify-content: center;
+  opacity: 1;
+  position: relative;
+}
+
+.icon-bluetooth {
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: 16rpx;
+  text-align: center;
+  align-self: center;
+}
+
+.device-text {
+  font-weight: bold;
+  text-align: center;
+  line-height: 80rpx;
+}
+
+.card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 0 24rpx;
+}
+
+.card {
+  width: 46%;
+  background: rgba(46, 167, 255, 0.25);
+  border-radius: 20rpx;
+  margin-bottom: 32rpx;
+  padding: 32rpx 0 32rpx 0;
+  display: flex;
+  border-radius: 30rpx;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  min-height: 180rpx;
+}
+
+.card-header {
+  width: 90%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: absolute;
+  top: 24rpx;
+  left: 5%;
+}
+
+.card-round{
+left: 10px;
+top: 512px;
+width: 100%;
+height: 255px;
+opacity: 1;
+background: linear-gradient(140deg, rgba(20, 22, 128, 1) 0%, rgba(20, 22, 128, 0) 100%);
+filter: blur(172px);
+}
+
+.card-icon {
+  width: 44rpx;
+  height: 44rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
+.card-title {
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+.card-value {
+  margin-top: 72rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #E5E5E5;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}

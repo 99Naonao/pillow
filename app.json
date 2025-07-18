@@ -1,0 +1,63 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/blue/blue",
+    "pages/report/report",
+    "pages/mine/mine"
+  ],
+  "tabBar": {
+    "color": "#c8c8c8",
+    "selectedColor": "#ffffff",
+    "backgroundColor": "#083869",
+    "borderStyle": "black",
+    "list": [
+      {
+        "iconPath": "static/home.png",
+        "selectedIconPath": "static/home_selected.png",
+        "text": "首页",
+        "pagePath": "pages/home/home"
+      },
+      {
+        "iconPath": "static/report.png",
+        "selectedIconPath": "static/report_select.png",
+        "text": "睡眠报告",
+        "pagePath": "pages/report/report"
+      },
+      {
+        "iconPath": "static/mine.png",
+        "selectedIconPath": "static/mine_selected.png",
+        "text": "个人中心",
+        "pagePath": "pages/mine/mine"
+      }
+    ]
+  },
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationStyle": "custom"
+  },
+  "renderer": "skyline",
+  "rendererOptions": {
+    "skyline": {
+      "defaultDisplayBlock": true,
+      "defaultContentBox": true,
+      "tagNameStyleIsolation": "legacy",
+      "disableABTest": true,
+      "sdkVersionBegin": "3.0.0",
+      "sdkVersionEnd": "15.255.255"
+    }
+  },
+  "componentFramework": "glass-easel",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于搜索蓝牙设备和WiFi"
+    },
+    "scope.bluetooth": {
+      "desc": "用于连接蓝牙设备"
+    },
+    "scope.wifi": {
+      "desc": "用于获取WiFi列表"
+    }
+  }
+}
