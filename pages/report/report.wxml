@@ -44,8 +44,8 @@
       <view class="score-circle-wrap">
         <ec-canvas id="scoreCircleChart" canvas-id="scoreCircleChart" ec="{{scoreCircleChart}}" class="score-circle-canvas"></ec-canvas>
         <view class="circle-score-abs">
-          <text class="score-title">睡眠质量</text>
-          <text class="score-level">良好</text>
+          <!-- <text class="score-title">睡眠质量</text>
+          <text class="score-level">良好</text> -->
           <text class="score-label">综合评分</text>
           <text class="score-value">85</text>
         </view>

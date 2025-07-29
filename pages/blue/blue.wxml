@@ -118,3 +118,18 @@
     </view>
   </scroll-view>
 </view>
+<!-- WiFi状态弹窗 -->
+<view wx:if="{{showWifiModal}}" class="wifi-modal-overlay">
+  <view class="wifi-modal">
+    <view class="wifi-modal-header">
+      <image src="/static/wifi.png" class="wifi-modal-icon" />
+      <text class="wifi-modal-title">WiFi提示</text>
+    </view>
+    <view class="wifi-modal-content">
+      <text>{{wifiModalContent}}</text>
+    </view>
+    <view class="wifi-modal-footer">
+      <button class="wifi-modal-btn" bindtap="onWifiModalConfirm">我知道了</button>
+    </view>
+  </view>
+</view>

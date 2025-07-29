@@ -1,6 +1,6 @@
 // 配置项：需用户根据实际项目配置
 const baseConfig = {
-  publicAppId: "wx1a89a54eb7b69130", // 应用唯一标识
+  publicAppId: "wxc907a3357b4d9f99", // 应用唯一标识
   baseUrl: "https://sleep.zsyl.cc/api", // 后端接口基础地址
   api: {
     wxLogin: "/ybLoginWx" // 登录接口路径
@@ -94,7 +94,7 @@ export function onGetCode() {
  */
 export function wxLogin(data) {
   if (!data || !data.code || !data.appId) {
-    return Promise.reject(new Error("登录参数不完整（缺少code或appId）"));
+    return Promise.reject(new Error("登录参数不完整"));
   }
   // 拼接完整登录接口地址
   const loginUrl = baseConfig.baseUrl + baseConfig.api.wxLogin;
@@ -127,7 +127,7 @@ function request_(url, data) {
     try {
       storedUserInfo = wx.getStorageSync("userInfo") || {};
     } catch (err) {
-      console.warn("获取本地存储用户信息失败（不影响本次请求）：", err);
+      console.warn("获取本地存储用户信息失败：", err);
     }
 
     // 组装请求头
@@ -141,8 +141,8 @@ function request_(url, data) {
     wx.request({
       url: url,
       method: "POST",
-      data: data,
       header: header,
+      data: data,
       success: (res) => {
         // 隐藏加载提示
         wx.hideLoading();
@@ -156,7 +156,7 @@ function request_(url, data) {
         // 解析响应数据
         const { code, data: resData, message } = res.data || {};
 
-        // 处理特定业务状态码（根据后端实际定义调整）
+        // 处理特定业务状态码
         if ([601, 40098].includes(code)) {
           // 特殊状态码：直接返回状态码
           resolve(code);
@@ -194,7 +194,7 @@ function setUserInfo(userInfo) {
   try {
     wx.setStorageSync("userInfo", userInfo);
     console.log("用户信息已成功存储到本地");
-  } catch (err) {
+  } catch (err) { 
     console.error("存储用户信息到本地失败：", err);
   }
 }

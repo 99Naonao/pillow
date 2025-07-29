@@ -1,6 +1,3 @@
-// pages/blue/blue.js
-// 最终优化版，涵盖所有细节和注释
-
 const { checkWifiAuth, checkBluetoothAndLocationByDeviceType } = require('../../utils/permissionUtil');
 const commonUtil  = require('../../utils/commonUtil');
 
@@ -28,7 +25,11 @@ Page({
         is5GConnected: false, //是否5G
         _has5GTip: false, // 防止重复弹出5G提示
         _has5GTipModal: false, // 进入WiFi步骤时重置弹窗标记
-        wifiMac:'' //wifi Mac地址
+        wifiMac:'', //wifi Mac地址
+        // WiFi状态检测
+        showWifiModal: false, // 是否显示WiFi弹窗
+        wifiModalContent: '', // WiFi弹窗内容
+        wifiStatusCheckTimer: null // WiFi状态检测定时器
     },
 
     // 页面加载时初始化进度
@@ -38,6 +39,7 @@ Page({
 
     // 页面显示时，如果在蓝牙步骤则自动搜索设备
     onShow() {
+
         this.isPageActive = true;
         // 读取本地已连接设备状态
         const device = wx.getStorageSync('connectedDevice');
@@ -59,10 +61,14 @@ Page({
 
     onHide() {
         this.isPageActive = false;
+        // 页面隐藏时清除WiFi状态检测定时器
+        this.clearWifiStatusCheck();
     },
 
     onUnload() {
         this.isPageActive = false;
+        // 页面卸载时清除WiFi状态检测定时器
+        this.clearWifiStatusCheck();
     },
 
     // 检查所有权限（蓝牙步骤时调用）
@@ -320,6 +326,15 @@ Page({
             return;
         }
         console.log('开始初始化WiFi步骤...');
+        
+        // 先检查WiFi状态
+        const wifiStatus = await this.checkWifiStatus();
+        if (!wifiStatus.isWifiEnabled) {
+            // WiFi未开启，显示弹窗
+            this.showWifiStatusModal('请先打开手机WiFi开关');
+            return;
+        }
+        
         try {
             await checkWifiAuth();
             await this.startWifi();
@@ -355,11 +370,7 @@ Page({
                 await this.getWifiList();
             } catch (err) {
                 console.error('获取WiFi列表失败');
-                wx.showModal({
-                    title: '提示',
-                    content: '获取WiFi列表失败，请确保已打开手机WiFi开关并授权位置信息。',
-                    showCancel: false
-                });
+                this.showWifiStatusModal('获取WiFi列表失败，请确保已打开手机WiFi开关并授权位置信息');
                 this.setData({
                     isWifiConnected: false,
                     wifiList: [],
@@ -368,6 +379,114 @@ Page({
                     is5GConnected: false
                 });
             }
+        }
+    },
+
+    /**
+     * 检查WiFi状态
+     * @returns {Promise<Object>} 返回WiFi状态信息
+     */
+    async checkWifiStatus() {
+        return new Promise((resolve) => {
+            wx.getSystemInfo({
+                success: (res) => {
+                    // 通过尝试启动WiFi来判断WiFi是否开启
+                    wx.startWifi({
+                        success: () => {
+                            resolve({
+                                isWifiEnabled: true,
+                                systemInfo: res
+                            });
+                        },
+                        fail: () => {
+                            resolve({
+                                isWifiEnabled: false,
+                                systemInfo: res
+                            });
+                        }
+                    });
+                },
+                fail: () => {
+                    resolve({
+                        isWifiEnabled: false,
+                        systemInfo: null
+                    });
+                }
+            });
+        });
+    },
+
+    /**
+     * 显示WiFi状态弹窗
+     * @param {string} content 弹窗内容
+     */
+    showWifiStatusModal(content) {
+        this.setData({
+            showWifiModal: true,
+            wifiModalContent: content
+        });
+        // 启动WiFi状态检测定时器
+        this.startWifiStatusCheck();
+    },
+
+    /**
+     * 隐藏WiFi状态弹窗
+     */
+    hideWifiStatusModal() {
+        this.setData({
+            showWifiModal: false,
+            wifiModalContent: ''
+        });
+        // 清除WiFi状态检测定时器
+        this.clearWifiStatusCheck();
+    },
+
+    /**
+     * 处理WiFi弹窗确认事件
+     */
+    onWifiModalConfirm() {
+        this.hideWifiStatusModal();
+        // 重新检查WiFi状态
+        this.checkWifiStatusAndRetry();
+    },
+
+    /**
+     * 检查WiFi状态并重试
+     */
+    async checkWifiStatusAndRetry() {
+        const wifiStatus = await this.checkWifiStatus();
+        if (wifiStatus.isWifiEnabled) {
+            // WiFi已开启，重新初始化WiFi步骤
+            console.log('WiFi已开启，重新初始化WiFi步骤');
+            this.initWifiStep();
+        } else {
+            // WiFi仍未开启，继续显示弹窗
+            this.showWifiStatusModal('请先打开手机WiFi开关');
+        }
+    },
+
+    /**
+     * 开始WiFi状态检测定时器
+     */
+    startWifiStatusCheck() {
+        // 清除之前的定时器
+        this.clearWifiStatusCheck();
+        
+        // 每3秒检查一次WiFi状态
+        this.data.wifiStatusCheckTimer = setInterval(() => {
+            if (this.data.showWifiModal) {
+                this.checkWifiStatusAndRetry();
+            }
+        }, 3000);
+    },
+
+    /**
+     * 清除WiFi状态检测定时器
+     */
+    clearWifiStatusCheck() {
+        if (this.data.wifiStatusCheckTimer) {
+            clearInterval(this.data.wifiStatusCheckTimer);
+            this.data.wifiStatusCheckTimer = null;
         }
     },
 

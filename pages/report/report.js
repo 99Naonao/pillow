@@ -1,5 +1,6 @@
 // pages/report/report.js
 import * as echarts from '../../components/ec-canvas/echarts';
+const DeviceManager = require('../../utils/deviceManager');
 
 Page({
   data: {
@@ -12,6 +13,10 @@ Page({
     shallowPercent: 58,     // 浅睡占比
     awakePercent: 15,       // 清醒占比
     deepPercent: 27,        // 深睡占比
+    sleepReports: [],       // 睡眠报告列表
+    loading: false,         // 加载状态
+    currentReport: null,    // 当前选中的报告
+    wifiMac:'',             //wifiMac地址
     stageData: [
       { name: '清醒期', value: 15, color: '#e97b7b' },
       { name: '浅睡期', value: 58, color: '#f7c873' },
@@ -176,9 +181,12 @@ Page({
   },
 
   onLoad() {
+    // 初始化设备管理器
+    this.deviceManager = new DeviceManager(this);
     // 默认日期为今天
     const today = this.formatDate(new Date());
     this.setData({
+      wifiMac:wx.getStorageSync('wifi_device_mac'),
       shallowPercent: 58,
       awakePercent: 15,
       deepPercent: 27,
@@ -186,6 +194,9 @@ Page({
       calendarValue: today
     });
     this.calculateSleepTime();
+    
+    // 加载今天的睡眠报告
+    this.loadSleepReports(today, today,wifiMac);
   },
 
   initStagePieChart() {
@@ -242,7 +253,8 @@ Page({
       currentDate: val.replace(/-/g, '.'),
       showCalendar: false
     });
-    // 可在此处根据日期请求报告数据
+    // 根据选择的日期重新加载报告数据
+    this.loadSleepReports(val, val,wifiMac);
   },
 
   onDateChange(e) {
@@ -273,6 +285,267 @@ Page({
 
     this.setData({
       sleepTime: `${hours}h${minutes}min`
+    });
+  },
+
+  /**
+   * 加载睡眠报告
+   * @param {string} startDate 开始日期
+   * @param {string} endDate 结束日期
+   * @param {string} wifiMac 设备地址
+   */
+  loadSleepReports(startDate, endDate,wifiMac) {
+    this.setData({ loading: true });
+    
+    // 先获取睡眠报告列表
+    this.deviceManager.getSleepReportData({
+      start_date: startDate,
+      end_date: endDate
+    })
+    .then(result => {
+      console.log('获取睡眠报告列表成功:', result);
+      
+      if (result && result.data && result.data.length > 0) {
+        // 格式化报告列表
+        const formattedReports = this.deviceManager.formatSleepReports(result.data);
+        this.setData({
+          sleepReports: formattedReports,
+          loading: false
+        });
+        
+        // 获取第一个报告的详细信息
+        const firstReport = result.data[0];
+        if (firstReport && firstReport.id) {
+          this.loadReportDetail(firstReport.id);
+        } else {
+          wx.showToast({
+            title: '报告数据格式错误',
+            icon: 'none',
+            duration: 2000
+          });
+        }
+      } else {
+        this.setData({
+          sleepReports: [],
+          loading: false
+        });
+        wx.showToast({
+          title: '该日期范围内无睡眠报告',
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    })
+    .catch(error => {
+      console.error('获取睡眠报告列表失败:', error);
+      this.setData({ loading: false });
+      wx.showToast({
+        title: error.message || '获取报告列表失败',
+        icon: 'none',
+        duration: 2000
+      });
+    });
+  },
+
+  /**
+   * 加载睡眠报告详情
+   * @param {number} reportId 报告ID
+   */
+  loadReportDetail(reportId) {
+    console.log('开始加载报告详情, 报告ID:', reportId);
+    
+    this.deviceManager.getSleepReportDetail({
+      report_id: reportId
+    })
+    .then(result => {
+      console.log('获取睡眠报告详情成功:', result);
+      
+      if (result && result.data) {
+        // 格式化报告详情
+        const formattedDetail = this.deviceManager.formatSleepReportDetail(result);
+        if (formattedDetail) {
+          this.displayReportDetail(formattedDetail);
+        } else {
+          wx.showToast({
+            title: '报告详情格式化失败',
+            icon: 'none',
+            duration: 2000
+          });
+        }
+      } else {
+        wx.showToast({
+          title: '报告详情数据为空',
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    })
+    .catch(error => {
+      console.error('获取睡眠报告详情失败:', error);
+      wx.showToast({
+        title: error.message || '获取报告详情失败',
+        icon: 'none',
+        duration: 2000
+      });
+    });
+  },
+
+  /**
+   * 显示指定的睡眠报告（列表数据）
+   * @param {Object} report 报告数据
+   */
+  displayReport(report) {
+    if (!report) return;
+    
+    // 格式化时间
+    const startTimeDisplay = this.deviceManager.formatTimeDisplay(report.startTime);
+    const endTimeDisplay = this.deviceManager.formatTimeDisplay(report.endTime);
+    
+    // 计算睡眠阶段占比
+    const totalSleep = report.sleepDuration;
+    const deepSleep = report.deepSleepDuration;
+    const lightSleep = report.lightSleepDuration;
+    const awake = report.inBedDuration - totalSleep;
+    
+    const deepPercent = totalSleep > 0 ? Math.round((deepSleep / totalSleep) * 100) : 0;
+    const lightPercent = totalSleep > 0 ? Math.round((lightSleep / totalSleep) * 100) : 0;
+    const awakePercent = totalSleep > 0 ? Math.round((awake / totalSleep) * 100) : 0;
+    
+    this.setData({
+      currentReport: report,
+      sleepScore: report.sleepScore,
+      scoreLevel: report.sleepScoreLevel,
+      sleepStartTime: startTimeDisplay.time,
+      sleepEndTime: endTimeDisplay.time,
+      sleepTime: this.deviceManager.formatDuration(report.sleepDuration),
+      shallowPercent: lightPercent,
+      deepPercent: deepPercent,
+      awakePercent: awakePercent,
+      stageData: [
+        { name: '清醒期', value: awakePercent, color: '#e97b7b' },
+        { name: '浅睡期', value: lightPercent, color: '#f7c873' },
+        { name: '深睡期', value: deepPercent, color: '#5e7fff' }
+      ]
+    });
+    
+    // 重新初始化图表
+    this.initStagePieChart();
+  },
+
+  /**
+   * 显示睡眠报告详情
+   * @param {Object} reportDetail 报告详情数据
+   */
+  displayReportDetail(reportDetail) {
+    if (!reportDetail) return;
+    
+    console.log('显示报告详情:', reportDetail);
+    
+    // 格式化时间
+    const startTime = reportDetail.startSleepTime || '00:00';
+    const endTime = reportDetail.endSleepTime || '06:00';
+    
+    // 计算睡眠阶段占比
+    const totalSleep = reportDetail.sleepDuration;
+    const deepSleep = reportDetail.deepSleepDuration;
+    const lightSleep = reportDetail.lightSleepDuration;
+    const remSleep = reportDetail.remSleepDuration;
+    const bedDuration = reportDetail.bedDuration;
+    const awake = bedDuration - totalSleep;
+    
+    const deepPercent = totalSleep > 0 ? Math.round((deepSleep / totalSleep) * 100) : 0;
+    const lightPercent = totalSleep > 0 ? Math.round((lightSleep / totalSleep) * 100) : 0;
+    const remPercent = totalSleep > 0 ? Math.round((remSleep / totalSleep) * 100) : 0;
+    const awakePercent = bedDuration > 0 ? Math.round((awake / bedDuration) * 100) : 0;
+    
+    // 格式化睡眠时长
+    const sleepTimeHours = Math.floor(totalSleep / 60);
+    const sleepTimeMinutes = totalSleep % 60;
+    const sleepTimeDisplay = `${sleepTimeHours}h${sleepTimeMinutes}min`;
+    
+    // 获取睡眠评分等级
+    const scoreLevel = this.deviceManager.getSleepScoreLevel(reportDetail.sleepScore);
+    
+    this.setData({
+      currentReport: reportDetail,
+      sleepScore: reportDetail.sleepScore,
+      scoreLevel: scoreLevel,
+      sleepStartTime: startTime,
+      sleepEndTime: endTime,
+      sleepTime: sleepTimeDisplay,
+      shallowPercent: lightPercent,
+      deepPercent: deepPercent,
+      awakePercent: awakePercent,
+      remPercent: remPercent,
+      stageData: [
+        { name: '清醒期', value: awakePercent, color: '#e97b7b' },
+        { name: '浅睡期', value: lightPercent, color: '#f7c873' },
+        { name: '深睡期', value: deepPercent, color: '#5e7fff' },
+        { name: '快速眼动', value: remPercent, color: '#9c27b0' }
+      ],
+      // 详细数据
+      reportDetail: reportDetail,
+      heartRate: reportDetail.heartRate,
+      breathRate: reportDetail.breathRate,
+      turnCount: reportDetail.turnCount,
+      snoreDuration: reportDetail.snoreDuration,
+      snoreCount: reportDetail.snoreCount,
+      sleepAge: reportDetail.sleepAge,
+      sleepOnsetTime: reportDetail.sleepOnsetTime,
+      sleepAssessment: reportDetail.sleepAssessment,
+      advice: reportDetail.advice
+    });
+    
+    // 重新初始化图表
+    this.initStagePieChart();
+    
+    // 更新评分圆环图
+    this.updateScoreCircleChart(reportDetail.sleepScore);
+  },
+
+  /**
+   * 选择报告
+   * @param {Object} e 事件对象
+   */
+  onSelectReport(e) {
+    const index = e.currentTarget.dataset.index;
+    const report = this.data.sleepReports[index];
+    if (report && report.id) {
+      // 获取选中报告的详细信息
+      this.loadReportDetail(report.id);
+    } else if (report) {
+      // 如果没有ID，使用列表数据
+      this.displayReport(report);
+    }
+  },
+
+  /**
+   * 更新评分圆环图
+   * @param {number} score 睡眠评分
+   */
+  updateScoreCircleChart(score) {
+    const remaining = 100 - score;
+    this.setData({
+      scoreCircleChart: {
+        onInit: function (canvas, width, height, dpr) {
+          const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+          canvas.setChart(chart);
+          chart.setOption({
+            backgroundColor: 'transparent',
+            series: [{
+              type: 'pie',
+              radius: ['90%', '100%'],
+              silent: true,
+              label: { show: false },
+              data: [
+                { value: score, name: '得分', itemStyle: { color: '#ffd700' } },
+                { value: remaining, name: '空', itemStyle: { color: '#2a223d' } }
+              ]
+            }],
+          });
+          return chart;
+        }
+      }
     });
   }
 });

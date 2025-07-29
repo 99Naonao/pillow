@@ -37,7 +37,7 @@ Page({
     console.log('[home] onShow');
     // 自动读取本地保存的设备信息
     const device = wx.getStorageSync('connectedDevice');
-    const wifiMac = wx.getStorageSync('wifi_device_mac')
+    const wifiMac = wx.getStorageSync('wifi_device_mac');
     console.log('[home] 读取本地设备信息:', device);
     if (device && device.deviceId) {
       this.setData({

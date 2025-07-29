@@ -357,3 +357,74 @@
   border: 1px solid #fff;
   border-width: 0px 0px 1px 1px;
 }
+
+/* WiFi状态弹窗样式 */
+.wifi-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.wifi-modal {
+  background: #2a223d;
+  border-radius: 24rpx;
+  padding: 48rpx 32rpx 32rpx 32rpx;
+  margin: 0 48rpx;
+  max-width: 600rpx;
+  width: 100%;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.3);
+}
+
+.wifi-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32rpx;
+}
+
+.wifi-modal-icon {
+  width: 48rpx;
+  height: 48rpx;
+  margin-right: 16rpx;
+}
+
+.wifi-modal-title {
+  color: #fff;
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+.wifi-modal-content {
+  text-align: center;
+  margin-bottom: 48rpx;
+}
+
+.wifi-modal-content text {
+  color: #fff;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.wifi-modal-footer {
+  display: flex;
+  justify-content: center;
+}
+
+.wifi-modal-btn {
+  background: linear-gradient(90deg, #2B3A6B 0%, #274472 100%);
+  color: #fff;
+  border: none;
+  border-radius: 32rpx;
+  height: 80rpx;
+  font-size: 32rpx;
+  padding: 0 48rpx;
+  min-width: 200rpx;
+}
+
