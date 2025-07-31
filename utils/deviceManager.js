@@ -46,6 +46,7 @@ function soapRequest(method, dataObj, httpMethod = 'POST') {
         
         // 处理XML响应
         const xml = res.data;
+        console.log("原始返回数据：===",xml);
         if (typeof xml === 'string') {
           // 提取XML中的JSON数据
           const resultPattern = new RegExp(`<${method}Result>([\\s\\S]*?)<\\/${method}Result>`);
@@ -100,7 +101,7 @@ class DeviceManager {
       start_date: params.start_date,
       end_date: params.end_date
     };
-    
+    console.log('请求数据：',JSON.stringify(dataObj))
     return soapRequest(method, dataObj, 'POST')
       .then(res => {
         console.log('获取睡眠报告列表数据===', res);
@@ -118,13 +119,13 @@ class DeviceManager {
    * @param {string} params.report_id 报告ID
    */
   getSleepReportDetail(params) {
-    const method = 'GetSleepReportDetailByReportId';
+    const method = 'GetSleepReportDetailByReportId';  
     const dataObj = {
       key: key,
       report_id: params.report_id
     };
     
-    return soapRequest(method, dataObj, 'GET')
+    return soapRequest(method, dataObj, 'POST')
       .then(res => {
         console.log('获取睡眠报告详情===', res);
         return res;
@@ -288,10 +289,10 @@ class DeviceManager {
    * @returns {string} 评分等级
    */
   getSleepScoreLevel(score) {
-    if (score >= 90) return '优秀';
-    if (score >= 80) return '良好';
-    if (score >= 70) return '一般';
-    if (score >= 60) return '较差';
+    if (score >= 85) return '优秀';
+    if (score >= 75) return '良好';
+    if (score >= 65) return '一般';
+    if (score >= 55) return '较差';
     return '很差';
   }
 }

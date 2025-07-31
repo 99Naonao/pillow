@@ -22,6 +22,12 @@
   />
 
   <scroll-view scroll-y="true" class="report-scroll-content">
+    <!-- 加载状态 -->
+    <view class="loading-container" wx:if="{{loading}}">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">正在加载数据...</text>
+    </view>
+    
     <!-- 睡眠时长与评分 -->
     <view class="summary-row">
       <view class="sleep-duration">
@@ -42,12 +48,13 @@
         </view>
       </view>
       <view class="score-circle-wrap">
-        <ec-canvas id="scoreCircleChart" canvas-id="scoreCircleChart" ec="{{scoreCircleChart}}" class="score-circle-canvas"></ec-canvas>
+        <ec-canvas wx:if="{{scoreCircleChart}}" id="scoreCircleChart" canvas-id="scoreCircleChart" ec="{{scoreCircleChart}}" class="score-circle-canvas"></ec-canvas>
         <view class="circle-score-abs">
           <!-- <text class="score-title">睡眠质量</text>
           <text class="score-level">良好</text> -->
           <text class="score-label">综合评分</text>
-          <text class="score-value">85</text>
+          <text class="score-value">{{sleepScore}}</text>
+          <text class="score-level">{{scoreLevel}}</text>
         </view>
       </view>
     </view>
@@ -55,7 +62,7 @@
     <!-- 睡眠分期饼图与比例 -->
     <view class="stage-row">
       <view class="stage-pie">
-        <ec-canvas id="stagePieChart" canvas-id="stagePieChart" ec="{{stagePieChart}}"></ec-canvas>
+        <ec-canvas wx:if="{{stagePieChart}}" id="stagePieChart" canvas-id="stagePieChart" ec="{{stagePieChart}}"></ec-canvas>
       </view>
       <view class="stage-legend-box">
         <view class="stage-legend">
@@ -66,13 +73,18 @@
           </view>
           <view class="legend-row">
             <view class="legend-dot rem"></view>
-            <text>清醒期</text>
-            <text class="legend-percent">{{awakePercent}}%</text>
+            <text>快速眼动</text>
+            <text class="legend-percent">{{remPercent}}%</text>
           </view>
           <view class="legend-row">
             <view class="legend-dot deep"></view>
             <text>深睡期</text>
             <text class="legend-percent">{{deepPercent}}%</text>
+          </view>
+          <view class="legend-row">
+            <view class="legend-dot awake"></view>
+            <text>清醒期</text>
+            <text class="legend-percent">{{awakePercent}}%</text>
           </view>
         </view>
       </view>
@@ -83,9 +95,9 @@
       <view class="trend-header">
         <image src="../../static/heart_rate.png" class="trend-icon"/>
         <text class="trend-title">平均心率</text>
-        <text class="trend-value">64</text>
+        <text class="trend-value">{{heartRate}}</text>
       </view>
-      <ec-canvas id="heartTrendChart" canvas-id="heartTrendChart" ec="{{heartTrendChart}}"></ec-canvas>
+      <ec-canvas wx:if="{{heartTrendChart}}" id="heartTrendChart" canvas-id="heartTrendChart" ec="{{heartTrendChart}}"></ec-canvas>
     </view>
 
     <!-- 呼吸频率趋势图 -->
@@ -93,9 +105,9 @@
       <view class="trend-header">
         <image src="../../static/breath.png" class="trend-icon"/>
         <text class="trend-title">平均呼吸频率</text>
-        <text class="trend-value">15</text>
+        <text class="trend-value">{{breathRate}}</text>
       </view>
-      <ec-canvas id="breathTrendChart" canvas-id="breathTrendChart" ec="{{breathTrendChart}}"></ec-canvas>
+      <ec-canvas wx:if="{{breathTrendChart}}" id="breathTrendChart" canvas-id="breathTrendChart" ec="{{breathTrendChart}}"></ec-canvas>
     </view>
 
     <!-- 体动次数趋势图 -->
@@ -103,9 +115,61 @@
       <view class="trend-header">
         <image src="../../static/turn_over.png" class="trend-icon"/>
         <text class="trend-title">累积体动</text>
-        <text class="trend-value">28</text>
+        <text class="trend-value">{{turnCount}}</text>
       </view>
-      <ec-canvas id="bodyMoveTrendChart" canvas-id="bodyMoveTrendChart" ec="{{bodyMoveTrendChart}}"></ec-canvas>
+      <ec-canvas wx:if="{{bodyMoveTrendChart}}" id="bodyMoveTrendChart" canvas-id="bodyMoveTrendChart" ec="{{bodyMoveTrendChart}}"></ec-canvas>
+    </view>
+
+    <!-- 打鼾信息 -->
+    <!-- <view class="trend-card">
+      <view class="trend-header">
+        <image src="../../static/warn.png" class="trend-icon"/>
+        <text class="trend-title">打鼾情况</text>
+        <text class="trend-value">{{snoreCount}}次</text>
+      </view>
+      <view class="snore-info">
+        <text class="snore-duration">打鼾时长: {{snoreDuration}}分钟</text>
+      </view>
+    </view> -->
+
+    <!-- 睡眠评估 -->
+    <view class="trend-card" wx:if="{{sleepAssessment}}">
+      <view class="trend-header">
+        <image src="../../static/info.png" class="trend-icon"/>
+        <text class="trend-title">睡眠评估</text>
+      </view>
+      <view class="assessment-content">
+        <text class="assessment-text">{{sleepAssessment}}</text>
+      </view>
+    </view>
+
+    <!-- 睡眠年龄 -->
+    <view class="trend-card" wx:if="{{sleepAge > 0}}">
+      <view class="trend-header">
+        <image src="../../static/score.png" class="trend-icon"/>
+        <text class="trend-title">睡眠年龄</text>
+        <text class="trend-value">{{sleepAge}}岁</text>
+      </view>
+    </view>
+
+    <!-- 入睡时间 -->
+    <view class="trend-card" wx:if="{{sleepOnsetTime > 0}}">
+      <view class="trend-header">
+        <image src="../../static/moon.png" class="trend-icon"/>
+        <text class="trend-title">入睡时间</text>
+        <text class="trend-value">{{sleepOnsetTime}}分钟</text>
+      </view>
+    </view>
+
+    <!-- 睡眠建议 -->
+    <view class="trend-card" wx:if="{{advice}}">
+      <view class="trend-header">
+        <image src="../../static/service.png" class="trend-icon"/>
+        <text class="trend-title">睡眠建议</text>
+      </view>
+      <view class="advice-content">
+        <text class="advice-text">{{advice}}</text>
+      </view>
     </view>
   </scroll-view>
 </view>

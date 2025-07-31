@@ -149,7 +149,7 @@
   margin-right: 8rpx;
 }
 .legend-dot.shallow { background: #f7c873; }
-.legend-dot.rem { background: #e97b7b; }
+.legend-dot.rem { background: #9c27b0; }
 .legend-dot.deep { background: #5e7fff; }
 .legend-percent {
   margin-left: auto;
@@ -267,4 +267,65 @@
 }
 .report-scroll-content {
   height: calc(100vh - 120rpx - 60rpx - 100rpx); 
+}
+
+/* 新增樣式 */
+.snore-info {
+  margin-top: 12rpx;
+  padding: 12rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8rpx;
+}
+
+.snore-duration {
+  font-size: 24rpx;
+  color: #b0b0b0;
+}
+
+.assessment-content,
+.advice-content {
+  margin-top: 12rpx;
+  padding: 12rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8rpx;
+}
+
+.assessment-text,
+.advice-text {
+  font-size: 24rpx;
+  color: #fff;
+  line-height: 1.5;
+}
+
+.legend-dot.awake {
+  background: #e97b7b;
+}
+
+/* 加载状态样式 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 0;
+}
+
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.3);
+  border-top: 4rpx solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20rpx;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #b0b0b0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
