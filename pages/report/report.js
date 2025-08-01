@@ -66,6 +66,10 @@ Page({
     
     // 从 CommonUtil 获取保存的 WiFi MAC 地址
     const wifiMac = CommonUtil.getSavedWifiMac();
+    const convertedIds = wx.getStorageSync('convertedCharacteristicIds');
+    
+    console.log('[report] WiFi MAC地址:', wifiMac);
+    console.log('[report] 转换后的特征值ID:', convertedIds);
     
     // 默认日期为今天
     const today = DataProcessor.formatDate(new Date());
@@ -126,6 +130,7 @@ Page({
    * 加载睡眠报告列表
    */
   loadSleepReports(startDate, endDate, wifiMac) {
+    console.log('[report] 加载睡眠报告 - WiFi MAC:', wifiMac, '开始日期:', startDate, '结束日期:', endDate);
     if (!wifiMac) {
       wx.showToast({
         title: '请先连接设备',

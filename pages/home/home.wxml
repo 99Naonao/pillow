@@ -8,7 +8,7 @@
   <view class="device-bar" bind:tap="toBlueIndex">
     <image src="../../static/bluetooth_white.png" class="icon-bluetooth"/>
     <text class="device-text">
-    {{deviceConnected ? ('已连接：' + deviceName) : '设备未连接'}}
+    {{deviceConnected ? ('已连接：zzZMinga') : '设备未连接'}}
     </text>
   </view>
  

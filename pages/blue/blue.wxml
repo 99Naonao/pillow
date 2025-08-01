@@ -44,11 +44,12 @@
         <block wx:for="{{devices}}" wx:key="deviceId">
           <view class="device-card">
             <view class="device-card-info">
-              <view class="device-name">{{item.name}}</view>
-              <view class="device-mac">MAC: {{item.deviceId}}</view>
+              <!-- <view class="device-name">{{item.name}}</view> -->
+              <view class="device-name">zzZMinga</view>
+              <view class="device-mac">MAC: {{item.deviceId || item.uuid}}</view>
             </view>
-            <view class="custom-switch {{item.deviceId === connectedDeviceId ? 'switch-on' : 'switch-off'}}" 
-                  bindtap="onCustomSwitchTap" data-deviceid="{{item.deviceId}}">
+            <view class="custom-switch {{item.isConnected ? 'switch-on' : 'switch-off'}}" 
+                  bindtap="onCustomSwitchTap" data-deviceId="{{item.deviceId}}">
               <view class="switch-slider"></view>
             </view>
           </view>
@@ -104,6 +105,12 @@
           <view wx:if="{{wifiList.length === 0}}" class="wifi-tip">
             未获取到WiFi列表，请确保已打开手机WiFi开关并授权位置信息。
           </view>
+        </view>
+      </view>
+      <!-- 默认显示：正在加载WiFi信息 -->
+      <view wx:else>
+        <view class="wifi-loading">
+          <view class="wifi-loading-text">正在检查WiFi状态...</view>
         </view>
       </view>
     </view>

@@ -1,21 +1,31 @@
 // app.js
 App({
+  onLaunch() {
+    console.log('[app.js] 小程序启动');
+  },
+
+  onShow() {
+    console.log('[app.js] 小程序显示');
+  },
+
   onHide() {
-    // 小程序被挂起/完全退出时自动断开蓝牙
-    try {
-      const device = wx.getStorageSync('connectedDevice');
-      if (device && device.deviceId) {
-        wx.closeBLEConnection({
-          deviceId: device.deviceId,
-          complete: () => {
-            // 断开后清除本地存储
-            wx.removeStorageSync('connectedDevice');
-            console.log('[app.js] 小程序退出，已断开蓝牙连接');
-          }
-        });
-      }
-    } catch (e) {
-      console.warn('[app.js] 小程序退出断开蓝牙异常', e);
-    }
+    console.log('[app.js] 小程序隐藏（进入后台）');
+    // 小程序进入后台时不自动断开蓝牙，保持连接
+  },
+
+  onError(error) {
+    console.error('[app.js] 小程序错误:', error);
+  },
+
+  onUnhandledRejection(res) {
+    console.error('[app.js] 未处理的Promise拒绝:', res);
+  },
+
+  onPageNotFound(res) {
+    console.error('[app.js] 页面不存在:', res);
+  },
+
+  onThemeChange(res) {
+    console.log('[app.js] 主题变化:', res);
   }
 })

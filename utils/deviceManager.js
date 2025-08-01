@@ -79,12 +79,37 @@ function soapRequest(method, dataObj, httpMethod = 'POST') {
   });
 }
 
+/**
+ * 该类为接口请求类
+ */
 class DeviceManager {
   constructor(page) {
     this.page = page; // 传入页面实例
     this._realtimeTimer = null;
   }
 
+/**
+ * 语音预警通知
+ * @param {object} params 请求参数
+ * @param {string} params.phone 通知号码
+ * @param {int} params.type 通知类型 1呼吸异常、2心率异常、3离床 
+ */
+voiceNotifation(params){
+  const method = 'VoiceAlertNotification';
+  const dataObj = {
+    key:key,
+    phone:params.phone,
+    notification_type:params.type
+  };
+  console.log('请求数据',JSON.stringify(dataObj));
+  return soapRequest(method,dataObj,'POST').then(res =>{
+    console.log('请求语音预警通知成功：',res)
+    return res;
+  }).catch(err=>{
+    console.error('请求语音预警通知失败：',err);
+    throw err;
+  })
+}
 
   /**
    * 获取睡眠报告列表数据

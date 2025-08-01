@@ -59,5 +59,8 @@
     "scope.wifi": {
       "desc": "用于获取WiFi列表"
     }
-  }
+  },
+  "requiredBackgroundModes": [
+    "bluetooth"
+  ]
 }

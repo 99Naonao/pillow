@@ -10,15 +10,20 @@ class CommonUtil {
    * @returns {string|null} 转换后的WiFi MAC，失败返回null
    */
   static converAndSaveMac(bluetoothMac){
+    console.log('开始转换蓝牙MAC为WiFi MAC，输入:', bluetoothMac);
     const wifiMac = this.convertBluetoothToWifiMac(bluetoothMac);
     if(wifiMac){
       try {
         wx.setStorageSync(STORAGE_KEY,wifiMac);
         console.log('已将wifi mac保存在本地，保存的mac:',wifiMac);
+        console.log('WiFi MAC转换成功:', wifiMac);
       } catch (error) {
         console.error('保存mac失败',error)
       }
       return wifiMac
+    } else {
+      console.log('WiFi MAC转换失败，蓝牙MAC:', bluetoothMac);
+      return null;
     }
   }
 
@@ -28,7 +33,9 @@ class CommonUtil {
    */
   static getSavedWifiMac() {
     try {
-      return wx.getStorageSync(STORAGE_KEY) || null;
+      const wifiMac = wx.getStorageSync(STORAGE_KEY) || null;
+      console.log('从本地存储读取WiFi MAC:', wifiMac);
+      return wifiMac;
     } catch (error) {
       console.error('读取WiFi MAC失败:', error);
       return null;
