@@ -235,7 +235,7 @@ class ChartConfigs {
         const yMin = Math.max(0, Math.floor(minBodyMove * 0.9));
         
         const option = {
-          backgroundColor: '#231c36',
+          backgroundColor: '#0B2853',
           grid: { left: 30, right: 20, top: 30, bottom: 30 },
           tooltip: {
             trigger: 'axis',
@@ -287,16 +287,16 @@ class ChartConfigs {
    * @returns {string} 颜色代码
    */
   static getScoreColor(score) {
-    if (score >= 85) {
+    if (score >= 80 && score <= 100) {
       return '#00ff00'; // 优秀 - 绿色
-    } else if (score >= 75) {
+    } else if (score >= 70 && score < 80) {
       return '#ffff00'; // 良好 - 黄色
-    } else if (score >= 65) {
+    } else if (score >= 60 && score < 70) {
       return '#ffa500'; // 一般 - 橙色
-    } else if (score >= 55) {
-      return '#ff6347'; // 较差 - 红色
+    } else if (score >= 0 && score < 60) {
+      return '#ff6347'; // 待改善 - 红色
     } else {
-      return '#8b0000'; // 很差 - 深红色
+      return '#8b0000'; // 异常数据 - 深红色
     }
   }
 }

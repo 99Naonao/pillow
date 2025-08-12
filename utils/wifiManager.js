@@ -1,5 +1,5 @@
 /**
- * WiFi管理工具類
+ * WiFi管理工具类
  */
 class WifiManager {
     constructor() {
@@ -7,25 +7,25 @@ class WifiManager {
     }
 
     /**
-     * 啟動WiFi
+     * 启动WiFi
      */
     startWifi() {
         return new Promise((resolve, reject) => {
             wx.startWifi({
                 success: resolve,
                 fail: (error) => {
-                    console.error('startWifi 失敗:', error);
+                    console.error('startWifi 失败:', error);
                     let errorMessage = '请先在手机上打开WiFi开关。';
                     
-                    // 根據不同錯誤碼提供具體的解決方案
+                    // 根据不同错误码提供具体的解决方案
                     if (error.errCode === 12005) {
                         errorMessage = 'WiFi功能被禁用，请在手机设置中开发WiFi。';
                     } else if (error.errCode === 12006) {
                         errorMessage = '请先打开手机WiFi开关并授权位置信息。';
                     }
                     
-                    // 只記錄錯誤，不顯示提示框，讓調用方處理
-                    console.log('WiFi啟動失敗，錯誤信息:', errorMessage);
+                    // 只记录错误，不显示提示框，让调用方处理
+                    console.log('WiFi启动失败，错误信息:', errorMessage);
                     reject(error);
                 }
             });
@@ -33,7 +33,7 @@ class WifiManager {
     }
 
     /**
-     * 獲取已連接的WiFi
+     * 获取已连接的WiFi
      */
     getConnectedWifi() {
         return new Promise((resolve, reject) => {
@@ -45,63 +45,63 @@ class WifiManager {
     }
 
     /**
-     * 獲取WiFi列表
+     * 获取WiFi列表
      */
     getWifiList() {
         return new Promise((resolve, reject) => {
-            // 先移除之前的監聽，防止多次註冊
+            // 先移除之前的监听，防止多次注册
             wx.offGetWifiList && wx.offGetWifiList();
             
             wx.getWifiList({
                 success: () => {
                     wx.onGetWifiList((listRes) => {
-                        // 獲取系統信息
+                        // 获取系统信息
                         const systemInfo = wx.getDeviceInfo();
-                        console.log('獲取WiFi列表 - 當前系統:', systemInfo.platform);
+                        console.log('获取WiFi列表 - 当前系统:', systemInfo.platform);
                         
-                        // 根據平台過濾WiFi列表
+                        // 根据平台过滤WiFi列表
                         let wifiList = [];
                         if (systemInfo.platform === 'ios') {
-                            // iOS 設備通過SSID名稱過濾5G WiFi
+                            // iOS 设备通过SSID名称过滤5G WiFi
                             wifiList = (listRes.wifiList || []).filter(item => {
                                 if (!item.SSID) return false;
                                 
                                 const is5G = this.is5GWifiBySSID(item.SSID);
                                 const isValidWifi = !is5G;
                                 
-                                console.log('iOS WiFi過濾:', item.SSID, '是否5G:', is5G, '是否有效:', isValidWifi);
+                                console.log('iOS WiFi过滤:', item.SSID, '是否5G:', is5G, '是否有效:', isValidWifi);
                                 return isValidWifi;
                             });
                         } else {
-                            // Android 設備通過頻率過濾5G WiFi
+                            // Android 设备通过频率过滤5G WiFi
                             wifiList = (listRes.wifiList || []).filter(item => {
                                 if (!item.SSID) return false;
                                 
                                 const is5G = item.frequency && item.frequency >= 4900;
                                 const isValidWifi = !is5G;
                                 
-                                console.log('Android WiFi過濾:', item.SSID, '頻率:', item.frequency, '是否5G:', is5G, '是否有效:', isValidWifi);
+                                console.log('Android WiFi过滤:', item.SSID, '频率:', item.frequency, '是否5G:', is5G, '是否有效:', isValidWifi);
                                 return isValidWifi;
                             });
                         }
                         
-                        console.log('過濾後的WiFi列表:', wifiList);
+                        console.log('过滤后的WiFi列表:', wifiList);
                         resolve(wifiList);
                     });
                 },
                 fail: (error) => {
-                    console.error('獲取WiFi列表失敗:', error);
+                    console.error('获取WiFi列表失败:', error);
                     
-                    // 根據錯誤碼提供具體的解決方案
-                    let errorMessage = '獲取WiFi列表失敗';
+                    // 根据错误码提供具体的解决方案
+                    let errorMessage = '获取WiFi列表失败';
                     if (error.errCode === 12005) {
                         errorMessage = 'WiFi功能被禁用，请在手机设置中开放WiFi';
                     } else if (error.errCode === 12006) {
                         errorMessage = '请先打开手机WiFi开关并授权位置信息';
                     }
                     
-                    // 只記錄錯誤，不顯示提示框，讓調用方處理
-                    console.log('WiFi列表獲取失敗，錯誤信息:', errorMessage);
+                    // 只记录错误，不显示提示框，让调用方处理
+                    console.log('WiFi列表获取失败，错误信息:', errorMessage);
                     
                     reject(error);
                 }
@@ -110,52 +110,52 @@ class WifiManager {
     }
 
     /**
-     * 通過SSID名稱判斷是否為5G WiFi
+     * 通过SSID名称判断是否为5G WiFi
      */
     is5GWifiBySSID(ssid) {
         if (!ssid) return false;
         
         const ssidUpper = ssid.toUpperCase();
         
-        // 常見的5G WiFi後綴
+        // 常见的5G WiFi后缀
         const fiveGSuffixes = [
             '-5G', '_5G', '5G', '-5GHZ', '_5GHZ', '5GHZ',
             '-5G-', '_5G_', '-5G_', '_5G-',
             '5G_WIFI', '5G-WIFI', '_5G_WIFI', '-5G-WIFI'
         ];
         
-        // 檢查是否包含5G後綴
+        // 检查是否包含5G后缀
         for (const suffix of fiveGSuffixes) {
             if (ssidUpper.includes(suffix)) {
-                console.log('檢測到5G WiFi後綴:', suffix, '在SSID:', ssid);
+                console.log('检测到5G WiFi后缀:', suffix, '在SSID:', ssid);
                 return true;
             }
         }
         
-        // 檢查是否包含特定關鍵詞
+        // 检查是否包含特定关键词
         const fiveGKeywords = ['5G', '5GHZ', 'FIVE_G', 'FIVE-G'];
         for (const keyword of fiveGKeywords) {
             if (ssidUpper.includes(keyword)) {
-                console.log('檢測到5G關鍵詞:', keyword, '在SSID:', ssid);
+                console.log('检测到5G关键词:', keyword, '在SSID:', ssid);
                 return true;
             }
         }
         
-        console.log('SSID未檢測到5G標識:', ssid);
+        console.log('SSID未检测到5G标识:', ssid);
         return false;
     }
 
     /**
-     * 檢查WiFi狀態
+     * 检查WiFi状态
      */
     async checkWifiStatus() {
         try {
             const res = await this.getConnectedWifi();
-            console.log('當前連接的WiFi:', res.wifi);
+            console.log('当前连接的WiFi:', res.wifi);
             
-            // 檢查是否有有效的WiFi連接
+            // 检查是否有有效的WiFi连接
             if (!res.wifi || !res.wifi.SSID) {
-                console.log('未檢測到有效的WiFi連接');
+                console.log('未检测到有效的WiFi连接');
                 return {
                     isConnected: false,
                     wifiName: '',
@@ -172,7 +172,7 @@ class WifiManager {
                 is5G = res.wifi.frequency && res.wifi.frequency >= 4900;
             }
             
-            console.log('WiFi狀態檢查結果:', {
+            console.log('WiFi状态检查结果:', {
                 isConnected: true,
                 wifiName: res.wifi.SSID,
                 is5G: is5G
@@ -184,7 +184,7 @@ class WifiManager {
                 is5G: is5G
             };
         } catch (error) {
-            console.error('檢查WiFi狀態失敗:', error);
+            console.error('检查WiFi状态失败:', error);
             return {
                 isConnected: false,
                 wifiName: '',
@@ -194,14 +194,14 @@ class WifiManager {
     }
 
     /**
-     * 處理iOS 5G WiFi提示
+     * 处理iOS 5G WiFi提示
      */
     handleIOS5GWifi() {
         console.log('处理 iOS 5G WiFi 提示');
         
-        // 顯示步驟提示，不嘗試跳轉設置
+        // 显示步骤提示，不尝试跳转设置
         wx.showModal({
-            title: '溫馨提示',
+            title: '温馨提示',
             content: '当前连接的是5G WiFi，仅支持2.4G WiFi。\n\n请按以下步骤操作：\n1. 打开手机设置\n2. 选择"无线局域网"\n3. 选择非5G WiFi网络\n4. 返回小程序',
             confirmText: '知道了',
             showCancel: false
@@ -209,13 +209,13 @@ class WifiManager {
     }
 
     /**
-     * 處理Android 5G WiFi提示
+     * 处理Android 5G WiFi提示
      */
     handleAndroid5GWifi() {
         console.log('处理Android 5G WiFi 提示');
         
         wx.showModal({
-            title: '溫馨提示',
+            title: '温馨提示',
             content: '当前链接的是5G WiFi，仅支持2.4G WiFi，请切换到2.4G WiFi网络。',
             confirmText: '知道了',
             showCancel: false
@@ -223,7 +223,7 @@ class WifiManager {
     }
 
     /**
-     * 開始WiFi狀態檢測
+     * 开始WiFi状态检测
      */
     startWifiStatusCheck(callback) {
         this.clearWifiStatusCheck();
@@ -237,11 +237,11 @@ class WifiManager {
             } catch (error) {
                 console.error('WiFi状态检测失败:', error);
             }
-        }, 3000); // 每3秒檢查一次
+        }, 3000); // 每3秒检查一次
     }
 
     /**
-     * 清除WiFi狀態檢測
+     * 清除WiFi状态检测
      */
     clearWifiStatusCheck() {
         if (this.wifiStatusCheckTimer) {

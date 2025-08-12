@@ -1,0 +1,64 @@
+手机号注册接口  /shopapi/register/captcha 
+Header参数 
+version String 	可选
+terminal String  默认传7
+
+Body 参数 multipart/form-data
+mobile String 手机号
+
+响应值 application/json
+Object{}
+
+注册接口 /shopapi/register/register
+Header参数 
+version String 	可选
+terminal String  默认传7
+
+Body参数 multipart/form-data
+register_source String 默认填7
+Mobile String
+Code String 手机验证码
+Password String 密码
+Password_confirm String 确认密码
+
+响应值 application/json
+Code integer
+Show integer
+Msg string
+Data array[string] 
+
+手机号登录接口 /shopapi/login/captcha
+Header参数 
+version String 	可选
+terminal String  默认传7
+
+Body 参数 multipart/form-data
+mobile String 手机号
+
+响应值 application/json
+Code integer
+Show integer
+Msg string
+Data array[string]
+
+手机号密码/手机号验证登录接口 /shopapi/login/account
+Header参数 
+version String 	可选
+terminal String  默认传7
+Sceme string 登录场景 1-手机号密码登录 2-手机号验证码登录
+
+Body参数 multipart/form-data
+Account String 账号-填手机号
+Password String 密码 场景1必填
+Code String 手机验证码 场景2必填
+
+响应值 application/json
+Code integer
+Show integer
+Msg string
+Data object{
+Nickname string
+Sn string
+Avatar string 
+Token string
+}

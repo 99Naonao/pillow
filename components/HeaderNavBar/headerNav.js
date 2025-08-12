@@ -28,6 +28,20 @@
  */
 
 const app = getApp()
+
+// 確保app對象可用
+function getAppInstance() {
+  if (app && app.globalData) {
+    return app;
+  }
+  // 如果app未初始化，嘗試重新獲取
+  const retryApp = getApp();
+  if (retryApp && retryApp.globalData) {
+    return retryApp;
+  }
+  return null;
+}
+
 Component({
   // 外部样式类
   externalClasses: ['custom-icon-class', 'custom-title-class', 'custom-root-class'],
@@ -111,9 +125,14 @@ Component({
               navHeight: this.data.navHeight
           }) */
           // 将导航栏高度设置进全局数据
-          app.globalData.navHeight = navHeight
-          // 将除导航栏剩余高度设置进全局数据
-          app.globalData.remainHeight = remainHeight
+          const appInstance = getAppInstance();
+          if (appInstance) {
+            appInstance.globalData.navHeight = navHeight
+            // 将除导航栏剩余高度设置进全局数据
+            appInstance.globalData.remainHeight = remainHeight
+          } else {
+            console.warn('app或app.globalData未初始化，无法设置导航栏高度到全局数据');
+          }
         },
         fail(err) {
           console.log(err)

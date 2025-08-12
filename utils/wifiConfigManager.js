@@ -162,25 +162,373 @@ class WifiConfigManager {
             return;
         }
 
+        if (!this.page.data.connectedDeviceId) {
+            wx.showToast({ title: '请先连接蓝牙设备', icon: 'none' });
+            return;
+        }
+
         try {
-            // 这里可以添加发送WiFi配置到设备的逻辑
-            console.log('发送WiFi配置:', {
+            console.log('开始发送Good Sleep配网指令');
+            
+            // 显示加载提示
+            wx.showLoading({ title: 'Wi-Fi连接中...', mask: true });
+            
+            // 构建Good Sleep配网指令 - 使用图片中的格式
+            const wifiConfig = {
                 ssid: this.page.data.wifiName,
                 password: this.page.data.wifiPassword
+            };
+            
+            console.log('WiFi配置信息:', wifiConfig);
+            
+            // 发送配网指令到Good Sleep设备
+            const success = await this._sendGoodSleepWifiConfig(wifiConfig);
+            
+            if (success) {
+                wx.showToast({ title: '配网指令已发送', icon: 'success' });
+                
+                // 更新步骤状态 - 不直接进入第三步，等待配网结果
+                this.page.setData({
+                    stepsCompleted: [true, true, false],
+                    currentTab: 1, // 保持在第二步
+                    isConfiguring: true // 标记正在配网中
+                });
+                
+                // 开始监听设备配网结果
+                this._startGoodSleepWifiConfigListener();
+                
+                // 设置配网超时处理
+                this._setWifiConfigTimeout();
+                
+            } else {
+                wx.hideLoading();
+                wx.showToast({ title: '发送失败', icon: 'none' });
+            }
+            
+        } catch (error) {
+            wx.hideLoading();
+            console.error('发送Good Sleep配网指令失败:', error);
+            wx.showToast({ title: '发送失败', icon: 'none' });
+        }
+    }
+
+    /**
+     * 发送Good Sleep WiFi配网指令
+     */
+    async _sendGoodSleepWifiConfig(wifiConfig) {
+        try {
+            const { connectedDeviceId, serviceId, send_characteristicId } = this.page.data;
+            
+            if (!connectedDeviceId || !serviceId || !send_characteristicId) {
+                console.error('缺少必要的蓝牙连接信息');
+                return false;
+            }
+            
+            // 构建Good Sleep配网指令数据 - 使用图片中的格式
+            const commandData = this._buildGoodSleepWifiConfigCommand(wifiConfig);
+            console.log('Good Sleep配网指令数据:', commandData);
+            
+            // 通过蓝牙发送配网指令
+            const success = await this._writeBLECharacteristicValue(
+                connectedDeviceId,
+                serviceId,
+                send_characteristicId,
+                commandData
+            );
+            
+            return success;
+            
+        } catch (error) {
+            console.error('发送Good Sleep WiFi配网指令失败:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 构建Good Sleep WiFi配网指令 - 使用图片中的格式
+     */
+    _buildGoodSleepWifiConfigCommand(wifiConfig) {
+        try {
+            // Good Sleep WIFI ID:"WiFi名称","WiFi密码"
+            const command = `Good Sleep WIFI ID:"${wifiConfig.ssid}","${wifiConfig.password}"`;
+            
+            // 使用stringToBytes函数转换为字节数组
+            const commandBuffer = this._stringToArrayBuffer(command);
+            
+            console.log('Good Sleep配网指令:', command);
+            console.log('指令数据长度:', commandBuffer.byteLength);
+            
+            return commandBuffer;
+            
+        } catch (error) {
+            console.error('构建Good Sleep配网指令失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 字符串转ArrayBuffer - 小程序兼容方式
+     */
+    _stringToArrayBuffer(str) {
+        try {
+            // 检查是否有TextEncoder
+            if (typeof TextEncoder !== 'undefined') {
+                const encoder = new TextEncoder();
+                return encoder.encode(str);
+            } else {
+                // 小程序环境下的兼容处理
+                const array = new Uint8Array(str.length);
+                for (let i = 0; i < str.length; i++) {
+                    array[i] = str.charCodeAt(i);
+                }
+                return array.buffer;
+            }
+        } catch (error) {
+            console.error('字符串转ArrayBuffer失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 写入蓝牙特征值
+     */
+    _writeBLECharacteristicValue(deviceId, serviceId, characteristicId, value) {
+        return new Promise((resolve, reject) => {
+            console.log('开始写入蓝牙特征值:', {
+                deviceId,
+                serviceId,
+                characteristicId,
+                valueLength: value.byteLength
             });
             
-            wx.showToast({ title: 'WiFi配置已发送', icon: 'success' });
+            wx.writeBLECharacteristicValue({
+                deviceId,
+                serviceId,
+                characteristicId,
+                value,
+                success: (res) => {
+                    console.log('蓝牙特征值写入成功:', res);
+                    resolve(true);
+                },
+                fail: (err) => {
+                    console.error('蓝牙特征值写入失败:', err);
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * 开始监听Good Sleep WiFi配网结果
+     */
+    _startGoodSleepWifiConfigListener() {
+        try {
+            const { connectedDeviceId, serviceId, notify_cId } = this.page.data;
             
-            // 更新步骤状态
-            this.page.setData({
-                stepsCompleted: [true, true, false],
-                currentTab: 2
+            if (!connectedDeviceId || !serviceId || !notify_cId) {
+                console.error('缺少通知特征值信息，无法监听配网结果');
+                return;
+            }
+            
+            // 启用通知
+            wx.notifyBLECharacteristicValueChange({
+                deviceId: connectedDeviceId,
+                serviceId: serviceId,
+                characteristicId: notify_cId,
+                state: true,
+                success: (res) => {
+                    console.log('启用蓝牙通知成功:', res);
+                    
+                    // 监听特征值变化
+                    wx.onBLECharacteristicValueChange((res) => {
+                        if (res.deviceId === connectedDeviceId) {
+                            this._handleGoodSleepWifiConfigResult(res.value);
+                        }
+                    });
+                    
+                },
+                fail: (err) => {
+                    console.error('启用蓝牙通知失败:', err);
+                }
             });
             
         } catch (error) {
-            console.error('发送WiFi配置失败:', error);
-            wx.showToast({ title: '发送失败', icon: 'none' });
+            console.error('启动Good Sleep WiFi配网结果监听失败:', error);
         }
+    }
+
+    /**
+     * 处理Good Sleep WiFi配网结果 - 根据图片中的状态码
+     */
+    _handleGoodSleepWifiConfigResult(value) {
+        try {
+            // 清除配网超时
+            this._clearWifiConfigTimeout();
+            
+            // 将ArrayBuffer转换为字符串 - 使用小程序兼容的方式
+            const result = this._arrayBufferToString(value);
+            
+            console.log('收到Good Sleep设备配网结果:', value);
+            
+            // 检查是否是状态码响应（55 AA 55 AA开头）
+            if (this._isStatusResponse(value)) {
+                this._handleStatusResponse(value);
+                return;
+            }
+            
+            // 解析Good Sleep配网结果
+            if (result.includes('GOODSLEEP_WIFI_SUCCESS')) {
+                wx.hideLoading();
+                wx.showToast({ title: '配网成功', icon: 'success' });
+                this.page.setData({
+                    stepsCompleted: [true, true, true],
+                    currentTab: 2,
+                    isConfiguring: false
+                });
+            } else if (result.includes('GOODSLEEP_WIFI_FAILED')) {
+                // 配网失败时不显示弹窗，继续等待
+                console.log('配网失败，继续等待设备响应...');
+                // 重新设置配网超时，继续等待
+                this._setWifiConfigTimeout();
+            } else if (result.includes('GOODSLEEP_WIFI_CONNECTING')) {
+                wx.showToast({ title: '正在连接WiFi...', icon: 'loading' });
+            } else if (result.includes('GOODSLEEP_WIFI_TIMEOUT')) {
+                // 配网超时时不显示弹窗，继续等待
+                console.log('配网超时，继续等待设备响应...');
+                // 重新设置配网超时，继续等待
+                this._setWifiConfigTimeout();
+            }
+            
+        } catch (error) {
+            console.error('处理Good Sleep WiFi配网结果失败:', error);
+        }
+    }
+
+    /**
+     * ArrayBuffer转字符串 - 小程序兼容方式
+     */
+    _arrayBufferToString(buffer) {
+        try {
+            // 检查是否有TextDecoder
+            if (typeof TextDecoder !== 'undefined') {
+                const decoder = new TextDecoder();
+                return decoder.decode(buffer);
+            } else {
+                // 小程序环境下的兼容处理
+                const uint8Array = new Uint8Array(buffer);
+                let result = '';
+                for (let i = 0; i < uint8Array.length; i++) {
+                    result += String.fromCharCode(uint8Array[i]);
+                }
+                return result;
+            }
+        } catch (error) {
+            console.error('ArrayBuffer转字符串失败:', error);
+            return '';
+        }
+    }
+
+    /**
+     * 检查是否是状态码响应
+     */
+    _isStatusResponse(value) {
+        try {
+            const uint8Array = new Uint8Array(value);
+            // 检查是否以 55 AA 55 AA 开头
+            return uint8Array.length >= 4 && 
+                   uint8Array[0] === 0x55 && 
+                   uint8Array[1] === 0xAA && 
+                   uint8Array[2] === 0x55 && 
+                   uint8Array[3] === 0xAA;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * 处理状态码响应 - 根据图片中的状态码
+     */
+    _handleStatusResponse(value) {
+        try {
+            const uint8Array = new Uint8Array(value);
+            const statusCode = uint8Array[uint8Array.length - 1]; // 最后一个字节是状态码
+            
+            console.log('收到状态码响应:', statusCode);
+            
+            switch (statusCode) {
+                case 0x01: // WIFI 连接上
+                    console.log('WiFi已连接');
+                    break;
+                case 0x03: // WIFI 连接失败
+                    // 配网失败时不显示弹窗，继续等待
+                    console.log('WiFi连接失败，继续等待设备响应...');
+                    // 重新设置配网超时，继续等待
+                    this._setWifiConfigTimeout();
+                    break;
+                case 0x04: // WIFI 连接成功,TCP连接成功
+                    wx.hideLoading();
+                    wx.showToast({ title: '配网成功', icon: 'success' });
+                    this.page.setData({
+                        stepsCompleted: [true, true, true],
+                        currentTab: 2,
+                        isConfiguring: false
+                    });
+                    break;
+                case 0x05: // TCP连接断开
+                    console.log('网络连接断开');
+                    break;
+                case 0x06: // WIFI 连接断开
+                    console.log('WiFi连接断开');
+                    break;
+                case 0x07: // 不在床
+                    console.log('检测到离床');
+                    break;
+                default:
+                    console.log('未知状态码:', statusCode);
+                    break;
+            }
+            
+        } catch (error) {
+            console.error('处理状态码响应失败:', error);
+        }
+    }
+
+    /**
+     * 清除配网超时定时器
+     */
+    _clearWifiConfigTimeout() {
+        if (this.wifiConfigTimeout) {
+            clearTimeout(this.wifiConfigTimeout);
+            this.wifiConfigTimeout = null;
+            console.log('配网超时定时器已清除');
+        }
+    }
+
+    /**
+     * 设置配网超时处理
+     */
+    _setWifiConfigTimeout() {
+        // 清除之前的超时定时器
+        this._clearWifiConfigTimeout();
+        
+        // 10秒后如果还没有收到配网结果，继续等待而不是显示弹窗
+        this.wifiConfigTimeout = setTimeout(() => {
+            console.log('Good Sleep配网超时，未收到设备响应，继续等待...');
+            // 不显示弹窗，继续等待
+            // 重新设置配网超时，继续等待
+            this._setWifiConfigTimeout();
+        }, 10000); // 30秒超时
+    }
+
+    /**
+     * 手动停止配网
+     */
+    stopWifiConfig() {
+        console.log('手动停止配网');
+        this._clearWifiConfigTimeout();
+        wx.hideLoading();
+        this.page.setData({ isConfiguring: false });
+        wx.showToast({ title: '已停止配网', icon: 'none' });
     }
 
     /**
@@ -188,6 +536,17 @@ class WifiConfigManager {
      */
     clearWifiStatusCheck() {
         this.wifiManager.clearWifiStatusCheck();
+        
+        // 清除配网超时
+        this._clearWifiConfigTimeout();
+        
+        // 取消蓝牙特征值变化监听
+        wx.offBLECharacteristicValueChange();
+        
+        // 重置配网状态
+        if (this.page && this.page.setData) {
+            this.page.setData({ isConfiguring: false });
+        }
     }
 }
 

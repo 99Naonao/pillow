@@ -1,6 +1,6 @@
 // pages/mine/mine.js
-import { autoLogin } from '../../utils/requestUtils';
 const DeviceManager = require('../../utils/deviceManager');
+const AuthApi = require('../../utils/authApi');
 
 Page({
 
@@ -11,7 +11,16 @@ Page({
     isLogin: false, // true为已登录，false为未登录
     avatarUrl: '',
     userName: '',
-    score: 0,
+    // 编辑相关
+    showAvatarModal: false,
+    showNicknameModal: false,
+    nicknameInput: '',
+    // 新的头像昵称获取相关
+    showNewAvatarModal: false,
+    tempUserInfo: {
+      avatarUrl: '',
+      nickName: ''
+    },
     // 告警相关
     alarmEnabled: false,
     alarmPhone: '',
@@ -29,7 +38,10 @@ Page({
     heartLowCount: 0, // 连续心率异常次数
     heartHighCount: 0, // 连续心率异常次数
     heartLowLimit: 3, // 连续心率异常限制
-    alarmed: false // 是否已告警
+    alarmed: false, // 是否已告警
+    // 协议查看相关
+    showProtocolViewer: false,
+    currentProtocolType: 'service'
   },
 
   /**
@@ -57,28 +69,34 @@ Page({
   onShow() {
     // 获取本地用户信息
     const userInfo = wx.getStorageSync('userInfo');
-    if (userInfo && userInfo.avatarUrl && userInfo.userName) {
+    const token = wx.getStorageSync('token');
+    
+    if (userInfo && token) {
+      // 使用API返回的用户信息，用户名显示为手机号，头像使用默认头像
       this.setData({
         isLogin: true,
-        avatarUrl: userInfo.avatarUrl,
-        userName: userInfo.userName,
-        score: userInfo.score || 0
+        avatarUrl: userInfo.avatar || '/static/default_avatar.png',
+        userName: userInfo.account || userInfo.nickname || '用户'
       });
     } else {
       this.setData({
         isLogin: false,
         avatarUrl: '',
-        userName: '',
-        score: 0
+        userName: ''
       });
     }
     
     // 加载告警设置
     this.loadAlarmSettings();
     
-    // 如果告警已启用，启动监测
-    if (this.data.alarmEnabled) {
+    // 如果告警已启用且用户已登录，启动监测
+    if (this.data.alarmEnabled && AuthApi.isLoggedIn()) {
       this.startBreathMonitor();
+    } else if (this.data.alarmEnabled && !AuthApi.isLoggedIn()) {
+      // 如果告警已启用但用户未登录，自动关闭告警
+      console.log('用戶未登录，自動關閉告警功能');
+      this.setData({ alarmEnabled: false });
+      this.saveAlarmSettings();
     }
   },
 
@@ -152,24 +170,11 @@ Page({
     }
   },
 
-  goToShop() {
-    wx.showToast({ title: '跳转商城（示例）', icon: 'none' });
-    // wx.navigateTo({ url: '/pages/shop/shop' });
-  },
-
   goLogin() {
-    autoLogin(() => {
-      // 登录成功后刷新页面数据
-      const userInfo = wx.getStorageSync('userInfo');
-      if (userInfo && userInfo.avatarUrl && userInfo.userName) {
-        this.setData({
-          isLogin: true,
-          avatarUrl: userInfo.avatarUrl,
-          userName: userInfo.userName,
-          score: userInfo.score || 0
-        });
-      }
-    });
+    console.log('点击登录按钮');
+    wx.navigateTo({
+      url: '/page_subject/login/login',
+    })
   },
 
   /**
@@ -177,6 +182,28 @@ Page({
    */
   onToggleAlarm(e) {
     if (e.detail.value) {
+      // 檢查用戶是否已登录
+      if (!AuthApi.isLoggedIn()) {
+        console.log('用戶未登录，彈出登录提示');
+        wx.showModal({
+          title: '请先登录',
+          content: '您需要先登录才能设置紧急联系人，是否前往登录頁面？',
+          confirmText: '去登录',
+          cancelText: '取消',
+          success: (res) => {
+            if (res.confirm) {
+              // 跳轉到登录頁面
+              wx.navigateTo({
+                url: '/page_subject/login/login'
+              });
+            }
+          }
+        });
+        // 重置開關狀態
+        this.setData({ alarmEnabled: false });
+        return;
+      }
+      
       // 打开时弹出手机号输入框
       this.setData({ 
         showPhoneModal: true, 
@@ -206,6 +233,17 @@ Page({
    * 确认手机号绑定
    */
   onPhoneModalConfirm() {
+    // 再次檢查用戶是否已登录（雙重保護）
+    if (!AuthApi.isLoggedIn()) {
+      console.log('用戶未登录，無法綁定手機號');
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      this.setData({ showPhoneModal: false });
+      return;
+    }
+    
     const phone = this.data.phoneInput.trim();
     
     // 手机号格式验证
@@ -216,6 +254,21 @@ Page({
     
     if (!/^1[3-9]\d{9}$/.test(phone)) {
       wx.showToast({ title: '请输入有效的手机号', icon: 'none' });
+      return;
+    }
+
+    // 获取当前登录用户的手机号
+    const userInfo = wx.getStorageSync('userInfo');
+    const currentUserPhone = userInfo ? userInfo.account : '';
+    
+    // 验证告警手机号不能与注册手机号一致
+    if (currentUserPhone && phone === currentUserPhone) {
+      wx.showModal({
+        title: '温馨提示',
+        content: '紧急联系手机号不能与注册手机号一致，请设置其他联系人的手机号',
+        showCancel: false,
+        confirmText: '我知道了'
+      });
       return;
     }
 
@@ -258,6 +311,16 @@ Page({
    * 测试语音告警功能
    */
   testVoiceAlarm() {
+    // 檢查用戶是否已登录
+    if (!AuthApi.isLoggedIn()) {
+      console.log('用戶未登录，無法測試語音告警');
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
     // 延迟2秒后执行测试，确保手机号已保存
     setTimeout(() => {
       console.log('开始测试语音告警功能');
@@ -306,6 +369,12 @@ Page({
    * 启动呼吸监测
    */
   startBreathMonitor() {
+    // 檢查用戶是否已登录
+    if (!AuthApi.isLoggedIn()) {
+      console.log('用戶未登录，無法啟動呼吸監測');
+      return;
+    }
+    
     if (this.breathTimer) {
       clearInterval(this.breathTimer);
     }
@@ -430,6 +499,12 @@ Page({
    * @param {number} type 告警类型 1呼吸异常、2心率异常、3离床
    */
   triggerVoiceAlarm(type = 1) {
+    // 檢查用戶是否已登录
+    if (!AuthApi.isLoggedIn()) {
+      console.log('用戶未登录，無法觸發語音告警');
+      return;
+    }
+    
     if (!this.data.alarmPhone) {
       wx.showToast({ title: '请先输入告警手机号', icon: 'none' });
       return;
@@ -484,12 +559,544 @@ Page({
   },
 
   onShowProtocol() {
-    wx.showToast({ title: '服务协议', icon: 'none' });
-    // wx.navigateTo({ url: '/pages/protocol/protocol' });
+    this.setData({
+      currentProtocolType: 'service',
+      showProtocolViewer: true
+    });
   },
 
   onShowAbout() {
-    wx.showToast({ title: '关于我们', icon: 'none' });
-    // wx.navigateTo({ url: '/pages/about/about' });
+    this.setData({
+      currentProtocolType: 'user',
+      showProtocolViewer: true
+    });
+  },
+
+  /**
+   * 显示隐私政策
+   */
+  onShowPrivacy() {
+    this.setData({
+      currentProtocolType: 'privacy',
+      showProtocolViewer: true
+    });
+  },
+
+  /**
+   * 关闭协议查看器
+   */
+  onCloseProtocolViewer() {
+    this.setData({
+      showProtocolViewer: false
+    });
+  },
+
+  /**
+   * 退出登录
+   */
+  logout() {
+    wx.showModal({
+      title: '提示',
+      content: '确定要退出登录吗？',
+      success: (res) => {
+        if (res.confirm) {
+          // 清除用户信息
+          AuthApi.clearUserInfo();
+          
+          // 更新頁面狀態
+          this.setData({
+            isLogin: false,
+            avatarUrl: '',
+            userName: ''
+          });
+          
+          wx.showToast({
+            title: '退出登录成功',
+            icon: 'success',
+            duration: 2000
+          });
+        }
+      }
+    });
+  },
+
+  /**
+   * 阻止事件冒泡
+   */
+  stopPropagation() {
+    // 空方法，用於阻止事件冒泡
+  },
+
+  /**
+   * 编辑头像
+   */
+  editAvatar() {
+    this.setData({
+      showNewAvatarModal: true,
+      tempUserInfo: {
+        avatarUrl: this.data.avatarUrl || '/static/default_avatar.png',
+        nickName: this.data.userName || ''
+      }
+    });
+  },
+
+  /**
+   * 使用新的头像获取方式
+   */
+  useNewAvatarMethod() {
+    console.log('使用新的头像昵称获取方式');
+    this.setData({
+      showNewAvatarModal: true,
+      showAvatarModal: false,
+      tempUserInfo: {
+        avatarUrl: this.data.avatarUrl || '/static/default_avatar.png',
+        nickName: this.data.userName || ''
+      }
+    });
+  },
+
+  /**
+   * 关闭新的头像昵称获取弹窗
+   */
+  closeNewAvatarModal() {
+    this.setData({
+      showNewAvatarModal: false,
+      tempUserInfo: {
+        avatarUrl: '',
+        nickName: ''
+      }
+    });
+  },
+
+  /**
+   * 选择头像回调
+   */
+  onChooseAvatar(e) {
+    console.log('选择头像回调:', e);
+    const { avatarUrl } = e.detail;
+    const { nickName } = this.data.tempUserInfo;
+    
+    this.setData({
+      'tempUserInfo.avatarUrl': avatarUrl,
+      'tempUserInfo.nickName': nickName
+    });
+    
+    console.log('更新临时用户信息:', this.data.tempUserInfo);
+  },
+
+  /**
+   * 昵称输入回调
+   */
+  onInputChange(e) {
+    console.log('昵称输入回调:', e);
+    const nickName = e.detail.value;
+    const { avatarUrl } = this.data.tempUserInfo;
+    
+    this.setData({
+      'tempUserInfo.nickName': nickName,
+      'tempUserInfo.avatarUrl': avatarUrl
+    });
+    
+    console.log('更新临时用户信息:', this.data.tempUserInfo);
+  },
+
+  /**
+   * 保存新的用户信息
+   */
+  saveNewUserInfo() {
+    const { avatarUrl, nickName } = this.data.tempUserInfo;
+    
+    console.log('保存新的用户信息:', { avatarUrl, nickName });
+    
+    if (!avatarUrl || avatarUrl === '/static/default_avatar.png') {
+      wx.showToast({
+        title: '请选择头像',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+    
+    if (!nickName || nickName.trim() === '') {
+      wx.showToast({
+        title: '请输入昵称',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+    
+    // 更新用户信息
+    this.updateUserInfoLocal(avatarUrl, nickName.trim());
+    
+    // 关闭弹窗
+    this.closeNewAvatarModal();
+    
+    wx.showToast({
+      title: '头像和昵称更新成功',
+      icon: 'success',
+      duration: 2000
+    });
+  },
+
+  /**
+   * 关闭头像编辑弹窗
+   */
+  closeAvatarModal() {
+    this.setData({
+      showAvatarModal: false
+    });
+  },
+
+  /**
+   * 微信授权获取头像和昵称（已弃用，使用新的方式）
+   */
+  getWechatAvatar() {
+          // 直接使用新的头像昵称获取方式
+    this.useNewAvatarMethod();
+  },
+
+  /**
+   * 获取用户信息
+   */
+  getUserProfile() {
+          console.log('开始获取微信用户信息...');
+      wx.getUserProfile({
+        desc: '用于完善用户资料',
+      success: (res) => {
+        console.log('获取微信头像成功:', res);
+        console.log('用户信息:', res.userInfo);
+        console.log('头像URL:', res.userInfo.avatarUrl);
+        
+        const avatarUrl = res.userInfo.avatarUrl;
+        
+                  if (!avatarUrl) {
+            console.error('头像URL为空');
+            wx.showToast({
+              title: '获取头像失败',
+            icon: 'none',
+            duration: 2000
+          });
+          return;
+        }
+        
+                  console.log('准备更新头像:', avatarUrl);
+          
+          // 只更新头像，不更新昵称
+        this.updateUserInfoLocal(avatarUrl, null);
+        this.closeAvatarModal();
+        
+        wx.showToast({
+          title: '頭像更新成功',
+          icon: 'success',
+          duration: 2000
+        });
+      },
+      fail: (error) => {
+        console.error('获取微信头像失败:', error);
+        console.error('错误详情:', error.errMsg);
+        wx.showToast({
+          title: '获取头像失败',
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    });
+  },
+
+  /**
+   * 拍照
+   */
+  takePhoto() {
+    // 先检查相机权限
+    wx.getSetting({
+      success: (res) => {
+        console.log('相机权限设置:', res);
+        
+        if (res.authSetting['scope.camera']) {
+          // 已有权限，直接拍照
+          this.captureImage();
+        } else {
+          // 没有权限，先请求权限
+          wx.authorize({
+            scope: 'scope.camera',
+            success: () => {
+              console.log('相机权限授权成功');
+              this.captureImage();
+            },
+            fail: (error) => {
+              console.error('相机权限授权失败:', error);
+              wx.showModal({
+                title: '提示',
+                content: '需要访问您的相机，请在设置中开启权限',
+                confirmText: '去设置',
+                cancelText: '取消',
+                success: (modalRes) => {
+                  if (modalRes.confirm) {
+                    wx.openSetting({
+                                        success: (settingRes) => {
+                    console.log('设置页面结果:', settingRes);
+                    if (settingRes.authSetting['scope.camera']) {
+                      this.captureImage();
+                    }
+                  }
+                    });
+                  }
+                }
+              });
+            }
+          });
+        }
+      },
+      fail: (error) => {
+        console.error('获取相机权限设置失败:', error);
+        // 如果获取权限设置失败，直接尝试拍照
+        this.captureImage();
+      }
+    });
+  },
+
+  /**
+   * 拍照功能
+   */
+  captureImage() {
+    wx.chooseImage({
+      count: 1,
+      sizeType: ['compressed'],
+      sourceType: ['camera'],
+      success: (res) => {
+        console.log('拍照成功:', res);
+        const tempFilePath = res.tempFilePaths[0];
+        
+        // 只更新头像，不更新昵称
+        this.updateUserInfoLocal(tempFilePath, null);
+        this.closeAvatarModal();
+        
+        wx.showToast({
+          title: '头像更新成功',
+          icon: 'success',
+          duration: 2000
+        });
+      },
+      fail: (error) => {
+        console.error('拍照失败:', error);
+        wx.showToast({
+          title: '拍照失败',
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    });
+  },
+
+  /**
+   * 从相册选择头像
+   */
+  chooseFromAlbum() {
+    // 先檢查相冊權限
+    wx.getSetting({
+      success: (res) => {
+        console.log('相冊權限設置:', res);
+        
+        if (res.authSetting['scope.writePhotosAlbum']) {
+          // 已有權限，直接選擇
+          this.chooseImage();
+        } else {
+          // 沒有權限，先請求權限
+          wx.authorize({
+            scope: 'scope.writePhotosAlbum',
+            success: () => {
+              console.log('相冊權限授權成功');
+              this.chooseImage();
+            },
+            fail: (error) => {
+              console.error('相冊權限授權失敗:', error);
+              wx.showModal({
+                title: '提示',
+                content: '需要訪問您的相冊，請在設置中開啟權限',
+                confirmText: '去設置',
+                cancelText: '取消',
+                success: (modalRes) => {
+                  if (modalRes.confirm) {
+                    wx.openSetting({
+                      success: (settingRes) => {
+                        console.log('設置頁面結果:', settingRes);
+                        if (settingRes.authSetting['scope.writePhotosAlbum']) {
+                          this.chooseImage();
+                        }
+                      }
+                    });
+                  }
+                }
+              });
+            }
+          });
+        }
+      },
+      fail: (error) => {
+        console.error('獲取相冊權限設置失敗:', error);
+        // 如果獲取權限設置失敗，直接嘗試選擇圖片
+        this.chooseImage();
+      }
+    });
+  },
+
+  /**
+   * 選擇圖片
+   */
+  chooseImage() {
+    wx.chooseImage({
+      count: 1,
+      sizeType: ['compressed'],
+      sourceType: ['album'],
+      success: (res) => {
+        console.log('选择头像成功:', res);
+        const tempFilePath = res.tempFilePaths[0];
+        
+        // 只更新头像，不更新昵称
+        this.updateUserInfoLocal(tempFilePath, null);
+        this.closeAvatarModal();
+        
+        wx.showToast({
+          title: '头像更新成功',
+          icon: 'success',
+          duration: 2000
+        });
+      },
+      fail: (error) => {
+        console.error('选择头像失败:', error);
+        wx.showToast({
+          title: '选择头像失败',
+          icon: 'none',
+          duration: 2000
+        });
+      }
+    });
+  },
+
+  /**
+   * 编辑昵称
+   */
+  editNickname() {
+    this.setData({
+      showNicknameModal: true,
+      nicknameInput: this.data.userName
+    });
+  },
+
+  /**
+   * 关闭昵称编辑弹窗
+   */
+  closeNicknameModal() {
+    this.setData({
+      showNicknameModal: false,
+      nicknameInput: ''
+    });
+  },
+
+  /**
+   * 昵称输入
+   */
+  onNicknameInput(e) {
+    this.setData({
+      nicknameInput: e.detail.value
+    });
+  },
+
+  /**
+   * 保存昵称
+   */
+  saveNickname() {
+    const nickname = this.data.nicknameInput.trim();
+    
+    if (!nickname) {
+      wx.showToast({
+        title: '请输入昵称',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
+    // 更新昵称（只保存到本地）
+    this.updateUserInfoLocal(null, nickname);
+    this.closeNicknameModal();
+    
+    wx.showToast({
+      title: '昵称更新成功',
+      icon: 'success',
+      duration: 2000
+    });
+  },
+
+  /**
+   * 更新用户信息（只保存到本地）
+   */
+  updateUserInfoLocal(avatarUrl, nickName) {
+          console.log('开始更新本地用户信息...');
+      console.log('传入的头像URL:', avatarUrl);
+      console.log('传入的昵称:', nickName);
+    
+    const userInfo = wx.getStorageSync('userInfo');
+          console.log('当前本地用户信息:', userInfo);
+    
+    const updatedUserInfo = {
+      ...userInfo,
+      avatar: avatarUrl || userInfo.avatar,
+      nickname: nickName || userInfo.nickname
+    };
+
+          console.log('更新后的用户信息:', updatedUserInfo);
+
+    // 保存到本地存储
+    wx.setStorageSync('userInfo', updatedUserInfo);
+    console.log('已保存到本地存儲');
+
+    // 更新页面显示
+    const newAvatarUrl = updatedUserInfo.avatar || '/static/default_avatar.png';
+    const newUserName = updatedUserInfo.nickname || updatedUserInfo.account || '用户';
+    
+          console.log('准备更新页面显示:');
+          console.log('新头像URL:', newAvatarUrl);
+      console.log('新用户名:', newUserName);
+    
+    this.setData({
+      avatarUrl: newAvatarUrl,
+      userName: newUserName
+    });
+
+    console.log('頁面顯示已更新');
+    console.log('本地用户信息更新成功:', updatedUserInfo);
+  },
+
+  /**
+   * 更新用户信息（保存到本地和服务器）
+   */
+  updateUserInfo(avatarUrl, nickName) {
+    const userInfo = wx.getStorageSync('userInfo');
+    const updatedUserInfo = {
+      ...userInfo,
+      avatar: avatarUrl || userInfo.avatar,
+      nickname: nickName || userInfo.nickname
+    };
+
+    // 保存到本地存储
+    wx.setStorageSync('userInfo', updatedUserInfo);
+
+    // 更新页面显示
+    this.setData({
+      avatarUrl: updatedUserInfo.avatar || '/static/default_avatar.png',
+      userName: updatedUserInfo.nickname || updatedUserInfo.account || '用户'
+    });
+
+    // 调用API更新服务器端的用户信息
+    AuthApi.updateUserInfo(updatedUserInfo)
+      .then(res => {
+        console.log('服务器端用户信息更新成功:', res);
+      })
+      .catch(error => {
+        console.error('服务器端用户信息更新失败:', error);
+        // 这里可以选择是否要回滚本地更改
+      });
   }
 });

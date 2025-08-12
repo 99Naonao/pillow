@@ -1,0 +1,114 @@
+<!--page_subject/login/login.wxml-->
+<view class="login-container">
+  <!-- 頂部導航欄 -->
+  <nav-bar title="登录" bgColor="#0b2853" titleColor="#fff" bind:onBack="onBack"></nav-bar>
+
+  <!-- 主要內容區域 -->
+  <view class="main-content">
+    <!-- 應用Logo -->
+    <view class="logo-container">
+      <image class="logo" src="/static/logo.png" mode="aspectFit"></image>
+    </view>
+
+    <!-- 登录方式切換 -->
+    <view class="login-tabs">
+      <view class="tab-item {{loginType === 'password' ? 'active' : ''}}" 
+            bindtap="switchToPassword">
+        密码登录
+      </view>
+      <view class="tab-item {{loginType === 'code' ? 'active' : ''}}" 
+            bindtap="switchToCode">
+        验证码登录
+      </view>
+    </view>
+
+    <!-- 輸入表單 -->
+    <view class="form-container">
+      <!-- 手機號輸入 -->
+      <view class="input-group">
+        <input class="input-field" 
+               placeholder="请输入手机号" 
+               type="number" 
+               maxlength="11"
+               value="{{phone}}"
+               bindinput="onPhoneInput"
+               keyboard-type="number" />
+      </view>
+
+      <!-- 密碼登錄 -->
+      <view class="input-group" wx:if="{{loginType === 'password'}}">
+        <input class="input-field" 
+               type="text"
+               password="{{!showPassword}}"
+               placeholder="请输入密码" 
+               value="{{password}}"
+               bindinput="onPasswordInput"
+               bindfocus="onPasswordFocus"
+               bindblur="onPasswordBlur"
+               confirm-type="done"
+               cursor-spacing="20"
+               adjust-position="{{true}}"
+               keyboard-type="text"
+               always-embed="{{true}}"
+               auto-blur="{{false}}"
+               hold-keyboard="{{false}}" />
+        <view class="eye-icon" bindtap="togglePasswordVisibility">
+          <image class="eye-image" src="{{showPassword ? '/static/eye.png' : '/static/eye_slash.png'}}" mode="aspectFit"></image>
+        </view>
+        <!-- <view class="forgot-password" bindtap="forgotPassword">
+          忘记密码?
+        </view> -->
+      </view>
+
+      <!-- 驗證碼登錄 -->
+      <view class="input-group verification-group" wx:if="{{loginType === 'code'}}">
+        <input class="input-field verification-input" 
+               placeholder="请输入验证码" 
+               type="number" 
+               maxlength="4"
+               value="{{verificationCode}}"
+               bindinput="onVerificationInput"
+               keyboard-type="number" />
+        <view class="verification-btn {{canGetCode ? '' : 'disabled'}}" 
+              bindtap="getVerificationCode">
+          {{countdown > 0 ? countdown + 's' : '获取验证码'}}
+        </view>
+      </view>
+
+      <!-- 協議勾選 -->
+      <view class="agreement-container">
+        <checkbox class="agreement-checkbox" 
+                  checked="{{agreedToTerms}}" 
+                  bindtap="toggleAgreement"></checkbox>
+        <text class="agreement-text">已阅读并同意</text>
+        <text class="link-text" bindtap="viewUserAgreement">《用户协议》</text>
+        <text class="agreement-text">和</text>
+        <text class="link-text" bindtap="viewPrivacyPolicy">《隐私协议》</text>
+      </view>
+
+      <!-- 登錄按鈕 -->
+      <button class="login-btn {{canLogin ? 'active' : 'disabled'}}" 
+              bindtap="handleLogin" 
+              disabled="{{!canLogin}}">
+        登录
+      </button>
+    </view>
+
+    <!-- 底部鏈接 -->
+    <view class="bottom-links">
+      <view class="link-item" bindtap="switchLoginType">
+        {{loginType === 'password' ? '已有账号,使用验证码登录' : '已有账号,使用密码登录'}}
+      </view>
+      <view class="link-item" bindtap="goToRegister">
+        注册账号
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 协议查看器组件 -->
+<protocol-viewer 
+  protocolType="{{currentProtocolType}}"
+  visible="{{showProtocolViewer}}"
+  bind:close="onCloseProtocolViewer"
+/>

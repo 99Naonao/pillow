@@ -1,14 +1,24 @@
 {
+  "subPackages": [
+    {
+      "root": "page_subject",
+      "pages": [
+        "login/login",
+        "register/register"
+      ]
+    }
+  ],
   "pages": [
     "pages/home/home",
     "pages/blue/blue",
     "pages/report/report",
-    "pages/mine/mine"
+    "pages/mine/mine",
+    "pages/test-keyboard/test-keyboard"
   ],
   "tabBar": {
     "color": "#c8c8c8",
     "selectedColor": "#ffffff",
-    "backgroundColor": "#083869",
+    "backgroundColor": "#0b2853",
     "borderStyle": "black",
     "list": [
       {
@@ -35,17 +45,7 @@
     "navigationBarTextStyle": "black",
     "navigationStyle": "custom"
   },
-  "renderer": "skyline",
-  "rendererOptions": {
-    "skyline": {
-      "defaultDisplayBlock": true,
-      "defaultContentBox": true,
-      "tagNameStyleIsolation": "legacy",
-      "disableABTest": true,
-      "sdkVersionBegin": "3.0.0",
-      "sdkVersionEnd": "15.255.255"
-    }
-  },
+  "renderer": "webview",
   "componentFramework": "glass-easel",
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
@@ -58,6 +58,15 @@
     },
     "scope.wifi": {
       "desc": "用于获取WiFi列表"
+    },
+    "scope.userInfo": {
+      "desc": "用于完善用户资料"
+    },
+    "scope.writePhotosAlbum": {
+      "desc": "用于选择头像图片"
+    },
+    "scope.camera": {
+      "desc": "用于拍摄头像照片"
     }
   },
   "requiredBackgroundModes": [

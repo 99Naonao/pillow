@@ -208,7 +208,7 @@ voiceNotifation(params){
     this.clearRealtimeTimer();
     this._realtimeTimer = setInterval(() => {
       this.getDeviceRealtimeData(mac);
-    }, 5000);
+    }, 1000);
     this.page.setData({ _realtimeTimer: this._realtimeTimer });
   }
 
@@ -314,11 +314,11 @@ voiceNotifation(params){
    * @returns {string} 评分等级
    */
   getSleepScoreLevel(score) {
-    if (score >= 85) return '优秀';
-    if (score >= 75) return '良好';
-    if (score >= 65) return '一般';
-    if (score >= 55) return '较差';
-    return '很差';
+    if (score >= 0 && score < 60) return '待改善';
+    if (score >= 60 && score < 70) return '一般';
+    if (score >= 70 && score < 80) return '良好';
+    if (score >= 80 && score <= 100) return '优秀';
+    return '异常'; // 默认值，异常数据
   }
 }
 

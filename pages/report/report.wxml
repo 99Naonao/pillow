@@ -1,6 +1,6 @@
 <view class="report-container">
   <!-- 顶部导航栏 -->
-  <nav-bar title="睡眠报告" showNavBtn="{{false}}" bgColor="#083869" titleColor="#fff"/>
+  <nav-bar title="睡眠报告" showNavBtn="{{false}}" bgColor="#0b2853" titleColor="#fff"/>
   <view class="report-header">
     <view class="date-row">
       <picker mode="date" value="{{calendarValue}}" bindchange="onDateChange">
@@ -169,6 +169,20 @@
       </view>
       <view class="advice-content">
         <text class="advice-text">{{advice}}</text>
+      </view>
+    </view>
+
+    <!-- 前往商城 -->
+    <view class="shop-section">
+      <view class="shop-card">
+        <view class="shop-header">
+          <image src="../../static/shopping.png" class="shop-icon"/>
+          <text class="shop-title">健康商城</text>
+        </view>
+        <view class="shop-content">
+          <text class="shop-desc">发现更多健康产品，提升睡眠质量</text>
+          <button class="shop-btn" bindtap="goToShop">前往商城</button>
+        </view>
       </view>
     </view>
   </scroll-view>

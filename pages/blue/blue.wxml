@@ -1,4 +1,4 @@
-<nav-bar title="设备连接" bgColor="#083869" titleColor="#fff" bind:tap="onBack"></nav-bar>
+<nav-bar title="设备连接" bgColor="#0b2853" titleColor="#fff" bind:tap="onBack"></nav-bar>
 <view class="page-container">
   <!-- 进度条 -->
   <view class="progress-container"></view>
@@ -12,19 +12,21 @@
 
   <!-- 蓝牙连接按钮（只在第一步显示） -->
   <view wx:if="{{currentTab==0}}">
-    <view class="bluetooth-wifi-btn-row">
-      <button class="bluetooth-wifi-btn">
-        <image src="/static/bluetooth.png" class="bluetooth-icon" />
+    <view class="wifi-wifi-btn-row">
+      <image src="/static/bluetooth.png" class="bluetooth-icon" />
         蓝牙连接
-      </button>
+      <!-- <button class="bluetooth-wifi-btn">
+
+      </button> -->
     </view>
   </view>
   <view wx:if="{{currentTab==1}}">
     <view class="wifi-wifi-btn-row">
-      <button class="bluetooth-wifi-btn">
-        <image src="/static/wifi.png" class="bluetooth-icon"/>
+      <image src="/static/wifi.png" class="bluetooth-icon"/>
         WIFI配置
-      </button>
+      <!-- <button class="bluetooth-wifi-btn">
+
+      </button> -->
     </view>
   </view>
   <!-- 内容区 -->
@@ -44,8 +46,7 @@
         <block wx:for="{{devices}}" wx:key="deviceId">
           <view class="device-card">
             <view class="device-card-info">
-              <!-- <view class="device-name">{{item.name}}</view> -->
-              <view class="device-name">zzZMinga</view>
+              <view class="device-name">{{item.displayName || 'zzZMinga'}}</view>
               <view class="device-mac">MAC: {{item.deviceId || item.uuid}}</view>
             </view>
             <view class="custom-switch {{item.isConnected ? 'switch-on' : 'switch-off'}}" 
@@ -59,8 +60,16 @@
 
     <!-- 步骤二：WiFi配网 -->
     <view wx:if="{{currentTab==1}}">
+      <!-- 配网中状态 -->
+      <view wx:if="{{isConfiguring}}">
+        <view class="wifi-loading">
+          <view class="wifi-loading-text">正在配网中，请稍候...</view>
+          <view class="wifi-loading-subtext">设备正在连接WiFi，请保持设备开机状态</view>
+          <button class="stop-config-btn" bindtap="stopWifiConfig">停止配网</button>
+        </view>
+      </view>
       <!-- 已选择WiFi（包括手机已连接WiFi） -->
-      <view wx:if="{{wifiSelected}}">
+      <view wx:elif="{{wifiSelected}}">
         <view class="wifi-card">
           <view class="wifi-card-header">
             <view class="wifi-name">{{wifiName}}</view>

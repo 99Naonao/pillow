@@ -125,6 +125,132 @@ class CommonUtil {
     if (platform === 'ios') return 'ios';
     return 'other';
   }
+
+  /**
+   * 验证中国手机号格式
+   * @param {string} phone 待验证的手机号
+   * @returns {boolean} 是否为有效的中国手机号
+   */
+  static isValidChinesePhone(phone) {
+    if (!phone || typeof phone !== 'string') {
+      return false;
+    }
+    
+    // 移除所有空格和特殊字符
+    const cleanPhone = phone.replace(/\s+/g, '');
+    
+    // 中国手机号正则表达式
+    // 支持以下格式：
+    // 1. 13x xxxx xxxx (13开头)
+    // 2. 14[5,7] xxxx xxxx (145, 147开头)
+    // 3. 15[0-3,5-9] xxxx xxxx (150-153, 155-159开头)
+    // 4. 16[6] xxxx xxxx (166开头)
+    // 5. 17[0,1,3,5-8] xxxx xxxx (170, 171, 173, 175-178开头)
+    // 6. 18[0-9] xxxx xxxx (180-189开头)
+    // 7. 19[0-3,5-9] xxxx xxxx (190-193, 195-199开头)
+    const phoneRegex = /^1(3\d|4[5,7]|5[0-3,5-9]|6[6]|7[0,1,3,5-8]|8[0-9]|9[0-3,5-9])\d{8}$/;
+    
+    return phoneRegex.test(cleanPhone);
+  }
+
+  /**
+   * 格式化手机号显示（添加空格分隔）
+   * @param {string} phone 手机号
+   * @returns {string} 格式化后的手机号
+   */
+  static formatPhoneDisplay(phone) {
+    if (!phone || typeof phone !== 'string') {
+      return '';
+    }
+    
+    // 移除所有空格和特殊字符
+    const cleanPhone = phone.replace(/\s+/g, '');
+    
+    // 如果长度不是11位，直接返回原值
+    if (cleanPhone.length !== 11) {
+      return cleanPhone;
+    }
+    
+    // 格式化为 1xx xxxx xxxx
+    return cleanPhone.replace(/(\d{3})(\d{4})(\d{4})/, '$1 $2 $3');
+  }
+
+  /**
+   * 获取手机号运营商信息
+   * @param {string} phone 手机号
+   * @returns {string} 运营商名称
+   */
+  static getPhoneCarrier(phone) {
+    if (!this.isValidChinesePhone(phone)) {
+      return '未知';
+    }
+    
+    const prefix = phone.substring(0, 3);
+    
+    // 中国移动
+    if (/^1(3[4-9]|4[7]|5[0-2,7-9]|6[5,7]|7[8]|9[5,7])$/.test(prefix)) {
+      return '中国移动';
+    }
+    // 中国联通
+    else if (/^1(3[0-2]|4[5]|5[5,6]|6[6]|7[5,6]|8[5,6])$/.test(prefix)) {
+      return '中国联通';
+    }
+    // 中国电信
+    else if (/^1(3[3]|4[9]|5[3]|7[3,7]|8[0,1,9]|9[0,1])$/.test(prefix)) {
+      return '中国电信';
+    }
+    // 虚拟运营商
+    else if (/^1(7[0-2,4]|9[4])$/.test(prefix)) {
+      return '虚拟运营商';
+    }
+    else {
+      return '其他';
+    }
+  }
+
+  /**
+   * 验证密码强度
+   * @param {string} password 密码
+   * @returns {Object} 验证结果 {isValid: boolean, message: string}
+   */
+  static validatePassword(password) {
+    if (!password || typeof password !== 'string') {
+      return {
+        isValid: false,
+        message: '密码不能为空'
+      };
+    }
+
+    if (password.length < 6) {
+      return {
+        isValid: false,
+        message: '密码长度不能少于6位'
+      };
+    }
+
+    // 检查是否包含数字
+    const hasNumber = /\d/.test(password);
+    if (!hasNumber) {
+      return {
+        isValid: false,
+        message: '密码必须包含数字'
+      };
+    }
+
+    // 检查是否包含字母
+    const hasLetter = /[a-zA-Z]/.test(password);
+    if (!hasLetter) {
+      return {
+        isValid: false,
+        message: '密码必须包含字母'
+      };
+    }
+
+    return {
+      isValid: true,
+      message: '密码格式正确'
+    };
+  }
 }
 
 module.exports = CommonUtil;

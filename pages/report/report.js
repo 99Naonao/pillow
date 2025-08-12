@@ -69,6 +69,8 @@ Page({
     const convertedIds = wx.getStorageSync('convertedCharacteristicIds');
     
     console.log('[report] WiFi MAC地址:', wifiMac);
+    console.log('[report] WiFi MAC 類型:', typeof wifiMac);
+    console.log('[report] WiFi MAC 是否為空:', !wifiMac);
     console.log('[report] 转换后的特征值ID:', convertedIds);
     
     // 默认日期为今天
@@ -131,7 +133,10 @@ Page({
    */
   loadSleepReports(startDate, endDate, wifiMac) {
     console.log('[report] 加载睡眠报告 - WiFi MAC:', wifiMac, '开始日期:', startDate, '结束日期:', endDate);
+    console.log('[report] WiFi MAC 類型:', typeof wifiMac, '長度:', wifiMac ? wifiMac.length : 0);
+    
     if (!wifiMac) {
+      console.warn('[report] WiFi MAC 地址為空，無法加載睡眠報告');
       wx.showToast({
         title: '请先连接设备',
         icon: 'none'
@@ -387,5 +392,32 @@ Page({
       // 如果没有ID，使用列表数据
       this.displayReport(report);
     }
+  },
+
+  /**
+   * 前往商城
+   */
+  goToShop() {
+    console.log('前往商城');
+    // 跳转到商城小程序
+    wx.navigateToMiniProgram({
+      appId: 'wxadc17399e1b28d8b', // 替换为实际的商城小程序appId
+      path: 'pages/index/index', // 商城小程序的页面路径
+      // extraData: {
+      //   from: 'sleep_report', // 标识来源
+      //   sleepScore: this.data.sleepScore, // 传递睡眠评分
+      //   scoreLevel: this.data.scoreLevel // 传递评分等级
+      // },
+      success: (res) => {
+        console.log('跳转商城成功:', res);
+      },
+      fail: (error) => {
+        console.error('跳转商城失败:', error);
+        wx.showToast({
+          title: '跳转失败，请稍后重试',
+          icon: 'none'
+        });
+      }
+    });
   }
 });

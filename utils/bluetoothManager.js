@@ -8,7 +8,7 @@ class BluetoothManager {
     }
 
     /**
-     * 安全啟動藍牙設備搜索
+     * 安全启动蓝牙设备搜索
      */
     async safeStartBluetoothDevicesDiscovery() {
         try {
@@ -33,7 +33,7 @@ class BluetoothManager {
                 throw new Error('启动蓝牙搜索失败');
             }
 
-            // 先獲取已發現的設備
+            // 先获取已发现的设备
             const existingDevicesRes = await this.getBluetoothDevices();
             console.log('已发现的设备:', existingDevicesRes.devices);
             
@@ -41,7 +41,7 @@ class BluetoothManager {
                 callback(existingDevicesRes.devices);
             }
 
-            // 監聽新設備
+            // 监听新设备
             wx.onBluetoothDeviceFound((res) => {
                 console.log('发现新设备:', res.devices);
                 if (callback && res.devices && res.devices.length > 0) {
@@ -112,7 +112,7 @@ class BluetoothManager {
                 deviceInfo: device
             });
 
-            // 檢查deviceId是否有效
+            // 检查deviceId是否有效
             if (!deviceId) {
                 const error = new Error('deviceId 不能为空');
                 console.error('连接失败:', error);
@@ -127,7 +127,7 @@ class BluetoothManager {
                     resolve({ deviceId, device });
                 },
                 fail: (err) => {
-                    console.error('蓝牙连接失敗:', err);
+                    console.error('蓝牙连接失败:', err);
                     reject(err);
                 }
             });
@@ -144,7 +144,7 @@ class BluetoothManager {
             const servicesRes = await this.getBLEDeviceServices(deviceId);
             console.log('服务列表:', servicesRes.services);
             
-            // 選第一個自定義服務或主服務
+            // 选第一个自定义服务或主服务
             const service = servicesRes.services.find(s => 
                 s.uuid.toUpperCase().indexOf('6E400001') !== -1 || s.isPrimary
             );
@@ -197,7 +197,7 @@ class BluetoothManager {
     }
 
     /**
-     * 開始藍牙連接監聽
+     * 开始蓝牙连接监听
      */
     startBluetoothConnectionListener() {
         if (this.bluetoothConnectionListener) {
@@ -205,17 +205,17 @@ class BluetoothManager {
         }
 
         this.bluetoothConnectionListener = wx.onBLEConnectionStateChange((res) => {
-            console.log('蓝牙連接狀態變化:', res);
+            console.log('蓝牙连接状态变化:', res);
             
             if (!res.connected) {
-                console.log('藍牙設備斷開連接:', res.deviceId);
-                // 可以在這裡處理斷開連接的邏輯
+                console.log('蓝牙设备断开连接:', res.deviceId);
+                // 可以在这里处理断开连接的逻辑
             }
         });
     }
 
     /**
-     * 停止藍牙連接監聽
+     * 停止蓝牙连接监听
      */
     stopBluetoothConnectionListener() {
         if (this.bluetoothConnectionListener) {
@@ -225,7 +225,7 @@ class BluetoothManager {
     }
 
     /**
-     * 斷開藍牙連接
+     * 断开蓝牙连接
      */
     disconnectBluetooth(deviceId) {
         return new Promise((resolve, reject) => {

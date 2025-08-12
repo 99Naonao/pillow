@@ -1,26 +1,27 @@
 <!--pages/home.wxml-->
-<nav-bar title="智能观心枕" showNavBtn="{{false}}"  bgColor="#083869" titleColor="#fff"/>
+<nav-bar title="智能观心枕" showNavBtn="{{false}}"  bgColor="#0b2853" titleColor="#fff"/>
 <view class="container">
-  <view class="top-space"></view>
-  <view class="pillow-img-wrapper">
+  <!-- <view class="top-space"></view> -->
+  <image src="../../static/bg.png" class="pillow-img"/>
+  <!-- <view class="pillow-img-wrapper">
     <image src="../../static/pillow.png" class="pillow-img"/>
-  </view>
-  <view class="device-bar" bind:tap="toBlueIndex">
+  </view> -->
+  <!-- <view class="device-bar" bind:tap="toBlueIndex">
     <image src="../../static/bluetooth_white.png" class="icon-bluetooth"/>
     <text class="device-text">
-    {{deviceConnected ? ('已连接：zzZMinga') : '设备未连接'}}
-    </text>
-  </view>
+            {{deviceConnected ? ('已连接：zzZMinga设备') : '设备未连接'}}
+    </text> -->
+  <!-- </view> -->
  
   <view class="card-grid">
-    <!-- 心率 -->
+    <!-- 心率 --> 
     <view class="card">
       <view class="card-header">
         <image src="../../static/heart_rate.png" class="card-icon"/>
         <text class="card-title">心率</text>
       </view>
       <view class="card-value">
-        {{heartRate !== null ? heartRate + '次/分' : '--次/分'}}
+        {{deviceConnected ? (heartRate !== null ? heartRate + ' 次/分' : '.. 次/分') : '.. 次/分'}}
       </view>
     </view>
     <!-- 呼吸 -->
@@ -30,7 +31,7 @@
         <text class="card-title">呼吸</text>
       </view>
       <view class="card-value">
-        {{breathRate !== null ? breathRate + '次/分' : '--次/分'}}
+        {{deviceConnected ? (breathRate !== null ? breathRate + ' 次/分' : '.. 次/分') : '.. 次/分'}}
       </view>
     </view>
    <!-- 体动状态 -->
@@ -40,7 +41,7 @@
        <text class="card-title">体动</text>
      </view>
      <view class="card-value">
-       {{turnOver === 1 ? '有体动' : (turnOver === 0 ? '无体动' : '--')}}
+       {{deviceConnected ? (turnOver === 1 ? '有' : (turnOver === 0 ? '无' : '..')) : '..'}}
      </view>
    </view>
     <!-- 是否离枕 -->
@@ -50,9 +51,16 @@
         <text class="card-title">是否离枕</text>
       </view>
       <view class="card-value">
-        {{isLeavePillow !== null ? (isLeavePillow ? '是' : '否'):'--'}}
+        {{deviceConnected ? (isLeavePillow !== null ? (isLeavePillow ? '是' : '否') : '..') : '..'}}
       </view>
     </view>
-    <view class="card-round"/>
+    
+    <!-- 设备状态指示器 -->
+    <view class="device-status-overlay" bind:tap="toBlueIndex">
+      <view class="status-circle {{deviceConnected ? 'connected' : 'offline'}}">
+        <text class="status-main-text">{{deviceConnected ? '设备已连接' : '设备离线'}}</text>
+        <text class="status-sub-text">{{deviceConnected ? 'zzzMinga' : '点击连接>'}}</text>
+      </view>
+    </view>
   </view>
 </view>

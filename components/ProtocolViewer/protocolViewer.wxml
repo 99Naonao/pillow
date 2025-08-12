@@ -1,0 +1,36 @@
+<!--协议查看器组件-->
+<view wx:if="{{visible}}" class="protocol-viewer-mask" bindtap="onClose">
+  <view class="protocol-viewer" catchtap="onModalTap">
+    <!-- 头部 -->
+    <view class="protocol-header">
+      <text class="protocol-title">{{protocolTitle}}</text>
+      <view class="protocol-close" bindtap="onClose">✕</view>
+    </view>
+
+    <!-- 内容区域 -->
+    <scroll-view class="protocol-content" scroll-y="true" enhanced="true" show-scrollbar="true">
+      <!-- 加载中 -->
+      <view wx:if="{{loading}}" class="protocol-loading">
+        <view class="loading-spinner"></view>
+        <text class="loading-text">正在加载协议内容...</text>
+      </view>
+
+      <!-- 错误状态 -->
+      <view wx:elif="{{error}}" class="protocol-error">
+        <image class="error-icon" src="../../static/error.png" mode="aspectFit"/>
+        <text class="error-text">{{errorMessage}}</text>
+        <button class="retry-btn" bindtap="onRetry">重新加载</button>
+      </view>
+
+      <!-- 协议内容 -->
+      <view wx:else class="protocol-text">
+        <text>{{protocolContent}}</text>
+      </view>
+    </scroll-view>
+
+    <!-- 底部按钮 -->
+    <view class="protocol-footer">
+      <button class="protocol-btn confirm" bindtap="onClose">我知道了</button>
+    </view>
+  </view>
+</view> 

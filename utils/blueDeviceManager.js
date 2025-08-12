@@ -75,21 +75,94 @@ class BlueDeviceManager {
     }
 
     /**
+     * 格式化设备名称
+     * @param {Object} device 设备对象
+     * @returns {string} 格式化后的设备名称
+     */
+    _formatDeviceName(device) {
+        const systemInfo = wx.getDeviceInfo();
+        const platform = (systemInfo.platform || '').toLowerCase();
+        
+        // 获取MAC地址的后4位
+        let macSuffix = '';
+        
+        if (platform === 'ios') {
+            // iOS: 通过advertisServiceUUIDs组成MAC地址
+            if (device.advertisServiceUUIDs && device.advertisServiceUUIDs.length >= 3) {
+                // 使用UuidConverter来获取MAC地址
+                const bluetoothMac = this.page.UuidConverter.convertUUIDToMacFormat(device.deviceId || device.uuid, device.advertisServiceUUIDs);
+                console.log('iOS设备MAC地址转换:', device.deviceId, '->', bluetoothMac);
+                
+                if (bluetoothMac && bluetoothMac.includes(':')) {
+                    // 如果是MAC地址格式，取后4位
+                    const cleanMac = bluetoothMac.replace(/:/g, '');
+                    if (cleanMac.length >= 4) {
+                        macSuffix = cleanMac.slice(-4).toUpperCase();
+                    }
+                } else {
+                    // 如果转换失败，使用原始deviceId或uuid的后4位
+                    const fallbackId = device.deviceId || device.uuid || '';
+                    const cleanId = fallbackId.replace(/[:\-]/g, '');
+                    if (cleanId.length >= 4) {
+                        macSuffix = cleanId.slice(-4).toUpperCase();
+                    }
+                }
+            } else {
+                // 如果没有advertisServiceUUIDs，使用deviceId或uuid的后4位
+                const fallbackId = device.deviceId || device.uuid || '';
+                const cleanId = fallbackId.replace(/[:\-]/g, '');
+                if (cleanId.length >= 4) {
+                    macSuffix = cleanId.slice(-4).toUpperCase();
+                }
+            }
+        } else {
+            // Android和其他平台: 直接使用deviceId或uuid
+            if (device.deviceId) {
+                // 移除可能的冒号分隔符
+                const cleanMac = device.deviceId.replace(/:/g, '');
+                if (cleanMac.length >= 4) {
+                    macSuffix = cleanMac.slice(-4).toUpperCase();
+                }
+            } else if (device.uuid) {
+                // 如果是UUID格式，取后4位
+                const cleanUuid = device.uuid.replace(/-/g, '');
+                if (cleanUuid.length >= 4) {
+                    macSuffix = cleanUuid.slice(-4).toUpperCase();
+                }
+            }
+        }
+        
+        // 根据平台返回不同的名称格式
+        if (platform === 'ios') {
+            return `zzZMinga_gx_${macSuffix}`;
+        } else if (platform === 'android') {
+            return `zzZMinga_gx_${macSuffix}`;
+        } else {
+            // 其他平台使用默认格式
+            return `zzZMinga_gx_${macSuffix}`;
+        }
+    }
+
+    /**
      * 添加连接状态
      */
     _addConnectionStatus(filteredDevices) {
         return filteredDevices.map(device => {
             const deviceId = device.deviceId || device.uuid;
+            const formattedName = this._formatDeviceName(device);
+            
             console.log('处理设备ID:', {
                 originalDeviceId: device.deviceId,
                 uuid: device.uuid,
                 finalDeviceId: deviceId,
-                deviceName: device.name
+                originalName: device.name,
+                formattedName: formattedName
             });
             
             return {
                 ...device,
                 deviceId: deviceId,
+                displayName: formattedName, // 添加格式化后的显示名称
                 isConnected: deviceId === this.page.data.connectedDeviceId
             };
         });
@@ -126,6 +199,13 @@ class BlueDeviceManager {
      * 连接蓝牙设备
      */
     async connectBluetooth(deviceId) {
+        // 檢查用戶是否已登录
+        const AuthApi = require('./authApi');
+        if (!AuthApi.isLoggedIn()) {
+            console.error('用戶未登录，無法連接設備');
+            throw new Error('請先登录後再連接設備');
+        }
+        
         const device = this.page.data.devices.find(d => d.deviceId === deviceId);
         
         try {

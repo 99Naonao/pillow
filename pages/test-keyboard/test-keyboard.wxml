@@ -1,0 +1,60 @@
+<!--pages/test-keyboard/test-keyboard.wxml-->
+<view class="container">
+  <view class="title">鍵盤測試頁面</view>
+  
+  <!-- 數字鍵盤測試 -->
+  <view class="input-group">
+    <text class="label">數字輸入（應該顯示數字鍵盤）：</text>
+    <input class="input-field" 
+           placeholder="請輸入數字" 
+           type="number" 
+           keyboard-type="number" />
+  </view>
+  
+  <!-- 字母鍵盤測試 -->
+  <view class="input-group">
+    <text class="label">字母輸入（應該顯示字母鍵盤）：</text>
+    <input class="input-field" 
+           placeholder="請輸入字母" 
+           type="text" 
+           keyboard-type="text" />
+  </view>
+  
+  <!-- 密碼輸入測試 -->
+  <view class="input-group">
+    <text class="label">密碼輸入（應該顯示字母鍵盤）：</text>
+    <input class="input-field" 
+           placeholder="請輸入密碼" 
+           type="text" 
+           password="true"
+           keyboard-type="text" />
+  </view>
+  
+  <!-- 郵箱輸入測試 -->
+  <view class="input-group">
+    <text class="label">郵箱輸入（應該顯示字母鍵盤）：</text>
+    <input class="input-field" 
+           placeholder="請輸入郵箱" 
+           type="text" 
+           keyboard-type="email" />
+  </view>
+
+  <!-- 簡化密碼輸入測試 -->
+  <view class="input-group">
+    <text class="label">簡化密碼輸入測試：</text>
+    <input class="input-field" 
+           placeholder="請輸入密碼" 
+           type="text" 
+           password="true" />
+  </view>
+
+  <!-- 強制字母鍵盤測試 -->
+  <view class="input-group">
+    <text class="label">強制字母鍵盤測試：</text>
+    <input class="input-field" 
+           placeholder="請輸入文字" 
+           type="text" 
+           always-embed="{{true}}"
+           auto-blur="{{false}}" />
+  </view>
+</view> 

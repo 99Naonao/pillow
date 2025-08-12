@@ -3,44 +3,46 @@ const commonUtil = require('../../utils/commonUtil');
 const BlueDeviceManager = require('../../utils/blueDeviceManager');
 const WifiConfigManager = require('../../utils/wifiConfigManager');
 const UuidConverter = require('../../utils/uuidConverter');
+const AuthApi = require('../../utils/authApi');
 
 Page({
     data: {
-        // 步驟
-        currentTab: 0, // 當前步驟
-        stepsCompleted: [false, false, false], // 步驟完成狀態
-        totalSteps: 3, // 總步驟數
+        // 步骤
+        currentTab: 0, // 当前步骤
+        stepsCompleted: [false, false, false], // 步骤完成状态
+        totalSteps: 3, // 总步骤数
         
-        // 藍牙
-        devices: [], // 搜索到的藍牙設備
-        connectedDeviceId: '', // 已連接的藍牙設備ID
-        send_characteristicId: '', // 寫入特征值ID
+        // 蓝牙
+        devices: [], // 搜索到的蓝牙设备
+        connectedDeviceId: '', // 已连接的蓝牙设备ID
+        send_characteristicId: '', // 写入特征值ID
         notify_cId: '', // 通知特征值ID
-        serviceId: '', // 服務ID
-        convertedSendId: '', // 轉換後的寫入特征值ID
-        convertedNotifyId: '', // 轉換後的通知特征值ID
-        isRefreshing: false, // 下拉刷新狀態
+        serviceId: '', // 服务ID
+        convertedSendId: '', // 转换后的写入特征值ID
+        convertedNotifyId: '', // 转换后的通知特征值ID
+        isRefreshing: false, // 下拉刷新状态
         isSearching: false, // 是否正在搜索
         
         // WiFi
-        isWifiConnected: false, // 手機是否已連接WiFi
-        wifiName: '', // 當前或已選WiFi名稱
-        wifiList: [], // 可選WiFi列表
-        wifiPassword: '', // WiFi密碼
-        wifiSelected: false, // 是否已選WiFi
-        wifiConnectSuccess: false, // WiFi連接狀態
-        showWifiList: false, // 是否顯示WiFi列表
+        isWifiConnected: false, // 手机是否已连接WiFi
+        wifiName: '', // 当前或已选WiFi名称
+        wifiList: [], // 可选WiFi列表
+        wifiPassword: '', // WiFi密码
+        wifiSelected: false, // 是否已选WiFi
+        wifiConnectSuccess: false, // WiFi连接状态
+        showWifiList: false, // 是否显示WiFi列表
         is5GConnected: false, // 是否5G
-        _has5GTip: false, // 防止重複彈出5G提示
-        _has5GTipModal: false, // 進入WiFi步驟時重置彈窗標記
+        _has5GTip: false, // 防止重复弹出5G提示
+        _has5GTipModal: false, // 进入WiFi步骤时重置弹窗标记
         wifiMac: '', // WiFi Mac地址
+        isConfiguring: false, // 是否正在配网中
         
-        // WiFi狀態檢測
-        showWifiModal: false, // 是否顯示WiFi彈窗
-        wifiModalContent: '', // WiFi彈窗內容
+        // WiFi状态检测
+        showWifiModal: false, // 是否显示WiFi弹窗
+        wifiModalContent: '', // WiFi弹窗内容
         
-        // 錯誤處理
-        _isShowingWifiError: false, // 防止重複顯示WiFi錯誤提示
+        // 错误处理
+        _isShowingWifiError: false, // 防止重复显示WiFi错误提示
     },
 
     onLoad() {
@@ -145,7 +147,7 @@ Page({
         if (device && device.isConnected) {
             wx.showModal({
                 title: '断开连接',
-                content: `确定要断开与设备 "${device.name}" 的连接吗？`,
+                content: `确定要断开与设备 "${device.displayName || 'zzZMinga设备'}" 的连接吗？`,
                 confirmText: '断开',
                 cancelText: '取消',
                 success: (res) => {
@@ -155,7 +157,27 @@ Page({
                 }
             });
         } else {
-            console.log('尝试连接设备:', deviceId);
+            // 檢查用戶是否已登录
+            if (!AuthApi.isLoggedIn()) {
+                console.log('用戶未登录，彈出登录提示');
+                wx.showModal({
+                    title: '请先登录',
+                    content: '您需要先登录才能链接设备，是否前往登录页面？',
+                    confirmText: '去登录',
+                    cancelText: '取消',
+                    success: (res) => {
+                        if (res.confirm) {
+                            // 跳轉到登录頁面
+                            wx.navigateTo({
+                                url: '/page_subject/login/login'
+                            });
+                        }
+                    }
+                });
+                return;
+            }
+            
+            console.log('嘗試連接設備:', deviceId);
             this.blueDeviceManager.connectBluetooth(deviceId);
         }
     },
@@ -268,5 +290,10 @@ Page({
     testWifiStatus() {
         console.log('手动测试WiFi状态检查');
         this.wifiConfigManager.checkWifiStatus();
+    },
+
+    // 停止配网
+    stopWifiConfig() {
+        this.wifiConfigManager.stopWifiConfig();
     }
 });

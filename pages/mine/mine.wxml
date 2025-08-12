@@ -1,23 +1,26 @@
 <!--pages/mine/mine.wxml-->
 <view class="mine-bg">
-  <nav-bar title="个人中心" showNavBtn="{{false}}"  bgColor="#083869" titleColor="#fff"/>
+  <nav-bar title="个人中心" showNavBtn="{{false}}"  bgColor="#0b2853" titleColor="#fff"/>
   <!-- 个人信息卡片 -->
   <view class="mine-card">
     <block wx:if="{{isLogin}}">
-      <image class="mine-avatar" src="{{avatarUrl}}" mode="aspectFill"/>
-      <view class="mine-userinfo">
-        <text class="mine-username">{{userName}}</text>
-        <view class="mine-score-row">
-          <text class="mine-score-label">我的积分</text>
-          <text class="mine-score-value">{{score}}</text>
-          <button class="mine-btn" bindtap="goToShop">前往商城使用</button>
+      <view class="user-profile-container">
+        <view class="avatar-section" bindtap="editAvatar">
+          <image class="mine-avatar" src="{{avatarUrl}}" mode="aspectFill"/>
+          <image class="edit-icon" src="../../static/update.png"/>
+        </view>
+        <view class="user-info-section">
+          <text class="user-id">{{userName}}</text>
         </view>
       </view>
     </block>
     <block wx:else>
-      <view class="not-login-content">
-        <button class="mine-btn-not-login" bindtap="goLogin">立即登录</button>
-        <text class="not-login-tip">登录享受更多功能</text>
+      <view class="not-login-content" bindtap="goLogin">
+        <view class="not-login-left">
+          <text class="not-login-title">立即登录</text>
+          <text class="not-login-tip">登录享受更多功能</text>
+        </view>
+        <image class="not-login-arrow" src="../../static/right_black.png"/>
       </view>
     </block>
   </view>
@@ -25,20 +28,47 @@
   <!-- 功能区卡片 -->
   <view class="mine-func-card">
     <view class="mine-func-row">
-      <image class="mine-func-icon" src="../../static/warn.png"/>
-      <text class="mine-func-label">告警通知</text>
+      <view class="mine-func-left">
+        <image class="mine-func-icon" src="../../static/warn.png"/>
+        <view class="mine-func-text">
+          <text class="mine-func-label">设置紧急联系人</text>
+          <text class="mine-func-desc">保障您的健康</text>
+        </view>
+      </view>
       <switch class="mine-switch" checked="{{alarmEnabled}}" bindchange="onToggleAlarm"/>
     </view>
     <view class="mine-func-row" bindtap="onShowProtocol">
-      <image class="mine-func-icon" src="../../static/service.png"/>
-      <text class="mine-func-label">服务协议</text>
-      <image class="mine-arrow" src="../../static/right.png"/>
+      <view class="mine-func-left">
+        <image class="mine-func-icon" src="../../static/service.png"/>
+        <view class="mine-func-text">
+          <text class="mine-func-label">服务协议</text>
+        </view>
+      </view>
+      <image class="mine-arrow" src="../../static/right_black.png"/>
     </view>
     <view class="mine-func-row" bindtap="onShowAbout">
-      <image class="mine-func-icon" src="../../static/info.png"/>
-      <text class="mine-func-label">关于我们</text>
-      <image class="mine-arrow" src="../../static/right.png"/>
+      <view class="mine-func-left">
+        <image class="mine-func-icon" src="../../static/info.png"/>
+        <view class="mine-func-text">
+          <text class="mine-func-label">用户协议</text>
+        </view>
+      </view>
+      <image class="mine-arrow" src="../../static/right_black.png"/>
     </view>
+    <view class="mine-func-row" bindtap="onShowPrivacy">
+      <view class="mine-func-left">
+        <image class="mine-func-icon" src="../../static/info.png"/>
+        <view class="mine-func-text">
+          <text class="mine-func-label">隐私政策</text>
+        </view>
+      </view>
+      <image class="mine-arrow" src="../../static/right_black.png"/>
+    </view>
+  </view>
+
+  <!-- 退出登录按钮 - 放置在页面底部 -->
+  <view wx:if="{{isLogin}}" class="logout-container">
+    <button class="mine-logout-btn" bindtap="logout">退出登录</button>
   </view>
 </view>
 
@@ -53,3 +83,48 @@
     </view>
   </view>
 </view>
+
+  <!-- 新的头像昵称获取弹窗 -->
+  <view wx:if="{{showNewAvatarModal}}" class="new-avatar-modal-mask" bindtap="closeNewAvatarModal">
+    <view class="new-avatar-modal" catchtap="stopPropagation">
+      <view class="new-avatar-modal-header">
+        <view class="new-avatar-modal-title">设置头像和昵称</view>
+        <view class="new-avatar-modal-close" bindtap="closeNewAvatarModal">✕</view>
+      </view>
+      <view class="new-avatar-content">
+        <!-- 头像选择 -->
+        <view class="modal-avatar-section">
+          <text class="modal-section-title">选择头像</text>
+          <button class="modal-avatar-wrapper" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+            <image class="modal-avatar" src="{{tempUserInfo.avatarUrl}}"></image>
+            <view class="modal-avatar-overlay">
+              <text class="modal-avatar-text">点击选择</text>
+            </view>
+          </button>
+        </view>
+        
+        <!-- 昵称输入 -->
+        <view class="nickname-section">
+          <text class="section-title">设置昵称</text>
+          <view class="nickname-wrapper">
+            <input type="nickname" 
+                   class="nickname-input" 
+                   placeholder="请输入昵称" 
+                   bind:change="onInputChange"
+                   value="{{tempUserInfo.nickName}}" />
+          </view>
+        </view>
+      </view>
+      <view class="new-avatar-modal-btns">
+        <button class="new-avatar-modal-btn cancel" bindtap="closeNewAvatarModal">取消</button>
+        <button class="new-avatar-modal-btn confirm" bindtap="saveNewUserInfo">确定</button>
+      </view>
+    </view>
+  </view>
+
+<!-- 协议查看器组件 -->
+<protocol-viewer 
+  protocolType="{{currentProtocolType}}"
+  visible="{{showProtocolViewer}}"
+  bind:close="onCloseProtocolViewer"
+/>
