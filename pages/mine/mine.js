@@ -1,6 +1,7 @@
 // pages/mine/mine.js
 const DeviceManager = require('../../utils/deviceManager');
 const AuthApi = require('../../utils/authApi');
+const CommonUtil = require('../../utils/commonUtil');
 
 Page({
 
@@ -30,14 +31,14 @@ Page({
     breathRate: 0,
     breathThreshold: 10, // 呼吸频率阈值
     breathLowCount: 0, // 连续低呼吸次数
-    breathLowLimit: 3, // 连续低呼吸限制
+    breathLowLimit: 12, // 连续低呼吸限制
     // 心率监测相关
     heartRate: 0,
-    heartThreshold: 50, // 心率阈值（低）
-    heartHighThreshold: 120, // 心率阈值（高）
+    heartThreshold: 40, // 心率阈值（低）
+    heartHighThreshold: 80, // 心率阈值（高）
     heartLowCount: 0, // 连续心率异常次数
     heartHighCount: 0, // 连续心率异常次数
-    heartLowLimit: 3, // 连续心率异常限制
+    heartLowLimit: 12, // 连续心率异常限制
     alarmed: false, // 是否已告警
     // 协议查看相关
     showProtocolViewer: false,
@@ -94,7 +95,7 @@ Page({
       this.startBreathMonitor();
     } else if (this.data.alarmEnabled && !AuthApi.isLoggedIn()) {
       // 如果告警已启用但用户未登录，自动关闭告警
-      console.log('用戶未登录，自動關閉告警功能');
+      console.log('用户未登录，自动关闭告警功能');
       this.setData({ alarmEnabled: false });
       this.saveAlarmSettings();
     }
@@ -182,24 +183,24 @@ Page({
    */
   onToggleAlarm(e) {
     if (e.detail.value) {
-      // 檢查用戶是否已登录
+      // 检查用户是否已登录
       if (!AuthApi.isLoggedIn()) {
-        console.log('用戶未登录，彈出登录提示');
+        console.log('用户未登录，弹出登录提示');
         wx.showModal({
           title: '请先登录',
-          content: '您需要先登录才能设置紧急联系人，是否前往登录頁面？',
+          content: '您需要先登录才能设置紧急联系人，是否前往登录页面？',
           confirmText: '去登录',
           cancelText: '取消',
           success: (res) => {
             if (res.confirm) {
-              // 跳轉到登录頁面
+              // 跳转到登录页面
               wx.navigateTo({
                 url: '/page_subject/login/login'
               });
             }
           }
         });
-        // 重置開關狀態
+        // 重置开关状态
         this.setData({ alarmEnabled: false });
         return;
       }
@@ -233,9 +234,9 @@ Page({
    * 确认手机号绑定
    */
   onPhoneModalConfirm() {
-    // 再次檢查用戶是否已登录（雙重保護）
+    // 再次检查用户是否已登录（双重保护）
     if (!AuthApi.isLoggedIn()) {
-      console.log('用戶未登录，無法綁定手機號');
+      console.log('用户未登录，无法绑定手机号');
       wx.showToast({
         title: '请先登录',
         icon: 'none'
@@ -252,8 +253,13 @@ Page({
       return;
     }
     
-    if (!/^1[3-9]\d{9}$/.test(phone)) {
-      wx.showToast({ title: '请输入有效的手机号', icon: 'none' });
+    if (!CommonUtil.isValidChinesePhone(phone)) {
+      wx.showModal({
+        title: '提示',
+        content: '请检查输入的手机号是否有误',
+        showCancel: false,
+        confirmText: '确定'
+      });
       return;
     }
 
@@ -293,8 +299,8 @@ Page({
       duration: 2000
     });
 
-    // 添加测试代码：立即触发语音告警测试
-    this.testVoiceAlarm();
+    // 移除測試代碼：不再自動觸發語音告警測試
+    // this.testVoiceAlarm();
   },
 
   /**
@@ -308,12 +314,13 @@ Page({
   },
 
   /**
-   * 测试语音告警功能
+   * 测试语音告警功能（已屏蔽，保留代碼以備將來需要時使用）
    */
+  /*
   testVoiceAlarm() {
-    // 檢查用戶是否已登录
+    // 检查用户是否已登录
     if (!AuthApi.isLoggedIn()) {
-      console.log('用戶未登录，無法測試語音告警');
+      console.log('用户未登录，无法测试语音告警');
       wx.showToast({
         title: '请先登录',
         icon: 'none'
@@ -364,14 +371,15 @@ Page({
       });
     }, 2000);
   },
+  */
 
   /**
    * 启动呼吸监测
    */
   startBreathMonitor() {
-    // 檢查用戶是否已登录
+    // 检查用户是否已登录
     if (!AuthApi.isLoggedIn()) {
-      console.log('用戶未登录，無法啟動呼吸監測');
+      console.log('用户未登录，无法启动呼吸监测');
       return;
     }
     
@@ -400,13 +408,13 @@ Page({
    * 检查呼吸频率和心率
    */
   checkBreathRate() {
-    // 獲取設備實時數據
+    // 获取设备实时数据
     const commonUtil = require('../../utils/commonUtil');
     const wifiMac = commonUtil.getSavedWifiMac();
     
     if (!wifiMac) {
-      console.log('沒有保存的WiFi MAC地址');
-      wx.showToast({ title: '請先連接設備', icon: 'none' });
+      console.log('没有保存的WiFi MAC地址');
+      wx.showToast({ title: '请先连接设备', icon: 'none' });
       return;
     }
     
@@ -418,7 +426,7 @@ Page({
     }
     
     if (!wifiMac) {
-      console.log('沒有WiFi MAC地址，無法獲取設備數據');
+      console.log('没有WiFi MAC地址，无法获取设备数据');
       return;
     }
 
@@ -449,14 +457,16 @@ Page({
           if (breathRate < this.data.breathThreshold) {
             const newCount = this.data.breathLowCount + 1;
             this.setData({ breathLowCount: newCount });
-            console.log('呼吸频率过低，连续次数:', newCount);
+            console.log('呼吸频率过低，连续次数:', newCount, '限制:', this.data.breathLowLimit);
             
             if (newCount >= this.data.breathLowLimit && !this.data.alarmed) {
+              console.log('呼吸频率连续异常达到限制，触发语音告警');
               this.setData({ alarmed: true });
               this.triggerVoiceAlarm(1); // 1呼吸异常
             }
           } else {
             this.setData({ breathLowCount: 0 });
+            console.log('呼吸频率正常，重置异常计数');
           }
         }
 
@@ -467,18 +477,20 @@ Page({
           if (heartRate < this.data.heartThreshold) {
             const newCount = this.data.heartLowCount + 1;
             this.setData({ heartLowCount: newCount });
-            console.log('心率过低，连续次数:', newCount);
+            console.log('心率过低，连续次数:', newCount, '限制:', this.data.heartLowLimit);
             
             if (newCount >= this.data.heartLowLimit && !this.data.alarmed) {
+              console.log('心率过低连续异常达到限制，触发语音告警');
               this.setData({ alarmed: true });
               this.triggerVoiceAlarm(2); // 2心率异常
             }
           } else if (heartRate > this.data.heartHighThreshold) {
             const newCount = this.data.heartHighCount + 1;
             this.setData({ heartHighCount: newCount });
-            console.log('心率过高，连续次数:', newCount);
+            console.log('心率过高，连续次数:', newCount, '限制:', this.data.heartLowLimit);
             
             if (newCount >= this.data.heartLowLimit && !this.data.alarmed) {
+              console.log('心率过高连续异常达到限制，触发语音告警');
               this.setData({ alarmed: true });
               this.triggerVoiceAlarm(2); // 2心率异常
             }
@@ -487,6 +499,7 @@ Page({
               heartLowCount: 0,
               heartHighCount: 0
             });
+            console.log('心率正常，重置异常计数');
           }
         }
 
@@ -494,6 +507,9 @@ Page({
         if (breathRate >= this.data.breathThreshold && 
             heartRate >= this.data.heartThreshold && 
             heartRate <= this.data.heartHighThreshold) {
+          if (this.data.alarmed) {
+            console.log('所有指标恢复正常，重置告警状态');
+          }
           this.setData({ alarmed: false });
         }
       } else {
@@ -509,13 +525,19 @@ Page({
    * @param {number} type 告警类型 1呼吸异常、2心率异常、3离床
    */
   triggerVoiceAlarm(type = 1) {
-    // 檢查用戶是否已登录
+    console.log('=== 开始触发语音告警 ===');
+    console.log('告警类型:', type);
+    console.log('当前告警状态:', this.data.alarmed);
+    console.log('告警手机号:', this.data.alarmPhone);
+    
+    // 检查用户是否已登录
     if (!AuthApi.isLoggedIn()) {
-      console.log('用戶未登录，無法觸發語音告警');
+      console.log('用户未登录，无法触发语音告警');
       return;
     }
     
     if (!this.data.alarmPhone) {
+      console.log('告警手机号为空，无法触发语音告警');
       wx.showToast({ title: '请先输入告警手机号', icon: 'none' });
       return;
     }
@@ -537,21 +559,23 @@ Page({
       3: '离床'
     };
 
-    console.log('触发语音告警，手机号:', this.data.alarmPhone, '类型:', typeNames[type]);
+    console.log('准备发送语音告警，手机号:', this.data.alarmPhone, '类型:', typeNames[type]);
 
     // 调用真实的语音告警API
     this.deviceManager.voiceNotifation({
       phone: this.data.alarmPhone,
       type: type
     }).then(res => {
-      console.log('语音告警发送成功:', res);
+      console.log('语音告警API调用成功，响应:', res);
       if (res.ret === 0) {
+        console.log('语音告警发送成功');
         wx.showToast({ 
           title: `语音告警已发送`, 
           icon: 'success',
           duration: 2000
         });
       } else {
+        console.error('语音告警API返回错误:', res.msg || '未知错误');
         wx.showToast({ 
           title: `告警发送失败: ${res.msg || '未知错误'}`, 
           icon: 'none',
@@ -559,13 +583,15 @@ Page({
         });
       }
     }).catch(error => {
-      console.error('语音告警发送失败:', error);
+      console.error('语音告警API调用失败:', error);
       wx.showToast({ 
         title: '语音告警发送失败', 
         icon: 'none',
         duration: 2000
       });
     });
+    
+    console.log('=== 语音告警触发完成 ===');
   },
 
   onShowProtocol() {
@@ -613,7 +639,7 @@ Page({
           // 清除用户信息
           AuthApi.clearUserInfo();
           
-          // 更新頁面狀態
+          // 更新页面状态
           this.setData({
             isLogin: false,
             avatarUrl: '',
@@ -797,7 +823,7 @@ Page({
         this.closeAvatarModal();
         
         wx.showToast({
-          title: '頭像更新成功',
+          title: '头像更新成功',
           icon: 'success',
           duration: 2000
         });
@@ -903,34 +929,34 @@ Page({
    * 从相册选择头像
    */
   chooseFromAlbum() {
-    // 先檢查相冊權限
+    // 先检查相册权限
     wx.getSetting({
       success: (res) => {
-        console.log('相冊權限設置:', res);
+        console.log('相册权限设置:', res);
         
         if (res.authSetting['scope.writePhotosAlbum']) {
-          // 已有權限，直接選擇
+          // 已有权限，直接选择
           this.chooseImage();
         } else {
-          // 沒有權限，先請求權限
+          // 没有权限，先请求权限
           wx.authorize({
             scope: 'scope.writePhotosAlbum',
             success: () => {
-              console.log('相冊權限授權成功');
+              console.log('相册权限授权成功');
               this.chooseImage();
             },
             fail: (error) => {
-              console.error('相冊權限授權失敗:', error);
+              console.error('相册权限授权失败:', error);
               wx.showModal({
                 title: '提示',
-                content: '需要訪問您的相冊，請在設置中開啟權限',
-                confirmText: '去設置',
+                content: '需要访问您的相册，请在设置中开启权限',
+                confirmText: '去设置',
                 cancelText: '取消',
                 success: (modalRes) => {
                   if (modalRes.confirm) {
                     wx.openSetting({
                       success: (settingRes) => {
-                        console.log('設置頁面結果:', settingRes);
+                        console.log('设置页面结果:', settingRes);
                         if (settingRes.authSetting['scope.writePhotosAlbum']) {
                           this.chooseImage();
                         }
@@ -944,15 +970,15 @@ Page({
         }
       },
       fail: (error) => {
-        console.error('獲取相冊權限設置失敗:', error);
-        // 如果獲取權限設置失敗，直接嘗試選擇圖片
+        console.error('获取相册权限设置失败:', error);
+        // 如果获取权限设置失败，直接尝试选择图片
         this.chooseImage();
       }
     });
   },
 
   /**
-   * 選擇圖片
+   * 选择图片
    */
   chooseImage() {
     wx.chooseImage({
@@ -1075,7 +1101,7 @@ Page({
       userName: newUserName
     });
 
-    console.log('頁面顯示已更新');
+    console.log('页面显示已更新');
     console.log('本地用户信息更新成功:', updatedUserInfo);
   },
 

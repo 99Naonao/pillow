@@ -208,7 +208,7 @@ voiceNotifation(params){
     this.clearRealtimeTimer();
     this._realtimeTimer = setInterval(() => {
       this.getDeviceRealtimeData(mac);
-    }, 1000);
+    }, 5000);
     this.page.setData({ _realtimeTimer: this._realtimeTimer });
   }
 
