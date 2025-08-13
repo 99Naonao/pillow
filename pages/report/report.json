@@ -2,7 +2,6 @@
   "navigationStyle": "custom",
   "usingComponents": {
     "nav-bar":"/components/HeaderNavBar/headerNav",
-    "ec-canvas":"../../components/ec-canvas/ec-canvas",
-    "t-calendar":"/miniprogram_npm/tdesign-miniprogram/calendar/calendar"
+    "ec-canvas":"/components/ec-canvas/ec-canvas"
   }
 }

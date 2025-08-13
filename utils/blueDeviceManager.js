@@ -13,6 +13,14 @@ class BlueDeviceManager {
      * 搜索蓝牙设备
      */
     async searchBluetoothDevices(callback) {
+        // 检查当前页面是否为blue页面
+        const currentRoute = this.page.route || '';
+        if (!currentRoute.includes('blue')) {
+            console.log('当前页面不是blue页面，跳过蓝牙搜索:', currentRoute);
+            if (callback) callback();
+            return;
+        }
+        
         const { data } = this.page;
         
         // 如果正在搜索，直接返回
@@ -253,7 +261,7 @@ class BlueDeviceManager {
                 connectedDeviceId: deviceId,
                 stepsCompleted: [true, false, false],
                 currentTab: 1,
-                // 重置WiFi相关状态
+                // 重置WiFi相关状态，但保留WiFi MAC地址
                 wifiSelected: false,
                 showWifiList: false,
                 wifiName: '',
@@ -262,6 +270,7 @@ class BlueDeviceManager {
                 is5GConnected: false,
                 // 重置错误处理标记
                 _isShowingWifiError: false
+                // 注意：不重置wifiMac，保護已保存的WiFi MAC信息
             });
             
             // 获取服务和特征值
@@ -322,12 +331,15 @@ class BlueDeviceManager {
 
     /**
      * 断开蓝牙连接
+     * 注意：此方法不会清除已保存的WiFi MAC信息，以保护用户的设备配置
      */
     async disconnectBluetooth(deviceId) {
         if (deviceId) {
             try {
                 await this.bluetoothManager.disconnectBluetooth(deviceId);
                 console.log('蓝牙连接已断开');
+                // 注意：不调用clearSavedWifiMac()，保护已保存的WiFi MAC信息
+                console.log('WiFi MAC信息已保留，不会被清除');
             } catch (error) {
                 console.error('断开蓝牙连接失败:', error);
             }

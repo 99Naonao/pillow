@@ -13,13 +13,13 @@
   </view>
 
   <!-- TDesign 日历弹窗 -->
-  <t-calendar
+  <!-- <t-calendar
     visible="{{showCalendar}}"
     value="{{calendarValue}}"
     mode="single"
     bind:close="onCalendarClose"
     bind:confirm="onCalendarConfirm"
-  />
+  /> -->
 
   <scroll-view scroll-y="true" class="report-scroll-content">
     <!-- 加载状态 -->

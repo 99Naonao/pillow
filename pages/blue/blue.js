@@ -51,6 +51,13 @@ Page({
         this.wifiConfigManager = new WifiConfigManager(this);
         this.UuidConverter = UuidConverter;
         this.commonUtil = commonUtil;
+        
+        // 保護已保存的WiFi MAC信息，從本地存儲讀取
+        const savedWifiMac = commonUtil.getSavedWifiMac();
+        if (savedWifiMac) {
+            this.setData({ wifiMac: savedWifiMac });
+            console.log('頁面初始化時恢復已保存的WiFi MAC:', savedWifiMac);
+        }
     },
 
     onShow() {

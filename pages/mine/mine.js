@@ -400,15 +400,25 @@ Page({
    * 检查呼吸频率和心率
    */
   checkBreathRate() {
-    // 从设备获取最新的呼吸频率和心率
-    const wifiMac = wx.getStorageSync('wifiMac');
-    const convertedIds = wx.getStorageSync('convertedCharacteristicIds');
-    
-    console.log('当前WiFi MAC地址:', wifiMac);
-    console.log('转换后的特征值ID:', convertedIds);
+    // 獲取設備實時數據
+    const commonUtil = require('../../utils/commonUtil');
+    const wifiMac = commonUtil.getSavedWifiMac();
     
     if (!wifiMac) {
-      console.log('未找到设备MAC地址，跳过监测');
+      console.log('沒有保存的WiFi MAC地址');
+      wx.showToast({ title: '請先連接設備', icon: 'none' });
+      return;
+    }
+    
+    console.log('当前WiFi MAC地址:', wifiMac);
+    
+    if (!this.deviceManager) {
+      console.error('deviceManager未初始化');
+      return;
+    }
+    
+    if (!wifiMac) {
+      console.log('沒有WiFi MAC地址，無法獲取設備數據');
       return;
     }
 

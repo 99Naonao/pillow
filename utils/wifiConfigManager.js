@@ -341,6 +341,8 @@ class WifiConfigManager {
                     
                     // 监听特征值变化
                     wx.onBLECharacteristicValueChange((res) => {
+                      console.log("特征值变化返回值",res);
+                      console.log("当前连接的设备id",connectedDeviceId)
                         if (res.deviceId === connectedDeviceId) {
                             this._handleGoodSleepWifiConfigResult(res.value);
                         }
@@ -517,7 +519,7 @@ class WifiConfigManager {
             // 不显示弹窗，继续等待
             // 重新设置配网超时，继续等待
             this._setWifiConfigTimeout();
-        }, 10000); // 30秒超时
+        }, 10000); // 10秒超时
     }
 
     /**
