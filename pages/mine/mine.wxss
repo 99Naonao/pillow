@@ -157,8 +157,8 @@
 }
 
 .mine-arrow {
-  width: 36rpx;
-  height: 36rpx;
+  width: 48rpx;
+  height: 48rpx;
   opacity: 0.8;
 }
 
@@ -199,6 +199,133 @@
   width: 36rpx;
   height: 36rpx;
   opacity: 0.8;
+}
+
+/* 联系人管理弹窗样式 */
+.contact-modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.contact-modal {
+  background: #fff;
+  border-radius: 20rpx;
+  margin: 40rpx;
+  max-height: 80vh;
+  width: calc(100% - 80rpx);
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 40rpx 30rpx 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.contact-modal-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  flex: 1;
+}
+
+.contact-modal-close {
+  width: 48rpx;
+  height: 48rpx;
+  opacity: 0.6;
+  padding: 8rpx;
+}
+
+.contact-list {
+  flex: 1;
+  padding: 20rpx 30rpx;
+  max-height: 400rpx;
+  overflow-y: auto;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.contact-item:last-child {
+  border-bottom: none;
+}
+
+.contact-phone {
+  font-size: 32rpx;
+  color: #333;
+  flex: 1;
+}
+
+.contact-delete {
+  width: 32rpx;
+  height: 32rpx;
+  padding: 8rpx;
+}
+
+.no-contacts {
+  text-align: center;
+  padding: 60rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.contact-modal-btns {
+  display: flex;
+  padding: 20rpx 30rpx 40rpx;
+  gap: 20rpx;
+}
+
+.contact-modal-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 32rpx;
+  border: none;
+}
+
+.contact-modal-btn.add {
+  background: #007AFF;
+  color: #fff;
+}
+
+.contact-modal-btn.cancel {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.contact-delete-btn {
+  background: #ff4757;
+  color: #fff;
+  border: none;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  padding: 10rpx 20rpx;
+  min-width: 80rpx;
+  height: 60rpx;
+  line-height: 40rpx;
+  margin: 0;
+}
+
+.contact-delete-btn:active {
+  background: #ff3742;
+  transform: scale(0.95);
 }
 
 /* 手机号输入弹窗样式 */

@@ -1,0 +1,111 @@
+/* page_subject/ring/ring.wxss */
+page {
+  height: 100vh;
+  overflow: hidden;
+  background: #0b2853;
+  margin: 0;
+  padding: 0;
+}
+
+.page-container {
+  height: calc(100vh - 88rpx);
+  background: #0b2853;
+  padding: 20rpx;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+  margin-top: 30rpx;
+  padding: 0 10rpx;
+}
+
+.section-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
+.reference-container {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.reference-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 8rpx;
+}
+
+.reference-text {
+  font-size: 26rpx;
+  color: #cfb679;
+}
+
+.reminder-text {
+  color: #b0b0b0;
+  font-size: 26rpx;
+  margin: 0 10rpx 20rpx 10rpx;
+  line-height: 1.5;
+  padding: 15rpx 0;
+}
+
+.section {
+  background: #175c77;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  padding: 30rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.3);
+  border: 1rpx solid #3A4B7C;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 25rpx 0;
+  border-bottom: 1rpx solid #3A4B7C;
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-item.clickable {
+  cursor: pointer;
+}
+
+.setting-item.clickable:active {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 8rpx;
+  margin: 0 -10rpx;
+  padding: 25rpx 10rpx;
+}
+
+.setting-label {
+  font-size: 32rpx;
+  color: #fff;
+  flex: 1;
+}
+
+.setting-value {
+  display: flex;
+  align-items: center;
+  color: #fff;
+  font-size: 30rpx;
+}
+
+.arrow-icon {
+  width: 24rpx;
+  height: 24rpx;
+  margin-left: 10rpx;
+}

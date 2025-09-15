@@ -92,22 +92,22 @@
 }
 .score-circle-wrap {
   position: relative;
-  width: 220rpx;
-  height: 220rpx;
+  width: 180rpx;
+  height: 180rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .score-circle-canvas {
-  width: 220rpx;
-  height: 220rpx;
+  width: 180rpx;
+  height: 180rpx;
 }
 .circle-score-abs {
   position: absolute;
   top: 0;
   left: 0;
-  width: 220rpx;
-  height: 220rpx;
+  width: 180rpx;
+  height: 180rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -119,12 +119,20 @@
   flex-direction: row;
   margin: 32rpx 32rpx 0 32rpx;
   align-items: center;
+  justify-content: space-between;
+  min-height: 300rpx;
+  overflow: visible;
 }
 .stage-pie {
-  flex: 1;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 300rpx;
+  height: 300rpx;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
 }
 .pie-canvas {
   width: 200rpx;
@@ -155,6 +163,14 @@
   margin-left: auto;
   font-size: 24rpx;
   color: #fff;
+  margin-right: 16rpx;
+}
+
+.legend-duration {
+  font-size: 24rpx;
+  color: #fff;
+  min-width: 40rpx;
+  text-align: right;
 }
 .stage-legend-box {
   background: #175c77;
@@ -164,7 +180,8 @@
   flex: 1;
   display: flex;
   align-items: center;
-  min-width: 160rpx;
+  min-width: 200rpx;
+  max-width: 300rpx;
 }
 .stage-pie ec-canvas {
   width: 160rpx;
@@ -204,7 +221,7 @@
 }
 .time-block {
   width: 46%;
-  height: 44%;
+  height: 52%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;

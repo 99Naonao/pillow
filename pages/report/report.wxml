@@ -12,15 +12,6 @@
     </view>
   </view>
 
-  <!-- TDesign 日历弹窗 -->
-  <!-- <t-calendar
-    visible="{{showCalendar}}"
-    value="{{calendarValue}}"
-    mode="single"
-    bind:close="onCalendarClose"
-    bind:confirm="onCalendarConfirm"
-  /> -->
-
   <scroll-view scroll-y="true" class="report-scroll-content">
     <!-- 加载状态 -->
     <view class="loading-container" wx:if="{{loading}}">
@@ -62,7 +53,8 @@
     <!-- 睡眠分期饼图与比例 -->
     <view class="stage-row">
       <view class="stage-pie">
-        <ec-canvas wx:if="{{stagePieChart}}" id="stagePieChart" canvas-id="stagePieChart" ec="{{stagePieChart}}"></ec-canvas>
+        <!-- <ec-canvas wx:if="{{stagePieChart}}" id="stagePieChart" canvas-id="stagePieChart" ec="{{stagePieChart}}"></ec-canvas> -->
+        <sleep-stage-chart sleep-report="{{currentReport}}"></sleep-stage-chart>
       </view>
       <view class="stage-legend-box">
         <view class="stage-legend">
@@ -70,21 +62,25 @@
             <view class="legend-dot shallow"></view>
             <text>浅睡期</text>
             <text class="legend-percent">{{shallowPercent}}%</text>
+            <text class="legend-duration">{{shallowDuration}}h</text>
           </view>
-          <view class="legend-row">
+          <!-- <view class="legend-row" wx:if="{{remPercent > 0}}">
             <view class="legend-dot rem"></view>
             <text>快速眼动</text>
             <text class="legend-percent">{{remPercent}}%</text>
-          </view>
+            <text class="legend-duration">{{remDuration}}h</text>
+          </view> -->
           <view class="legend-row">
             <view class="legend-dot deep"></view>
             <text>深睡期</text>
             <text class="legend-percent">{{deepPercent}}%</text>
+            <text class="legend-duration">{{deepDuration}}h</text>
           </view>
           <view class="legend-row">
             <view class="legend-dot awake"></view>
             <text>清醒期</text>
             <text class="legend-percent">{{awakePercent}}%</text>
+            <text class="legend-duration">{{awakeDuration}}h</text>
           </view>
         </view>
       </view>
@@ -143,14 +139,14 @@
       </view>
     </view>
 
-    <!-- 睡眠年龄 -->
+    <!-- 睡眠年龄
     <view class="trend-card" wx:if="{{sleepAge > 0}}">
       <view class="trend-header">
         <image src="../../static/score.png" class="trend-icon"/>
         <text class="trend-title">睡眠年龄</text>
         <text class="trend-value">{{sleepAge}}岁</text>
       </view>
-    </view>
+    </view> -->
 
     <!-- 入睡时间 -->
     <view class="trend-card" wx:if="{{sleepOnsetTime > 0}}">

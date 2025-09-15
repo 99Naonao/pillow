@@ -83,6 +83,7 @@ class ChartConfigs {
     };
   }
 
+  
   /**
    * 创建心率趋势图配置
    * @param {Object} chartData 图表数据

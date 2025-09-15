@@ -169,7 +169,7 @@ Page({
                 console.log('用戶未登录，彈出登录提示');
                 wx.showModal({
                     title: '请先登录',
-                    content: '您需要先登录才能链接设备，是否前往登录页面？',
+                    content: '您需要先登录才能连接设备，是否前往登录页面？',
                     confirmText: '去登录',
                     cancelText: '取消',
                     success: (res) => {

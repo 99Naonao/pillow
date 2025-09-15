@@ -249,7 +249,11 @@ class DataProcessor {
       deepPercent,
       lightPercent,
       remPercent,
-      awakePercent
+      awakePercent,
+      deepDuration: (deepSleep / 60).toFixed(1),    // 转换为小时
+      lightDuration: (lightSleep / 60).toFixed(1),  // 转换为小时
+      remDuration: (remSleep / 60).toFixed(1),      // 转换为小时
+      awakeDuration: (awake / 60).toFixed(1)        // 转换为小时
     };
   }
 

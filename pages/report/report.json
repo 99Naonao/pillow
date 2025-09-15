@@ -2,6 +2,7 @@
   "navigationStyle": "custom",
   "usingComponents": {
     "nav-bar":"/components/HeaderNavBar/headerNav",
-    "ec-canvas":"/components/ec-canvas/ec-canvas"
+    "ec-canvas":"/components/ec-canvas/ec-canvas",
+    "sleep-stage-chart":"/components/SleepStageChart/sleepStageChart"
   }
 }

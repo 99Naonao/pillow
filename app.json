@@ -4,7 +4,8 @@
       "root": "page_subject",
       "pages": [
         "login/login",
-        "register/register"
+        "register/register",
+        "ring/ring"
       ]
     }
   ],

@@ -198,7 +198,7 @@ class WifiConfigManager {
                 this._startGoodSleepWifiConfigListener();
                 
                 // 设置配网超时处理
-                this._setWifiConfigTimeout();
+                // this._setWifiConfigTimeout();
                 
             } else {
                 wx.hideLoading();
@@ -368,10 +368,10 @@ class WifiConfigManager {
             this._clearWifiConfigTimeout();
             
             // 将ArrayBuffer转换为字符串 - 使用小程序兼容的方式
-            const result = this._arrayBufferToString(value);
-            
+            const result = this._arrayBufferToString(value); 
             console.log('收到Good Sleep设备配网结果:', value);
-            
+            console.log('配网结果原始数据:', Array.from(new Uint8Array(value)));
+
             // 检查是否是状态码响应（55 AA 55 AA开头）
             if (this._isStatusResponse(value)) {
                 this._handleStatusResponse(value);
@@ -379,27 +379,27 @@ class WifiConfigManager {
             }
             
             // 解析Good Sleep配网结果
-            if (result.includes('GOODSLEEP_WIFI_SUCCESS')) {
-                wx.hideLoading();
-                wx.showToast({ title: '配网成功', icon: 'success' });
-                this.page.setData({
-                    stepsCompleted: [true, true, true],
-                    currentTab: 2,
-                    isConfiguring: false
-                });
-            } else if (result.includes('GOODSLEEP_WIFI_FAILED')) {
-                // 配网失败时不显示弹窗，继续等待
-                console.log('配网失败，继续等待设备响应...');
-                // 重新设置配网超时，继续等待
-                this._setWifiConfigTimeout();
-            } else if (result.includes('GOODSLEEP_WIFI_CONNECTING')) {
-                wx.showToast({ title: '正在连接WiFi...', icon: 'loading' });
-            } else if (result.includes('GOODSLEEP_WIFI_TIMEOUT')) {
-                // 配网超时时不显示弹窗，继续等待
-                console.log('配网超时，继续等待设备响应...');
-                // 重新设置配网超时，继续等待
-                this._setWifiConfigTimeout();
-            }
+            // if (result.includes('GOODSLEEP_WIFI_SUCCESS')) {
+            //     wx.hideLoading();
+            //     wx.showToast({ title: '配网成功', icon: 'success' });
+            //     this.page.setData({
+            //         stepsCompleted: [true, true, true],
+            //         currentTab: 2,
+            //         isConfiguring: false
+            //     });
+            // } else if (result.includes('GOODSLEEP_WIFI_FAILED')) {
+            //     // 配网失败时不显示弹窗，继续等待
+            //     console.log('配网失败，继续等待设备响应...');
+            //     // 重新设置配网超时，继续等待
+            //     this._setWifiConfigTimeout();
+            // } else if (result.includes('GOODSLEEP_WIFI_CONNECTING')) {
+            //     wx.showToast({ title: '正在连接WiFi...', icon: 'loading' });
+            // } else if (result.includes('GOODSLEEP_WIFI_TIMEOUT')) {
+            //     // 配网超时时不显示弹窗，继续等待
+            //     console.log('配网超时，继续等待设备响应...');
+            //     // 重新设置配网超时，继续等待
+            //     this._setWifiConfigTimeout();
+            // }
             
         } catch (error) {
             console.error('处理Good Sleep WiFi配网结果失败:', error);
@@ -413,7 +413,7 @@ class WifiConfigManager {
         try {
             // 检查是否有TextDecoder
             if (typeof TextDecoder !== 'undefined') {
-                const decoder = new TextDecoder();
+                const decoder = new TextDecoder("utf-8");
                 return decoder.decode(buffer);
             } else {
                 // 小程序环境下的兼容处理
@@ -456,7 +456,8 @@ class WifiConfigManager {
             const statusCode = uint8Array[uint8Array.length - 1]; // 最后一个字节是状态码
             
             console.log('收到状态码响应:', statusCode);
-            
+            console.log('状态码十六进制:', '0x' + statusCode.toString(16));
+
             switch (statusCode) {
                 case 0x01: // WIFI 连接上
                     console.log('WiFi已连接');
@@ -465,7 +466,7 @@ class WifiConfigManager {
                     // 配网失败时不显示弹窗，继续等待
                     console.log('WiFi连接失败，继续等待设备响应...');
                     // 重新设置配网超时，继续等待
-                    this._setWifiConfigTimeout();
+                    // this._setWifiConfigTimeout();
                     break;
                 case 0x04: // WIFI 连接成功,TCP连接成功
                     wx.hideLoading();
@@ -512,14 +513,12 @@ class WifiConfigManager {
     _setWifiConfigTimeout() {
         // 清除之前的超时定时器
         this._clearWifiConfigTimeout();
-        
-        // 10秒后如果还没有收到配网结果，继续等待而不是显示弹窗
+        // 10秒后如果还没有收到配网结果，继续等待
         this.wifiConfigTimeout = setTimeout(() => {
             console.log('Good Sleep配网超时，未收到设备响应，继续等待...');
-            // 不显示弹窗，继续等待
             // 重新设置配网超时，继续等待
             this._setWifiConfigTimeout();
-        }, 10000); // 10秒超时
+        }, 15000); // 10秒超时
     }
 
     /**

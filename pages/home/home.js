@@ -1,5 +1,7 @@
 // pages/home.js
 const DeviceManager = require('../../utils/deviceManager');
+const AuthApi = require('../../utils/authApi');
+const BluetoothManager = require('../../utils/bluetoothManager');
 
 Page({
 
@@ -26,10 +28,23 @@ Page({
   onLoad(options) {
     this.deviceManager = new DeviceManager(this);
     
+    // 检查用户是否已登录
+    if (!AuthApi.isLoggedIn()) {
+      console.log('[home] 页面加载时用户未登录，跳过设备初始化');
+      return;
+    }
+    
     // 检查是否已有WiFi MAC，如果有则初始化设备状态
     const wifiMac = wx.getStorageSync('wifi_device_mac');
     if (wifiMac) {
       console.log('[home] 页面加载时检测到已保存的WiFi MAC:', wifiMac);
+      
+      // 再次检查用户登录状态（双重保护）
+      if (!AuthApi.isLoggedIn()) {
+        console.log('[home] 页面加载时用户登录状态已失效，跳过设备初始化');
+        return;
+      }
+      
       // 延迟初始化，确保页面完全加载
       setTimeout(() => {
         this.restoreRealtimeDataRequest(wifiMac);
@@ -48,8 +63,7 @@ Page({
    * 生命周期函数--监听页面显示
    */
   onShow() {
-    console.log('[home] onShow');
-    
+    console.log('[home] onShow');    
     const now = Date.now();
     const wasHidden = this.data._pageHidden;
     const timeSinceLastShow = now - this.data._lastPageShowTime;
@@ -102,9 +116,41 @@ Page({
       }
       return;
     } else if (wifiMac) {
-      console.log('[home] 检测到已保存的WiFi MAC，跳过蓝牙连接检查，直接进行设备数据请求');
+      console.log('[home] 检测到已保存的WiFi MAC，但需要检查用户登录状态');
       
-      // 如果有WiFi MAC，直接进行设备数据请求
+      // 检查用户是否已登录，未登录时不能获取数据
+      if (!AuthApi.isLoggedIn()) {
+        console.log('[home] 用户未登录，即使有WiFi MAC也无法获取设备数据');
+        this.setData({
+          deviceConnected: false,
+          deviceName: '',
+          heartRate: null,
+          breathRate: null,
+          turnOver: null,
+          isLeavePillow: true
+        });
+        this.deviceManager.clearRealtimeTimer();
+        
+        // 提示用户需要登录
+        wx.showModal({
+          title: '请先登录',
+          content: '您需要先登录才能查看设备数据，是否前往登录页面？',
+          confirmText: '去登录',
+          cancelText: '稍后',
+          success: (res) => {
+            if (res.confirm) {
+              wx.navigateTo({
+                url: '/page_subject/login/login'
+              });
+            }
+          }
+        });
+        return;
+      }
+      
+      console.log('[home] 检测到已保存的WiFi MAC且用户已登录，跳过蓝牙连接检查，直接进行设备数据请求');
+      
+      // 如果有WiFi MAC且用户已登录，直接进行设备数据请求
       this.setData({
         deviceConnected: true,
         deviceName: device ? device.name : 'zzZMinga设备'
@@ -238,12 +284,17 @@ Page({
     try {
       console.log('[home] 开始检查设备连接状态，deviceId:', deviceId);
       
+      // 检查用户是否已登录
+      if (!AuthApi.isLoggedIn()) {
+        console.log('[home] 用户未登录，无法检查设备连接状态');
+        return false;
+      }
+      
       // 首先检查蓝牙适配器是否可用
       const systemInfo = wx.getSystemInfoSync();
       console.log('[home] 系统信息:', systemInfo.platform, systemInfo.version);
       
       // 尝试获取设备的服务列表来检查连接状态
-      const BluetoothManager = require('../../utils/bluetoothManager');
       const bluetoothManager = new BluetoothManager();
       
       // 设置超时时间，避免长时间等待
@@ -286,6 +337,16 @@ Page({
    */
   refreshDeviceStatus() {
     console.log('[home] 手动刷新设备状态');
+    
+    // 检查用户是否已登录
+    if (!AuthApi.isLoggedIn()) {
+      console.log('[home] 用户未登录，无法刷新设备状态');
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
     
     // 检查是否有WiFi MAC
     const wifiMac = wx.getStorageSync('wifi_device_mac');
@@ -336,6 +397,22 @@ Page({
   restoreRealtimeDataRequest(wifiMac) {
     console.log('[home] 恢复页面实时数据请求:', wifiMac);
     
+    // 检查用户是否已登录
+    if (!AuthApi.isLoggedIn()) {
+      console.log('[home] 用户未登录，无法恢复实时数据请求');
+      // 清空设备状态
+      this.setData({
+        deviceConnected: false,
+        deviceName: '',
+        heartRate: null,
+        breathRate: null,
+        turnOver: null,
+        isLeavePillow: true
+      });
+      this.deviceManager.clearRealtimeTimer();
+      return;
+    }
+    
     if (!wifiMac) {
       console.log('[home] WiFi MAC为空，无法恢复实时数据请求');
       return;
@@ -347,6 +424,12 @@ Page({
     }
     
     try {
+      // 再次确认用户登录状态（三重保护）
+      if (!AuthApi.isLoggedIn()) {
+        console.log('[home] 恢复数据请求时用户登录状态已失效，停止操作');
+        return;
+      }
+      
       // 立即获取一次最新数据
       this.deviceManager.getDeviceRealtimeData(wifiMac);
       console.log('[home] 已获取最新设备数据');

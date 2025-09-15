@@ -1,0 +1,107 @@
+﻿<!--page_subject/ring/ring.wxml-->
+<nav-bar title="预警设置" bgColor="#0b2853" titleColor="#fff" bind:tap="onBack"></nav-bar>
+<scroll-view class="page-container" scroll-y="true" enhanced="true" show-scrollbar="false">
+  <!-- 心率异常提醒 -->
+  <view class="section-header">
+    <text class="section-title">心率异常提醒</text>
+    <view class="reference-container" bindtap="showHeartRateReference">
+      <image class="reference-icon" src="/static/question.png"></image>
+      <text class="reference-text">参考值</text>
+    </view>
+  </view>
+  <view class="reminder-text">
+    <text>温馨提醒：如果本人有心率变异性异常的病史，建议及时咨询医生，以便获得专业的评估、针对性的指导</text>
+  </view>
+  <view class="section">
+    <view class="setting-item clickable" bindtap="editHrTooFast">
+      <text class="setting-label">心率过速提醒值</text>
+      <view class="setting-value">
+        <text>{{hrTooFast}}次/分</text>
+        <image class="arrow-icon" src="/static/right.png"></image>
+      </view>
+    </view>
+    
+    <view class="setting-item clickable" bindtap="editHrTooSlow">
+      <text class="setting-label">心率过缓提醒值</text>
+      <view class="setting-value">
+        <text>{{hrTooSlow}}次/分</text>
+        <image class="arrow-icon" src="/static/right.png"></image>
+      </view>
+    </view>
+  </view>
+
+  <!-- 呼吸率异常提醒 -->
+  <view class="section-header">
+    <text class="section-title">呼吸率异常提醒</text>
+    <view class="reference-container" bindtap="showBreathRateReference">
+      <image class="reference-icon" src="/static/question.png"></image>
+      <text class="reference-text">参考值</text>
+    </view>
+  </view>
+  <view class="section">
+    <view class="setting-item clickable" bindtap="editBrTooFast">
+      <text class="setting-label">呼吸率过速提醒值</text>
+      <view class="setting-value">
+        <text>{{brTooFast}}次/分</text>
+        <image class="arrow-icon" src="/static/right.png"></image>
+      </view>
+    </view>
+    
+    <view class="setting-item clickable" bindtap="editBrTooSlow">
+      <text class="setting-label">呼吸率过缓提醒值</text>
+      <view class="setting-value">
+        <text>{{brTooSlow}}次/分</text>
+        <image class="arrow-icon" src="/static/right.png"></image>
+      </view>
+    </view>
+  </view>
+
+  <!-- 离床预警提醒 -->
+  <view class="section-header">
+    <text class="section-title">离床预警提醒</text>
+    <view class="reference-container" bindtap="showLeaveBedReference">
+      <image class="reference-icon" src="/static/question.png"></image>
+      <text class="reference-text">参数说明</text>
+    </view>
+  </view>
+  <view class="reminder-text">
+    <text>温馨提醒：离床预警生效需要满足用户在床超过10分钟</text>
+  </view>
+  <view class="section">
+    <view class="setting-item clickable" bindtap="editOutbedTimeRange">
+      <text class="setting-label">离床预警区间开始值</text>
+      <view class="setting-value">
+        <text>{{outbedStartTime}}</text>
+        <image class="arrow-icon" src="/static/right.png"></image>
+      </view>
+    </view>
+    
+    <view class="setting-item clickable" bindtap="editOutEndTimeRange">
+      <text class="setting-label">离床预警区间结束值</text>
+      <view class="setting-value">
+        <text>{{outbedEndTime}}</text>
+        <image class="arrow-icon" src="/static/right.png"></image>
+      </view>
+    </view>
+    
+    <view class="setting-item clickable" bindtap="editOutbedExceed">
+      <text class="setting-label">离床未归提醒值</text>
+      <view class="setting-value">
+        <text>{{outbedExceed}}分钟</text>
+        <image class="arrow-icon" src="/static/right.png"></image>
+      </view>
+    </view>
+    
+    <view class="setting-item">
+      <text class="setting-label">语音提醒</text>
+      <view class="setting-value">
+        <switch checked="{{isOutbedVoice}}" bindchange="onOutbedVoiceChange" color="#007AFF"/>
+      </view>
+    </view>
+  </view>
+</scroll-view>
+
+<!-- 时间选择器 -->
+<picker wx:if="{{showTimePicker}}" mode="time" value="{{tempTime}}" bindchange="onTimePickerConfirm" bindcancel="onTimePickerCancel">
+  <view></view>
+</picker>

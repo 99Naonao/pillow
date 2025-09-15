@@ -1,0 +1,21 @@
+<!--components/SleepStageChart/sleepStageChart.wxml-->
+<view class="sleep-stage-chart">
+  <!-- 圓環圖表容器 -->
+  <view class="chart-container">
+    <!-- CSS圓環圖表 -->
+    <view class="circular-chart" wx:if="{{chartData.stages.length > 0}}">
+      <!-- 外圓環 -->
+      <view class="outer-ring" style="background: {{chartData.conicGradient}};"></view>
+      <!-- 內圓環（形成圓環效果） -->
+      <view class="inner-ring"></view>
+      
+      <!-- 時間標記 -->
+      <view 
+        class="time-marker start-time" 
+        style="transform: rotate({{chartData.startAngle}}deg) translateY(-120rpx) rotate(-{{chartData.startAngle}}deg); transform-origin: center 120rpx; left: 50%; top: 50%;">{{chartData.startTime}}</view>
+      <view 
+        class="time-marker end-time" 
+        style="transform: rotate({{chartData.endAngle}}deg) translateY(-120rpx) rotate(-{{chartData.endAngle}}deg); transform-origin: center 120rpx; left: 50%; top: 50%;">{{chartData.endTime}}</view>
+    </view>
+  </view>
+</view>

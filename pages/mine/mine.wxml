@@ -20,14 +20,14 @@
           <text class="not-login-title">立即登录</text>
           <text class="not-login-tip">登录享受更多功能</text>
         </view>
-        <image class="not-login-arrow" src="../../static/right_black.png"/>
+        <image class="not-login-arrow" src="../../static/right.png"/>
       </view>
     </block>
   </view>
 
   <!-- 功能区卡片 -->
   <view class="mine-func-card">
-    <view class="mine-func-row">
+    <view class="mine-func-row" bindtap="openContactModal">
       <view class="mine-func-left">
         <image class="mine-func-icon" src="../../static/warn.png"/>
         <view class="mine-func-text">
@@ -35,7 +35,16 @@
           <text class="mine-func-desc">保障您的健康</text>
         </view>
       </view>
-      <switch class="mine-switch" checked="{{alarmEnabled}}" bindchange="onToggleAlarm"/>
+      <image class="mine-arrow" src="../../static/right.png"/>
+    </view>
+    <view class="mine-func-row" bindtap="goRingSet">
+      <view class="mine-func-left">
+        <image class="mine-func-icon" src="../../static/ring_set.png"/>
+        <view class="mine-func-text">
+          <text class="mine-func-label">预警设置</text>
+        </view>
+      </view>
+      <image class="mine-arrow" src="../../static/right.png"/>
     </view>
     <view class="mine-func-row" bindtap="onShowProtocol">
       <view class="mine-func-left">
@@ -44,7 +53,7 @@
           <text class="mine-func-label">服务协议</text>
         </view>
       </view>
-      <image class="mine-arrow" src="../../static/right_black.png"/>
+      <image class="mine-arrow" src="../../static/right.png"/>
     </view>
     <view class="mine-func-row" bindtap="onShowAbout">
       <view class="mine-func-left">
@@ -53,7 +62,7 @@
           <text class="mine-func-label">用户协议</text>
         </view>
       </view>
-      <image class="mine-arrow" src="../../static/right_black.png"/>
+      <image class="mine-arrow" src="../../static/right.png"/>
     </view>
     <view class="mine-func-row" bindtap="onShowPrivacy">
       <view class="mine-func-left">
@@ -62,7 +71,7 @@
           <text class="mine-func-label">隐私政策</text>
         </view>
       </view>
-      <image class="mine-arrow" src="../../static/right_black.png"/>
+      <image class="mine-arrow" src="../../static/right.png"/>
     </view>
   </view>
 
@@ -72,14 +81,39 @@
   </view>
 </view>
 
-<!-- 手机号输入弹窗 -->
-<view wx:if="{{showPhoneModal}}" class="phone-modal-mask">
+<!-- 紧急联系人管理弹窗 -->
+<view wx:if="{{showContactModal}}" class="contact-modal-mask">
+  <view class="contact-modal">
+    <view class="contact-modal-header">
+      <view class="contact-modal-title">紧急联系人管理</view>
+      <image class="contact-modal-close" src="../../static/close.png" bindtap="closeContactModal"/>
+    </view>
+    <view class="contact-list">
+      <block wx:for="{{emergencyContacts}}" wx:key="index">
+        <view class="contact-item">
+          <text class="contact-phone">{{item}}</text>
+          <button class="contact-delete-btn" bindtap="deleteContact" data-index="{{index}}">删除</button>
+        </view>
+      </block>
+      <view wx:if="{{emergencyContacts.length === 0}}" class="no-contacts">
+        <text>暂无紧急联系人</text>
+      </view>
+    </view>
+    <view class="contact-modal-btns">
+      <button class="contact-modal-btn add" bindtap="addContact">添加联系人</button>
+      <button class="contact-modal-btn cancel" bindtap="closeContactModal">完成</button>
+    </view>
+  </view>
+</view>
+
+<!-- 添加联系人弹窗 -->
+<view wx:if="{{showAddContactModal}}" class="phone-modal-mask">
   <view class="phone-modal">
-    <view class="phone-modal-title">绑定告警手机号</view>
+    <view class="phone-modal-title">添加紧急联系人</view>
     <input class="phone-modal-input" type="number" maxlength="11" placeholder="请输入手机号" value="{{phoneInput}}" bindinput="onPhoneInput"/>
     <view class="phone-modal-btns">
-      <button class="phone-modal-btn cancel" bindtap="onPhoneModalCancel">取消</button>
-      <button class="phone-modal-btn confirm" bindtap="onPhoneModalConfirm">确定</button>
+      <button class="phone-modal-btn cancel" bindtap="onAddContactCancel">取消</button>
+      <button class="phone-modal-btn confirm" bindtap="onAddContactConfirm">确定</button>
     </view>
   </view>
 </view>

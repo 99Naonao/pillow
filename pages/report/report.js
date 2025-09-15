@@ -10,13 +10,17 @@ Page({
     sleepTime:'',           // 本次睡眠时长
     sleepStartTime:'00:00',           // 睡眠开始时间
     sleepEndTime:'06:38',             // 睡眠结束时间
-    currentDate: '',        // 页面显示的日期（yyyy.MM.dd）
+    currentDate: '',        // 页面显示的日期（yyyy.MM.dd） 
     calendarValue: '',      // TDesign日历组件的值（yyyy-MM-dd）
     showCalendar: false,    // 控制日历弹窗显示
     shallowPercent: 0,      // 浅睡占比
     awakePercent: 0,        // 清醒占比
     deepPercent: 0,         // 深睡占比
     remPercent: 0,          // 快速眼动占比
+    shallowDuration: 0,     // 浅睡时长(小时)
+    awakeDuration: 0,       // 清醒时长(小时)
+    deepDuration: 0,        // 深睡时长(小时)
+    remDuration: 0,         // 快速眼动时长(小时)
     sleepReports: [],       // 睡眠报告列表
     loading: false,         // 加载状态
     currentReport: null,    // 当前选中的报告
@@ -126,6 +130,15 @@ Page({
     // 加载选中日期的睡眠报告
     const endDate = DataProcessor.getNextDay(selectedDate);
     this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
+    
+    // 手動更新圓環組件
+    setTimeout(() => {
+      const sleepStageChart = this.selectComponent('#sleepStageChart');
+      if (sleepStageChart) {
+        // sleepStageChart.setStartAngle(90);
+        sleepStageChart.updateChart();
+      }
+    }, 100);
   },
 
   /**
@@ -203,6 +216,10 @@ Page({
       deepPercent: 0,
       awakePercent: 0,
       remPercent: 0,
+      shallowDuration: 0,
+      deepDuration: 0,
+      awakeDuration: 0,
+      remDuration: 0,
       // 详细数据
       heartRate: 0,
       breathRate: 0,
@@ -282,6 +299,10 @@ Page({
   displayReport(report) {
     if (!report) return;
     
+    console.log('displayReport - report對象:', report);
+    console.log('displayReport - report.sleep_report:', report.sleep_report);
+    console.log('displayReport - report的所有字段:', Object.keys(report));
+    
     // 格式化时间
     const startTime = DataProcessor.parseTimeFromDateTime(report.startSleepTime);
     const endTime = DataProcessor.parseTimeFromDateTime(report.endSleepTime);
@@ -304,6 +325,10 @@ Page({
       deepPercent: stagePercentages.deepPercent,
       awakePercent: stagePercentages.awakePercent,
       remPercent: stagePercentages.remPercent,
+      shallowDuration: stagePercentages.lightDuration,
+      deepDuration: stagePercentages.deepDuration,
+      awakeDuration: stagePercentages.awakeDuration,
+      remDuration: stagePercentages.remDuration,
       // 详细数据
       heartRate: report.heartRate,
       breathRate: report.breathRate,
@@ -317,6 +342,13 @@ Page({
     }, () => {
       // 初始化图表
       this.chartManager.initAllCharts(report);
+      
+      // 手動觸發睡眠階段圖表更新
+      const sleepStageChart = this.selectComponent('#sleepStageChart');
+      if (sleepStageChart) {
+        console.log('手動觸發睡眠階段圖表更新');
+        sleepStageChart.updateChart();
+      }
     });
   },
 
@@ -326,7 +358,9 @@ Page({
   displayReportDetail(reportDetail) {
     if (!reportDetail) return;
     
-    console.log('显示报告详情:', reportDetail);
+    console.log('displayReportDetail - reportDetail對象:', reportDetail);
+    console.log('displayReportDetail - reportDetail.sleep_report:', reportDetail.sleep_report);
+    console.log('displayReportDetail - reportDetail的所有字段:', Object.keys(reportDetail));
     console.log('时间数据:', {
       startSleepTime: reportDetail.startSleepTime,
       endSleepTime: reportDetail.endSleepTime,
@@ -362,6 +396,10 @@ Page({
       deepPercent: stagePercentages.deepPercent,
       awakePercent: stagePercentages.awakePercent,
       remPercent: stagePercentages.remPercent,
+      shallowDuration: stagePercentages.lightDuration,
+      deepDuration: stagePercentages.deepDuration,
+      awakeDuration: stagePercentages.awakeDuration,
+      remDuration: stagePercentages.remDuration,
       // 详细数据
       heartRate: reportDetail.heartRate,
       breathRate: reportDetail.breathRate,
@@ -375,6 +413,13 @@ Page({
     }, () => {
       // 初始化图表
       this.chartManager.initAllCharts(reportDetail);
+      
+      // 手動觸發睡眠階段圖表更新
+      const sleepStageChart = this.selectComponent('#sleepStageChart');
+      if (sleepStageChart) {
+        console.log('手動觸發睡眠階段圖表更新');
+        sleepStageChart.updateChart();
+      }
     });
   },
 
