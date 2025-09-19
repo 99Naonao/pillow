@@ -21,10 +21,7 @@ Page({
     outbedEndTime: "06:00",
     isOutbedVoice: true,
     
-    // 时间选择器相关
-    showTimePicker: false,
-    timePickerType: '', // 'start' 或 'end'
-    tempTime: '',
+    // 时间选择器相关（已移除，直接使用picker组件）
     
     // 配置修改标记
     hasConfigChanged: false
@@ -341,52 +338,27 @@ Page({
   },
 
   /**
-   * 编辑离床预警区间
+   * 开始时间选择器变化
    */
-  editOutbedTimeRange() {
-    this.setData({
-      showTimePicker: true,
-      timePickerType: 'start',
-      tempTime: this.data.outbedStartTime
-    });
-  },
-  editOutEndTimeRange(){
-    this.setData({
-      showTimePicker:true,
-      timePickerType: 'end',
-      tempTime: this.data.outbedEndTime
-    });
-  },
-  /**
-   * 时间选择器确认
-   */
-  onTimePickerConfirm(e) {
+  onStartTimeChange(e) {
     const time = e.detail.value;
-    if (this.data.timePickerType === 'start') {
-      this.setData({
-        outbedStartTime: time,
-        timePickerType: 'end',
-        tempTime: this.data.outbedEndTime,
-        hasConfigChanged: true
-      });
-    } else {
-      this.setData({
-        outbedEndTime: time,
-        showTimePicker: false,
-        hasConfigChanged: true
-      });
-      this.saveConfig();
-    }
+    this.setData({
+      outbedStartTime: time,
+      hasConfigChanged: true
+    });
+    this.saveConfig();
   },
 
   /**
-   * 时间选择器取消
+   * 结束时间选择器变化
    */
-  onTimePickerCancel() {
+  onEndTimeChange(e) {
+    const time = e.detail.value;
     this.setData({
-      showTimePicker: false,
-      timePickerType: ''
+      outbedEndTime: time,
+      hasConfigChanged: true
     });
+    this.saveConfig();
   },
 
   /**

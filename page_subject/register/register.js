@@ -374,10 +374,10 @@ Page({
         wx.hideLoading();
         
         // 检查响应结构
-        console.log('响应Code:', res.Code);
-        console.log('响应类型:', typeof res.Code);
+        console.log('响应Code:', res.code);
+        console.log('响应类型:', typeof res.code);
         
-        if (res.Code === 1) {
+        if (res.code === 1) {
           // 注册成功
           console.log('注册成功，准备跳转到登录页面');
           wx.showToast({
@@ -402,7 +402,7 @@ Page({
                 });
               }
             });
-          }, 1500);
+          }, 700);
         } else {
           // 注册失败
           wx.showModal({

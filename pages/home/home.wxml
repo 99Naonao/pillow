@@ -57,9 +57,9 @@
     
     <!-- 设备状态指示器 -->
     <view class="device-status-overlay" bind:tap="toBlueIndex">
-      <view class="status-circle {{deviceConnected ? 'connected' : 'offline'}}">
-        <text class="status-main-text">{{deviceConnected ? '设备已连接' : '设备离线'}}</text>
-        <text class="status-sub-text">{{deviceConnected ? 'zzzMinga' : '点击连接>'}}</text>
+      <view class="status-circle {{deviceStatusClass}}">
+        <text class="status-main-text">{{deviceStatusText}}</text>
+        <text class="status-sub-text">{{deviceSubText}}</text>
       </view>
     </view>
   </view>

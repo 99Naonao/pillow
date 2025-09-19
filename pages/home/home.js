@@ -19,7 +19,12 @@ Page({
     _lastCheckTime: 0,    // 上次检查时间戳
     _checkInterval: 30000, // 检查间隔（30秒）
     _pageHidden: false,   // 页面是否隐藏
-    _lastPageShowTime: 0  // 上次页面显示时间
+    _lastPageShowTime: 0,  // 上次页面显示时间
+    _lastOnlineTime: 0,    // 设备最后在线时间
+    // 设备状态显示相关
+    deviceStatusText: '设备离线',
+    deviceSubText: '点击连接>',
+    deviceStatusClass: 'offline'
   },
 
   /**
@@ -97,22 +102,16 @@ Page({
     
     // 智能判断逻辑：检查是否为第二次进入（已有WiFi MAC）
     if (wifiMac && this.data.deviceConnected) {
-      // 如果已有WiFi MAC且设备已连接，检查是否需要刷新数据
+      // 如果已有WiFi MAC且设备已连接，使用心跳检测验证连接状态
       if (shouldProceed) {
-        console.log('[home] 检测到已保存的WiFi MAC且设备已连接，进行数据刷新');
+        console.log('[home] 检测到已保存的WiFi MAC且设备已连接，使用心跳检测验证连接状态');
         
-        // 如果页面刚从隐藏状态恢复，使用专门的恢复方法
-        if (wasHidden) {
-          console.log('[home] 页面刚从隐藏状态恢复，使用专门的恢复方法');
-          this.restoreRealtimeDataRequest(wifiMac);
-        } else {
-          // 正常情况下的数据刷新
-          this.deviceManager.getDeviceRealtimeData(wifiMac);
-        }
+        // 使用心跳检测验证设备是否真的在线
+        this.verifyDeviceConnectionWithHeartbeat(wifiMac, wasHidden);
         
         this.setData({ _lastCheckTime: now });
       } else {
-        console.log('[home] 检测到已保存的WiFi MAC且设备已连接，跳过数据刷新');
+        console.log('[home] 检测到已保存的WiFi MAC且设备已连接，跳过连接验证');
       }
       return;
     } else if (wifiMac) {
@@ -132,33 +131,26 @@ Page({
         this.deviceManager.clearRealtimeTimer();
         
         // 提示用户需要登录
-        wx.showModal({
-          title: '请先登录',
-          content: '您需要先登录才能查看设备数据，是否前往登录页面？',
-          confirmText: '去登录',
-          cancelText: '稍后',
-          success: (res) => {
-            if (res.confirm) {
-              wx.navigateTo({
-                url: '/page_subject/login/login'
-              });
-            }
-          }
-        });
+        // wx.showModal({
+        //   title: '请先登录',
+        //   content: '您需要先登录才能查看设备数据，是否前往登录页面？',
+        //   confirmText: '去登录',
+        //   cancelText: '稍后',
+        //   success: (res) => {
+        //     if (res.confirm) {
+        //       wx.navigateTo({
+        //         url: '/page_subject/login/login'
+        //       });
+        //     }
+        //   }
+        // });
         return;
       }
       
-      console.log('[home] 检测到已保存的WiFi MAC且用户已登录，跳过蓝牙连接检查，直接进行设备数据请求');
+      console.log('[home] 检测到已保存的WiFi MAC且用户已登录，使用心跳检测确认设备连接状态');
       
-      // 如果有WiFi MAC且用户已登录，直接进行设备数据请求
-      this.setData({
-        deviceConnected: true,
-        deviceName: device ? device.name : 'zzZMinga设备'
-      });
-      
-      // 直接获取设备实时数据
-      this.deviceManager.getDeviceRealtimeData(wifiMac);
-      this.deviceManager.startRealtimeTimer(wifiMac);
+      // 使用心跳检测确认设备连接状态
+      this.checkDeviceConnectionWithHeartbeat(wifiMac, device);
       
       // 更新检查时间
       this.setData({ _lastCheckTime: now });
@@ -244,6 +236,8 @@ Page({
     console.log('[home] onHide');
     this.setData({ _pageHidden: true });
     this.deviceManager.clearRealtimeTimer();
+    // 停止心跳监控
+    this.stopDeviceHeartbeatMonitor();
   },
 
   /**
@@ -251,6 +245,8 @@ Page({
    */
   onUnload() {
     this.deviceManager.clearRealtimeTimer();
+    // 停止心跳监控
+    this.stopDeviceHeartbeatMonitor();
   },
 
   /**
@@ -279,7 +275,7 @@ Page({
     })
   },
 
-  // 检查设备连接状态
+  // 检查设备连接状态 - 使用心跳检测替代蓝牙检查
   async checkDeviceConnection(deviceId) {
     try {
       console.log('[home] 开始检查设备连接状态，deviceId:', deviceId);
@@ -290,44 +286,25 @@ Page({
         return false;
       }
       
-      // 首先检查蓝牙适配器是否可用
-      const systemInfo = wx.getSystemInfoSync();
-      console.log('[home] 系统信息:', systemInfo.platform, systemInfo.version);
-      
-      // 尝试获取设备的服务列表来检查连接状态
-      const bluetoothManager = new BluetoothManager();
-      
-      // 设置超时时间，避免长时间等待
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('蓝牙检查超时')), 5000);
-      });
-      
-      const servicesRes = await Promise.race([
-        bluetoothManager.getBLEDeviceServices(deviceId),
-        timeoutPromise
-      ]);
-      
-      console.log('[home] 设备连接状态检查成功，deviceId:', deviceId, '服务数量:', servicesRes.services.length);
-      return true;
-    } catch (error) {
-      console.log('[home] 设备连接状态检查失败，deviceId:', deviceId, '错误:', error);
-      console.log('[home] 错误详情:', {
-        message: error.message,
-        errMsg: error.errMsg,
-        errCode: error.errCode
-      });
-      
-      // 根据错误类型决定是否重试
-      if (error.message === '蓝牙检查超时') {
-        console.log('[home] 蓝牙检查超时，可能是设备暂时不可用');
-      } else if (error.errCode === 10001) {
-        console.log('[home] 蓝牙适配器不可用');
-      } else if (error.errCode === 10012) {
-        console.log('[home] 设备未连接');
-      } else if (error.errCode === 10013) {
-        console.log('[home] 设备连接已断开');
+      // 获取WiFi MAC地址进行心跳检测
+      const wifiMac = wx.getStorageSync('wifi_device_mac');
+      if (!wifiMac) {
+        console.log('[home] 没有WiFi MAC地址，无法进行心跳检测');
+        return false;
       }
       
+      // 使用心跳检测替代蓝牙检查
+      const heartbeatResult = await this.deviceManager.deviceHeartbeat(wifiMac);
+      
+      if (heartbeatResult.success && heartbeatResult.isOnline) {
+        console.log('[home] 设备心跳检测成功，设备在线，状态:', heartbeatResult.status.name);
+        return true;
+      } else {
+        console.log('[home] 设备心跳检测失败或设备离线:', heartbeatResult.error);
+        return false;
+      }
+    } catch (error) {
+      console.log('[home] 设备连接状态检查失败，deviceId:', deviceId, '错误:', error);
       return false;
     }
   },
@@ -365,6 +342,337 @@ Page({
   },
 
   /**
+   * 检查设备是否应该显示为离线（超过1分钟才显示离线）
+   * @returns {boolean} true表示应该显示为离线，false表示仍显示在线
+   */
+  shouldShowDeviceOffline() {
+    const now = Date.now();
+    const offlineDuration = now - this.data._offlineStartTime;
+    
+    // 如果从未记录过离线时间，或者离线时间未超过阈值，仍显示在线
+    if (this.data._offlineStartTime === 0 || offlineDuration < this.data._offlineThreshold) {
+      return false;
+    }
+    
+    return true;
+  },
+
+  /**
+   * 更新设备在线状态
+   * @param {boolean} isOnline 设备是否在线
+   */
+  updateDeviceOnlineStatus(isOnline) {
+    const now = Date.now();
+    
+    if (isOnline) {
+      // 设备在线，更新最后在线时间
+      this.setData({
+        _lastOnlineTime: now
+      });
+      console.log('[home] 设备在线，更新最后在线时间:', new Date(now).toLocaleTimeString());
+    } else {
+      console.log('[home] 设备离线:', new Date(now).toLocaleTimeString());
+    }
+  },
+
+  /**
+   * 更新设备状态显示
+   * @param {boolean} isConnected 设备是否连接
+   * @param {string} deviceName 设备名称
+   */
+  updateDeviceStatusDisplay(isConnected, deviceName = '') {
+    let statusText = '';
+    let subText = '';
+    let statusClass = '';
+    
+    if (isConnected) {
+      statusText = '设备已连接';
+      subText = 'zzzMinga';
+      statusClass = 'connected';
+    } else {
+      statusText = '设备离线';
+      subText = '点击连接>';
+      statusClass = 'offline';
+    }
+    
+    console.log('[home] 准备更新设备状态显示，setData前:', {
+      isConnected,
+      deviceName,
+      statusText,
+      subText,
+      statusClass,
+      currentData: {
+        deviceConnected: this.data.deviceConnected,
+        deviceStatusText: this.data.deviceStatusText,
+        deviceSubText: this.data.deviceSubText,
+        deviceStatusClass: this.data.deviceStatusClass
+      }
+    });
+    
+    this.setData({
+      deviceStatusText: statusText,
+      deviceSubText: subText,
+      deviceStatusClass: statusClass
+    });
+    
+    console.log('[home] 设备状态显示更新完成，setData后:', {
+      isConnected,
+      deviceName,
+      statusText,
+      subText,
+      statusClass,
+      updatedData: {
+        deviceConnected: this.data.deviceConnected,
+        deviceStatusText: this.data.deviceStatusText,
+        deviceSubText: this.data.deviceSubText,
+        deviceStatusClass: this.data.deviceStatusClass
+      }
+    });
+  },
+
+  /**
+   * 使用心跳检测验证设备连接状态
+   * @param {string} wifiMac WiFi MAC地址
+   * @param {boolean} wasHidden 页面是否刚从隐藏状态恢复
+   */
+  async verifyDeviceConnectionWithHeartbeat(wifiMac, wasHidden) {
+    try {
+      console.log('[home] 开始使用心跳检测验证设备连接状态，MAC:', wifiMac);
+      
+      // 执行心跳检测
+      const heartbeatResult = await this.deviceManager.deviceHeartbeat(wifiMac);
+      
+      // 添加详细的心跳检测结果日志
+      console.log('[home] 心跳检测结果分析:', {
+        success: heartbeatResult.success,
+        isOnline: heartbeatResult.isOnline,
+        isOfflineTooLong: heartbeatResult.isOfflineTooLong,
+        timeSinceLastUpdate: heartbeatResult.timeSinceLastUpdate,
+        error: heartbeatResult.error,
+        statusId: heartbeatResult.status?.id,
+        statusName: heartbeatResult.status?.name,
+        fullResult: heartbeatResult
+      });
+      
+      if (heartbeatResult.success && heartbeatResult.isOnline) {
+        console.log('[home] 心跳检测验证成功，设备在线，状态:', heartbeatResult.status.name);
+        
+        // 更新设备在线状态
+        this.updateDeviceOnlineStatus(true);
+        
+        // 设备在线，确保连接状态正确
+        this.setData({
+          deviceConnected: true,
+          deviceName: 'zzZMinga'
+        });
+        
+        // 更新设备状态显示
+        this.updateDeviceStatusDisplay(true, 'zzZMinga');
+        
+        // 根据页面状态选择数据刷新方式
+        if (wasHidden) {
+          console.log('[home] 页面刚从隐藏状态恢复，使用专门的恢复方法');
+          this.restoreRealtimeDataRequest(wifiMac);
+        } else {
+          console.log('[home] 正常情况下的数据刷新');
+          this.deviceManager.getDeviceRealtimeData(wifiMac);
+        }
+        
+        console.log('[home] 设备连接状态验证完成，设备在线');
+      } else {
+        console.log('[home] 心跳检测失败或设备离线:', heartbeatResult.error || '设备离线');
+        
+        // 更新设备离线状态
+        this.updateDeviceOnlineStatus(false);
+        
+        // 设备离线，更新连接状态
+        this.setData({
+          deviceConnected: false,
+          deviceName: '',
+          heartRate: null,
+          breathRate: null,
+          turnOver: null,
+          isLeavePillow: true
+        });
+        
+        // 更新设备状态显示
+        this.updateDeviceStatusDisplay(false, '');
+        
+        // 停止实时数据定时器和心跳监控
+        this.deviceManager.clearRealtimeTimer();
+        this.stopDeviceHeartbeatMonitor();
+        
+        console.log('[home] 设备连接状态验证完成，设备离线');
+      }
+    } catch (error) {
+      console.error('[home] 心跳检测验证异常:', error);
+      
+      // 检测异常，设置为未连接状态
+      this.setData({
+        deviceConnected: false,
+        deviceName: '',
+        heartRate: null,
+        breathRate: null,
+        turnOver: null,
+        isLeavePillow: true
+      });
+      
+      // 停止实时数据定时器和心跳监控
+      this.deviceManager.clearRealtimeTimer();
+      this.stopDeviceHeartbeatMonitor();
+    }
+  },
+
+  /**
+   * 使用心跳检测确认设备连接状态
+   * @param {string} wifiMac WiFi MAC地址
+   * @param {Object} device 设备信息
+   */
+  async checkDeviceConnectionWithHeartbeat(wifiMac, device) {
+    try {
+      console.log('[home] 开始使用心跳检测确认设备连接状态，MAC:', wifiMac);
+      
+      // 执行心跳检测
+      const heartbeatResult = await this.deviceManager.deviceHeartbeat(wifiMac);
+      
+      if (heartbeatResult.success && heartbeatResult.isOnline) {
+        console.log('[home] 心跳检测成功，设备在线，状态:', heartbeatResult.status.name);
+        
+        // 更新设备在线状态
+        this.updateDeviceOnlineStatus(true);
+        
+        // 设备在线，设置连接状态
+        this.setData({
+          deviceConnected: true,
+          deviceName: 'zzZMinga'
+        });
+        
+        // 获取设备实时数据
+        this.deviceManager.getDeviceRealtimeData(wifiMac);
+        this.deviceManager.startRealtimeTimer(wifiMac);
+        
+        // 启动心跳监控
+        this.startDeviceHeartbeatMonitor();
+        
+        console.log('[home] 设备连接状态确认完成，设备在线');
+      } else {
+        console.log('[home] 心跳检测失败或设备离线:', heartbeatResult.error || '设备离线');
+        
+        // 更新设备离线状态
+        this.updateDeviceOnlineStatus(false);
+        
+        // 设备离线，设置未连接状态
+        this.setData({
+          deviceConnected: false,
+          deviceName: '',
+          heartRate: null,
+          breathRate: null,
+          turnOver: null,
+          isLeavePillow: true
+        });
+        
+        // 停止实时数据定时器
+        this.deviceManager.clearRealtimeTimer();
+        
+        console.log('[home] 设备连接状态确认完成，设备离线');
+      }
+    } catch (error) {
+      console.error('[home] 心跳检测异常:', error);
+      
+      // 检测异常，设置为未连接状态
+      this.setData({
+        deviceConnected: false,
+        deviceName: '',
+        heartRate: null,
+        breathRate: null,
+        turnOver: null,
+        isLeavePillow: true
+      });
+      
+      // 停止实时数据定时器
+      this.deviceManager.clearRealtimeTimer();
+    }
+  },
+
+  /**
+   * 启动设备心跳监控
+   */
+  startDeviceHeartbeatMonitor() {
+    const wifiMac = wx.getStorageSync('wifi_device_mac');
+    if (!wifiMac) {
+      console.log('[home] 没有WiFi MAC地址，无法启动心跳监控');
+      return;
+    }
+
+    console.log('[home] 启动设备心跳监控，MAC:', wifiMac);
+    
+    // 启动心跳监控，每30秒检测一次
+    this.deviceManager.startHeartbeatMonitor(wifiMac, 30000, (result) => {
+      console.log('[home] 心跳检测结果:', result);
+      
+      if (result.success && result.isOnline) {
+        // 设备在线，更新在线状态
+        this.updateDeviceOnlineStatus(true);
+        
+        // 检查是否需要更新连接状态
+        const wasOffline = !this.data.deviceConnected;
+        
+        if (wasOffline) {
+          console.log('[home] 心跳检测显示设备从离线回到在线，更新连接状态');
+          this.setData({
+            deviceConnected: true,
+            deviceName: 'zzZMinga'
+          });
+          
+          // 设备从离线回到在线，重新启动数据获取
+          console.log('[home] 设备从离线回到在线，重新启动数据获取');
+          this.deviceManager.getDeviceRealtimeData(wifiMac);
+          this.deviceManager.startRealtimeTimer(wifiMac);
+        } else {
+          // 设备一直在线，确保数据获取正常
+          console.log('[home] 设备保持在线状态，确保数据获取正常');
+          if (!this.deviceManager._realtimeTimer) {
+            console.log('[home] 实时数据定时器未运行，重新启动');
+            this.deviceManager.getDeviceRealtimeData(wifiMac);
+            this.deviceManager.startRealtimeTimer(wifiMac);
+          }
+        }
+        
+        // 更新设备状态显示
+        this.updateDeviceStatusDisplay(true, 'zzZMinga');
+        
+      } else {
+        // 设备离线或检测失败，更新离线状态
+        this.updateDeviceOnlineStatus(false);
+        
+        console.log('[home] 心跳检测显示设备离线，更新连接状态');
+        this.setData({
+          deviceConnected: false,
+          deviceName: '',
+          heartRate: null,
+          breathRate: null,
+          turnOver: null,
+          isLeavePillow: true
+        });
+        
+        // 更新设备状态显示
+        this.updateDeviceStatusDisplay(false, '');
+        
+        // 停止实时数据定时器
+        this.deviceManager.clearRealtimeTimer();
+      }
+    });
+  },
+
+  /**
+   * 停止设备心跳监控
+   */
+  stopDeviceHeartbeatMonitor() {
+    console.log('[home] 停止设备心跳监控');
+    this.deviceManager.clearHeartbeatTimer();
+  },
+
+  /**
    * 使用已有的WiFi MAC初始化设备
    */
   initializeDeviceWithWifiMac(wifiMac) {
@@ -378,7 +686,7 @@ Page({
     // 设置设备为已连接状态
     this.setData({
       deviceConnected: true,
-      deviceName: 'zzZMinga设备'
+      deviceName: 'zzZMinga'
     });
     
     // 开始获取设备实时数据
@@ -437,6 +745,10 @@ Page({
       // 重新启动实时数据定时器
       this.deviceManager.startRealtimeTimer(wifiMac);
       console.log('[home] 已重新启动实时数据定时器');
+      
+      // 启动心跳监控
+      this.startDeviceHeartbeatMonitor();
+      console.log('[home] 已启动心跳监控');
       
     } catch (error) {
       console.error('[home] 恢复实时数据请求失败:', error);

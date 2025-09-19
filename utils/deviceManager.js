@@ -89,6 +89,161 @@ class DeviceManager {
   }
 
   /**
+   * 获取设备信息
+   * @param {string} mac 设备MAC地址
+   * @returns {Promise} 获取结果
+   */
+  getDeviceInfo(mac) {
+    const method = 'GetDeviceInfo';
+    const dataObj = {
+      key: key, // 使用文档中的秘钥
+      mac: mac
+    };
+    
+    console.log('获取设备信息请求数据：', JSON.stringify(dataObj));
+    
+    return soapRequest(method, dataObj, 'POST')
+      .then(res => {
+        console.log('获取设备信息成功：', res);
+        return res;
+      })
+      .catch(err => {
+        console.error('获取设备信息失败：', err);
+        throw err;
+      });
+  }
+
+  /**
+   * 设备心跳检测
+   * @param {string} mac 设备MAC地址
+   * @returns {Promise<Object>} 心跳检测结果
+   */
+  async deviceHeartbeat(mac) {
+    try {
+      console.log('[心跳检测] 开始检测设备心跳，MAC:', mac);
+      
+      const result = await this.getDeviceInfo(mac);
+      
+      // 添加详细的响应日志
+      console.log('[心跳检测] 原始响应数据:', JSON.stringify(result, null, 2));
+      
+      // 检查响应是否成功
+      if (result.ret === 0 && result.data) {
+        const deviceStatus = result.data.status;
+        const isOnline = deviceStatus.id !== 4; // 4表示离线状态
+        
+        // 计算设备最后更新时间距离现在的时间差（毫秒）
+        const lastUpdateTime = new Date(deviceStatus.since).getTime();
+        const now = Date.now();
+        const timeSinceLastUpdate = now - lastUpdateTime;
+        
+        // 设备离线判断：只要状态为4就是离线
+        const isOfflineTooLong = !isOnline;
+        
+        console.log('[心跳检测] 设备状态分析:', {
+          mac: result.data.mac,
+          status: deviceStatus.name,
+          statusId: deviceStatus.id,
+          statusIdType: typeof deviceStatus.id,
+          isOnline: isOnline,
+          lastUpdate: deviceStatus.since,
+          timeSinceLastUpdate: timeSinceLastUpdate,
+          isOfflineTooLong: isOfflineTooLong,
+          ret: result.ret,
+          hasData: !!result.data,
+          hasStatus: !!deviceStatus
+        });
+        
+        return {
+          success: true,
+          isOnline: isOnline,
+          isOfflineTooLong: isOfflineTooLong,
+          timeSinceLastUpdate: timeSinceLastUpdate,
+          deviceInfo: result.data,
+          status: deviceStatus,
+          timestamp: Date.now()
+        };
+      } else {
+        console.log('[心跳检测] 设备响应异常，详细信息:', {
+          ret: result.ret,
+          retType: typeof result.ret,
+          hasData: !!result.data,
+          data: result.data,
+          msg: result.msg,
+          fullResult: result
+        });
+        return {
+          success: false,
+          isOnline: false,
+          error: result.msg || '设备响应异常',
+          timestamp: Date.now()
+        };
+      }
+    } catch (error) {
+      console.error('[心跳检测] 设备心跳检测失败:', error);
+      return {
+        success: false,
+        isOnline: false,
+        error: error.message || '网络请求失败',
+        timestamp: Date.now()
+      };
+    }
+  }
+
+  /**
+   * 启动设备心跳监控
+   * @param {string} mac 设备MAC地址
+   * @param {number} interval 检测间隔（毫秒），默认30秒
+   * @param {Function} onHeartbeat 心跳回调函数
+   */
+  startHeartbeatMonitor(mac, interval = 30000, onHeartbeat) {
+    console.log('[心跳监控] 启动设备心跳监控，MAC:', mac, '间隔:', interval + 'ms');
+    
+    // 清除之前的定时器
+    this.clearHeartbeatTimer();
+    
+    // 立即执行一次心跳检测
+    this.deviceHeartbeat(mac).then(result => {
+      if (onHeartbeat) {
+        onHeartbeat(result);
+      }
+    });
+    
+    // 设置定时器
+    this._heartbeatTimer = setInterval(async () => {
+      try {
+        const result = await this.deviceHeartbeat(mac);
+        if (onHeartbeat) {
+          onHeartbeat(result);
+        }
+      } catch (error) {
+        console.error('[心跳监控] 心跳检测异常:', error);
+        if (onHeartbeat) {
+          onHeartbeat({
+            success: false,
+            isOnline: false,
+            error: error.message,
+            timestamp: Date.now()
+          });
+        }
+      }
+    }, interval);
+    
+    console.log('[心跳监控] 心跳监控已启动，定时器ID:', this._heartbeatTimer);
+  }
+
+  /**
+   * 停止设备心跳监控
+   */
+  clearHeartbeatTimer() {
+    if (this._heartbeatTimer) {
+      console.log('[心跳监控] 停止设备心跳监控，定时器ID:', this._heartbeatTimer);
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
+  }
+
+  /**
    * 获取设备预警设置
    * @param {string} mac 设备MAC地址
    * @returns {Promise} 获取结果
@@ -220,17 +375,65 @@ voiceNotifation(params){
   getDeviceRealtimeData(mac) {
     console.log('设备mac信息:',mac)
     const method = 'GetDeviceRealtimeData';
-    const dataObj = { key, mac, timestamp: 0, waveform: false };
+    const dataObj = { key, mac, timestamp: 1, waveform: false };
     soapRequest(method, dataObj, 'POST')
       .then(result => {
         if (result && result.ret === 0 && result.data && result.data.length > 0) {
-          const d = result.data[0];
+          // 獲取最新的一條數據（數組的最後一個元素）
+          const d = result.data[result.data.length - 1];
+
+          // 提取時間戳（盡量兼容多種字段名與格式）
+          const extractTimestampMs = (record) => {
+            // 優先使用 date（字串時間）或 id（可能是時間戳）
+            let ts = record?.date
+              ?? record?.id
+              ?? record?.timestamp
+              ?? record?.time
+              ?? record?.ts
+              ?? record?.time_stamp
+              ?? record?.datetime
+              ?? record?.timeStr
+              ?? record?.time_string
+              ?? record?.left?.timestamp
+              ?? record?.right?.timestamp
+              ?? record?.left?.time
+              ?? record?.right?.time;
+            if (ts == null) return NaN;
+            // 字符串 -> Date 解析
+            if (typeof ts === 'string') {
+              const ms = Date.parse(ts);
+              return isNaN(ms) ? NaN : ms;
+            }
+            // 數字：可能是秒或毫秒
+            if (typeof ts === 'number') {
+              // 小於 10^12 視為秒
+              return ts < 1e12 ? ts * 1000 : ts;
+            }
+            return NaN;
+          };
+
+          const dataTsMs = extractTimestampMs(d);
+          const nowMs = Date.now();
+          const isStale = !isNaN(dataTsMs) && (nowMs - dataTsMs > 60000);
+          if (isStale) {
+            console.log('[实时数据] 最新数据时间过旧，已超过1分钟，清空页面展示。数据时间:', new Date(dataTsMs).toLocaleString());
+            this.page.setData({
+              // 保持连接状态不变，仅清空指标展示
+              heartRate: null,
+              breathRate: null,
+              turnOver: null,
+              isLeavePillow: null
+            });
+            return;
+          }
+          
           let heartRate = null, breathRate = null;
           if (d.left && d.left.heart_rate) heartRate = d.left.heart_rate;
           else if (d.right && d.right.heart_rate) heartRate = d.right.heart_rate;
           if (d.left && d.left.respiration_rate) breathRate = d.left.respiration_rate;
           else if (d.right && d.right.respiration_rate) breathRate = d.right.respiration_rate;
           this.page.setData({
+            deviceConnected: true,  // 確保設備連接狀態為在線
             heartRate,
             breathRate,
             turnOver: d.body_movement ? 1 : 0,
@@ -260,7 +463,7 @@ voiceNotifation(params){
     this.clearRealtimeTimer();
     this._realtimeTimer = setInterval(() => {
       this.getDeviceRealtimeData(mac);
-    }, 5000);
+    }, 3000);
     this.page.setData({ _realtimeTimer: this._realtimeTimer });
   }
 

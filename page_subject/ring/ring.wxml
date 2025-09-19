@@ -68,21 +68,25 @@
     <text>温馨提醒：离床预警生效需要满足用户在床超过10分钟</text>
   </view>
   <view class="section">
-    <view class="setting-item clickable" bindtap="editOutbedTimeRange">
-      <text class="setting-label">离床预警区间开始值</text>
-      <view class="setting-value">
-        <text>{{outbedStartTime}}</text>
-        <image class="arrow-icon" src="/static/right.png"></image>
+    <picker mode="time" value="{{outbedStartTime}}" bindchange="onStartTimeChange">
+      <view class="setting-item clickable">
+        <text class="setting-label">离床预警区间开始值</text>
+        <view class="setting-value">
+          <text>{{outbedStartTime}}</text>
+          <image class="arrow-icon" src="/static/right.png"></image>
+        </view>
       </view>
-    </view>
+    </picker>
     
-    <view class="setting-item clickable" bindtap="editOutEndTimeRange">
-      <text class="setting-label">离床预警区间结束值</text>
-      <view class="setting-value">
-        <text>{{outbedEndTime}}</text>
-        <image class="arrow-icon" src="/static/right.png"></image>
+    <picker mode="time" value="{{outbedEndTime}}" bindchange="onEndTimeChange">
+      <view class="setting-item clickable">
+        <text class="setting-label">离床预警区间结束值</text>
+        <view class="setting-value">
+          <text>{{outbedEndTime}}</text>
+          <image class="arrow-icon" src="/static/right.png"></image>
+        </view>
       </view>
-    </view>
+    </picker>
     
     <view class="setting-item clickable" bindtap="editOutbedExceed">
       <text class="setting-label">离床未归提醒值</text>
@@ -100,8 +104,3 @@
     </view>
   </view>
 </scroll-view>
-
-<!-- 时间选择器 -->
-<picker wx:if="{{showTimePicker}}" mode="time" value="{{tempTime}}" bindchange="onTimePickerConfirm" bindcancel="onTimePickerCancel">
-  <view></view>
-</picker>
