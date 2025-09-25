@@ -1,18 +1,8 @@
 <!--pages/home.wxml-->
-<nav-bar title="智能观心枕" showNavBtn="{{false}}"  bgColor="#0b2853" titleColor="#fff"/>
+<!-- <nav-bar title="智能观心枕" showNavBtn="{{false}}"  bgColor="#0b2853" titleColor="#fff"/> -->
 <view class="container">
   <!-- <view class="top-space"></view> -->
-  <image src="../../static/bg.png" class="pillow-img"/>
-  <!-- <view class="pillow-img-wrapper">
-    <image src="../../static/pillow.png" class="pillow-img"/>
-  </view> -->
-  <!-- <view class="device-bar" bind:tap="toBlueIndex">
-    <image src="../../static/bluetooth_white.png" class="icon-bluetooth"/>
-    <text class="device-text">
-            {{deviceConnected ? ('已连接：zzZMinga设备') : '设备未连接'}}
-    </text> -->
-  <!-- </view> -->
- 
+  <image src="../../static/bg.jpg" class="pillow-img"/>
   <view class="card-grid">
     <!-- 心率 --> 
     <view class="card">

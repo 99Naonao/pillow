@@ -79,7 +79,7 @@ page {
   justify-content: space-between;
   padding: 0 24rpx;
   position: absolute;
-  bottom: 180rpx;
+  bottom: 220rpx;
   left: 0;
   right: 0;
 }

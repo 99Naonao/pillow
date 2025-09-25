@@ -446,7 +446,7 @@ Page({
     console.log('前往商城');
     // 跳转到商城小程序
     wx.navigateToMiniProgram({
-      appId: 'wxadc17399e1b28d8b', // 替换为实际的商城小程序appId
+      appId: 'wx041bde7c633d4ec0', // 替换为实际的商城小程序appId
       path: 'pages/index/index', // 商城小程序的页面路径
       // extraData: {
       //   from: 'sleep_report', // 标识来源
