@@ -226,26 +226,47 @@ class DataProcessor {
    * @returns {Object} 睡眠阶段百分比
    */
   static calculateSleepStagePercentages(reportDetail) {
-    const totalSleep = reportDetail.sleepDuration;
-    const deepSleep = reportDetail.deepSleepDuration;
-    const lightSleep = reportDetail.lightSleepDuration;
-    const remSleep = reportDetail.remSleepDuration;
-    const bedDuration = reportDetail.bedDuration;
+    // 嘗試多種可能的字段名稱
+    const totalSleep = reportDetail.sleepDuration || reportDetail.duration || reportDetail.totalDuration || reportDetail.sleepTime || 0;
+    const deepSleep = reportDetail.deepSleepDuration || reportDetail.deepSleep || reportDetail.deepDuration || 0;
+    const lightSleep = reportDetail.lightSleepDuration || reportDetail.lightSleep || reportDetail.lightDuration || 0;
+    const remSleep = reportDetail.remSleepDuration || reportDetail.remSleep || reportDetail.remDuration || 0;
+    const bedDuration = reportDetail.bedDuration || reportDetail.bedTime || reportDetail.totalBedTime || totalSleep;
     const awake = bedDuration - totalSleep;
+    
+    console.log('睡眠階段計算調試:', {
+      totalSleep, deepSleep, lightSleep, remSleep, bedDuration, awake,
+      sleepDuration: reportDetail.sleepDuration,
+      deepSleepDuration: reportDetail.deepSleepDuration,
+      lightSleepDuration: reportDetail.lightSleepDuration,
+      remSleepDuration: reportDetail.remSleepDuration,
+      bedDuration: reportDetail.bedDuration
+    });
+    
+    // 从睡眠报告数据中计算离床时长
+    let offbedDuration = 0;
+    const sleepReport = reportDetail.sleepReport || reportDetail.sleep_report || reportDetail.stages || reportDetail.sleepStages || [];
+    if (sleepReport && Array.isArray(sleepReport)) {
+      offbedDuration = sleepReport
+        .filter(item => item.state === 5) // state = 5 表示离床
+        .reduce((sum, item) => sum + (item.value || 0), 0);
+    }
     
     // 所有百分比都基于在床时长计算，确保加起来等于100%
     const deepPercent = bedDuration > 0 ? Math.round((deepSleep / bedDuration) * 100) : 0;
     const lightPercent = bedDuration > 0 ? Math.round((lightSleep / bedDuration) * 100) : 0;
     const remPercent = bedDuration > 0 ? Math.round((remSleep / bedDuration) * 100) : 0;
     const awakePercent = bedDuration > 0 ? Math.round((awake / bedDuration) * 100) : 0;
+    const offbedPercent = bedDuration > 0 ? Math.round((offbedDuration / bedDuration) * 100) : 0;
     
     console.log('睡眠阶段计算:', {
-      totalSleep, deepSleep, lightSleep, remSleep, bedDuration, awake,
-      deepPercent, lightPercent, remPercent, awakePercent,
-      totalPercent: deepPercent + lightPercent + remPercent + awakePercent
+      totalSleep, deepSleep, lightSleep, remSleep, bedDuration, awake, offbedDuration,
+      deepPercent, lightPercent, remPercent, awakePercent, offbedPercent,
+      totalPercent: deepPercent + lightPercent + remPercent + awakePercent + offbedPercent
     });
     
-    return {
+    // 如果離床時長為0，不包含離床相關數據
+    const result = {
       deepPercent,
       lightPercent,
       remPercent,
@@ -255,6 +276,17 @@ class DataProcessor {
       remDuration: (remSleep / 60).toFixed(1),      // 转换为小时
       awakeDuration: (awake / 60).toFixed(1)        // 转换为小时
     };
+    
+    // 只有當離床時長大於0時才添加離床相關數據
+    if (offbedDuration > 0) {
+      result.offbedPercent = offbedPercent;
+      result.offbedDuration = (offbedDuration / 60).toFixed(1);
+    } else {
+      result.offbedPercent = 0;
+      result.offbedDuration = 0;
+    }
+    
+    return result;
   }
 
   /**

@@ -24,7 +24,10 @@ Page({
     // 时间选择器相关（已移除，直接使用picker组件）
     
     // 配置修改标记
-    hasConfigChanged: false
+    hasConfigChanged: false,
+    
+    // 配置是否被禁用（當沒有手機號時）
+    configDisabled: false
   },
 
   /**
@@ -32,6 +35,15 @@ Page({
    */
   onLoad(options) {
     this.loadConfig();
+    // 頁面加載時也檢查是否有緊急聯繫人
+    this.checkLocalPhoneNumbers();
+  },
+
+  /**
+   * 頁面顯示時檢查緊急聯繫人
+   */
+  onShow() {
+    this.checkLocalPhoneNumbers();
   },
 
   /**
@@ -75,6 +87,24 @@ Page({
   },
 
   /**
+   * 檢查本地是否有緊急聯繫人
+   */
+  checkLocalPhoneNumbers() {
+    const localConfig = wx.getStorageSync('healthConfig');
+    const hasPhoneNumbers = localConfig && 
+                           localConfig.phone_list && 
+                           Array.isArray(localConfig.phone_list) && 
+                           localConfig.phone_list.length > 0;
+    
+    if (!hasPhoneNumbers) {
+      console.log('本地沒有緊急聯繫人，禁用預警設置');
+      this.setData({
+        configDisabled: true
+      });
+    }
+  },
+
+  /**
    * 從服務器同步配置
    */
   syncConfigFromServer() {
@@ -90,7 +120,8 @@ Page({
       .then(res => {
         if (res.ret === 0 && res.data) {
           console.log('從服務器獲取配置成功:', res.data);
-          this.updateConfigFromServer(res.data);
+          // 檢查是否有手機號
+          this.checkPhoneNumbers(res.data);
         } else {
           console.log('服務器配置獲取失敗:', res.msg);
         }
@@ -98,6 +129,60 @@ Page({
       .catch(err => {
         console.error('同步服務器配置失敗:', err);
       });
+  },
+
+  /**
+   * 檢查設備預警信息中是否有手機號
+   */
+  checkPhoneNumbers(serverData) {
+    // 檢查服務器返回的數據中是否有手機號
+    const serverHasPhoneNumbers = serverData.phone_list && 
+                                 Array.isArray(serverData.phone_list) && 
+                                 serverData.phone_list.length > 0;
+    
+    // 檢查本地配置中是否有手機號
+    const localConfig = wx.getStorageSync('healthConfig');
+    const localHasPhoneNumbers = localConfig && 
+                                localConfig.phone_list && 
+                                Array.isArray(localConfig.phone_list) && 
+                                localConfig.phone_list.length > 0;
+    
+    // 如果服務器和本地都沒有手機號，則禁用預警設置
+    if (!serverHasPhoneNumbers && !localHasPhoneNumbers) {
+      console.log('服務器和本地都沒有手機號，提示用戶先設置緊急聯繫人');
+      wx.showModal({
+        title: '預警設置提醒',
+        content: '檢測到沒有設置緊急聯繫人，請先設置緊急聯繫人後再進行預警設置。',
+        confirmText: '去設置',
+        cancelText: '稍後設置',
+        success: (res) => {
+          if (res.confirm) {
+            // 跳轉到個人中心設置緊急聯繫人
+            console.log('用戶確認跳轉到緊急聯繫人設置頁面');
+            // 先跳轉到個人中心頁面
+            wx.switchTab({
+              url: '/pages/mine/mine'
+            });
+            // 延遲一點時間後再設置參數
+            setTimeout(() => {
+              console.log('準備打開緊急聯繫人彈窗');
+              // 這裡我們需要通過其他方式來觸發彈窗
+              // 可以通過全局事件或者直接調用方法
+              getCurrentPages()[getCurrentPages().length - 1].openContactModal();
+            }, 1000);
+          } else {
+            // 用戶選擇稍後設置，仍然更新配置但不允許修改預警設置
+            this.updateConfigFromServer(serverData);
+            this.setData({
+              configDisabled: true // 禁用預警設置
+            });
+          }
+        }
+      });
+    } else {
+      // 有手機號（服務器或本地），正常更新配置
+      this.updateConfigFromServer(serverData);
+    }
   },
 
   /**
@@ -201,6 +286,11 @@ Page({
    * 编辑心率过速提醒值
    */
   editHrTooFast() {
+    if (this.data.configDisabled) {
+      this.showConfigDisabledMessage();
+      return;
+    }
+    
     wx.showModal({
       title: '心率过速提醒值',
       editable: true,
@@ -229,6 +319,11 @@ Page({
    * 编辑心率过缓提醒值
    */
   editHrTooSlow() {
+    if (this.data.configDisabled) {
+      this.showConfigDisabledMessage();
+      return;
+    }
+    
     wx.showModal({
       title: '心率过缓提醒值',
       editable: true,
@@ -257,6 +352,11 @@ Page({
    * 编辑呼吸率过速提醒值
    */
   editBrTooFast() {
+    if (this.data.configDisabled) {
+      this.showConfigDisabledMessage();
+      return;
+    }
+    
     wx.showModal({
       title: '呼吸率过速提醒值',
       editable: true,
@@ -285,6 +385,11 @@ Page({
    * 编辑呼吸率过缓提醒值
    */
   editBrTooSlow() {
+    if (this.data.configDisabled) {
+      this.showConfigDisabledMessage();
+      return;
+    }
+    
     wx.showModal({
       title: '呼吸率过缓提醒值',
       editable: true,
@@ -313,6 +418,11 @@ Page({
    * 编辑离床未归提醒值
    */
   editOutbedExceed() {
+    if (this.data.configDisabled) {
+      this.showConfigDisabledMessage();
+      return;
+    }
+    
     wx.showModal({
       title: '离床未归提醒值',
       editable: true,
@@ -341,6 +451,11 @@ Page({
    * 开始时间选择器变化
    */
   onStartTimeChange(e) {
+    if (this.data.configDisabled) {
+      this.showConfigDisabledMessage();
+      return;
+    }
+    
     const time = e.detail.value;
     this.setData({
       outbedStartTime: time,
@@ -353,6 +468,11 @@ Page({
    * 结束时间选择器变化
    */
   onEndTimeChange(e) {
+    if (this.data.configDisabled) {
+      this.showConfigDisabledMessage();
+      return;
+    }
+    
     const time = e.detail.value;
     this.setData({
       outbedEndTime: time,
@@ -385,11 +505,43 @@ Page({
    * 离床预警语音提醒开关切换
    */
   onOutbedVoiceChange(e) {
+    if (this.data.configDisabled) {
+      this.showConfigDisabledMessage();
+      return;
+    }
+    
     this.setData({
       isOutbedVoice: e.detail.value,
       hasConfigChanged: true
     });
     this.saveConfig();
+  },
+
+  /**
+   * 显示配置被禁用的提示
+   */
+  showConfigDisabledMessage() {
+    wx.showModal({
+      title: '预警设置不可用',
+      content: '请先设置紧急联系人后再进行预警设置',
+      confirmText: '去设置',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          console.log('用戶確認跳轉到緊急聯繫人設置頁面（禁用提示）');
+          // 先跳轉到個人中心頁面
+          wx.switchTab({
+            url: '/pages/mine/mine'
+          });
+          // 延遲一點時間後再設置參數
+          setTimeout(() => {
+            console.log('準備打開緊急聯繫人彈窗（禁用提示）');
+            // 這裡我們需要通過其他方式來觸發彈窗
+            getCurrentPages()[getCurrentPages().length - 1].openContactModal();
+          }, 1000);
+        }
+      }
+    });
   },
 
   /**

@@ -1,21 +1,33 @@
 <!--components/SleepStageChart/sleepStageChart.wxml-->
 <view class="sleep-stage-chart">
-  <!-- 圓環圖表容器 -->
-  <view class="chart-container">
-    <!-- CSS圓環圖表 -->
-    <view class="circular-chart" wx:if="{{chartData.stages.length > 0}}">
-      <!-- 外圓環 -->
-      <view class="outer-ring" style="background: {{chartData.conicGradient}};"></view>
-      <!-- 內圓環（形成圓環效果） -->
-      <view class="inner-ring"></view>
+  <!-- iPhone 风格睡眠图表 -->
+  <view class="iphone-sleep-chart">
+    <view class="chart-header">
+      <text class="chart-title">睡眠阶段</text>
+      <text class="chart-subtitle">{{chartData.startTime}} - {{chartData.endTime}}</text>
+    </view>
+    
+    <view class="sleep-timeline">
+      <!-- 时间轴 -->
+      <view class="time-axis">
+        <view class="time-marker" wx:for="{{timeMarkers}}" wx:key="index" style="left: {{item.position}}%">
+          <text class="time-label">{{item.time}}</text>
+        </view>
+      </view>
       
-      <!-- 時間標記 -->
-      <view 
-        class="time-marker start-time" 
-        style="transform: rotate({{chartData.startAngle}}deg) translateY(-120rpx) rotate(-{{chartData.startAngle}}deg); transform-origin: center 120rpx; left: 50%; top: 50%;">{{chartData.startTime}}</view>
-      <view 
-        class="time-marker end-time" 
-        style="transform: rotate({{chartData.endAngle}}deg) translateY(-120rpx) rotate(-{{chartData.endAngle}}deg); transform-origin: center 120rpx; left: 50%; top: 50%;">{{chartData.endTime}}</view>
+      <!-- ECharts 多行块状图 -->
+      <ec-canvas 
+        id="sleepStageChart" 
+        canvas-id="sleepStageChart" 
+        ec="{{ecConfig}}"
+        class="sleep-stage-echarts"
+        wx:if="{{ecConfig}}">
+      </ec-canvas>
+      
+      <!-- 调试信息 -->
+      <view class="debug-info" wx:if="{{!ecConfig}}">
+        <text class="debug-text">ECharts 配置未加载</text>
+      </view>
     </view>
   </view>
 </view>

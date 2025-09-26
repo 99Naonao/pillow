@@ -50,37 +50,127 @@
       </view>
     </view>
 
-    <!-- 睡眠分期饼图与比例 -->
-    <view class="stage-row">
-      <view class="stage-pie">
-        <!-- <ec-canvas wx:if="{{stagePieChart}}" id="stagePieChart" canvas-id="stagePieChart" ec="{{stagePieChart}}"></ec-canvas> -->
-        <sleep-stage-chart sleep-report="{{currentReport}}"></sleep-stage-chart>
-      </view>
-      <view class="stage-legend-box">
-        <view class="stage-legend">
-          <view class="legend-row">
-            <view class="legend-dot shallow"></view>
-            <text>浅睡期</text>
-            <text class="legend-percent">{{shallowPercent}}%</text>
-            <text class="legend-duration">{{shallowDuration}}h</text>
-          </view>
-          <!-- <view class="legend-row" wx:if="{{remPercent > 0}}">
-            <view class="legend-dot rem"></view>
-            <text>快速眼动</text>
-            <text class="legend-percent">{{remPercent}}%</text>
-            <text class="legend-duration">{{remDuration}}h</text>
+    <!-- 睡眠阶段时间线 -->
+    <view class="sleep-timeline-container">
+      <view class="timeline-wrapper">
+        <!-- 使用純 CSS 實現睡眠階段多行塊狀圖 -->
+        <view class="sleep-chart-header">
+          <text class="chart-title">睡眠阶段</text>
+          <text class="chart-subtitle">{{sleepStartTime}} - {{sleepEndTime}}</text>
+        </view>
+        
+        <view class="sleep-timeline-chart">
+          <!-- 時間軸標籤 -->
+          <!-- <view class="time-axis">
+            <view class="time-label" wx:for="{{sleepTimeLabels}}" wx:key="index" style="left: {{item.position}}%">
+              <text>{{item.time}}</text>
+            </view>
           </view> -->
-          <view class="legend-row">
-            <view class="legend-dot deep"></view>
-            <text>深睡期</text>
-            <text class="legend-percent">{{deepPercent}}%</text>
-            <text class="legend-duration">{{deepDuration}}h</text>
+          
+          <!-- 睡眠階段區域 -->
+          <view class="sleep-stages">
+            <view class="sleep-stage" wx:for="{{sleepStages}}" wx:key="name">
+              <view class="stage-label">{{item.name}}</view>
+              <view class="stage-timeline">
+                <view 
+                  class="stage-block" 
+                  wx:for="{{item.blocks}}" 
+                  wx:key="index"
+                  style="left: {{item.left}}%; width: {{item.width}}%; background-color: {{item.color}};"
+                  data-stage="{{item.stage}}"
+                  data-start="{{item.startTime}}"
+                  data-end="{{item.endTime}}"
+                  data-duration="{{item.duration}}"
+                  bindtap="onStageBlockTap">
+                </view>
+                
+                <!-- 在對應的睡眠階段塊旁邊顯示信息框 -->
+                <view 
+                  class="block-info-popup" 
+                  wx:if="{{showBlockInfo && selectedBlock.stage === item.name}}" 
+                  style="left: {{selectedBlock.left}}%; top: 0;"
+                  bindtap="closeBlockInfo">
+                  <view class="trend-card compact-info" catchtap="">
+                    <view class="trend-header">
+                      <image src="../../static/info.png" class="trend-icon"/>
+                      <text class="trend-title">{{selectedBlock.stage}} 详情</text>
+                      <view class="block-info-close" bindtap="closeBlockInfo">
+                        <text>×</text>
+                      </view>
+                    </view>
+                    <view class="block-info-content">
+                      <view class="block-info-item">
+                        <text class="block-info-label">开始时间</text>
+                        <text class="block-info-value">{{selectedBlock.startTime}}</text>
+                      </view>
+                      <view class="block-info-item">
+                        <text class="block-info-label">结束时间</text>
+                        <text class="block-info-value">{{selectedBlock.endTime}}</text>
+                      </view>
+                      <view class="block-info-item">
+                        <text class="block-info-label">持续时长</text>
+                        <text class="block-info-value">{{selectedBlock.duration}} 分钟</text>
+                      </view>
+                    </view>
+                  </view>
+                </view>
+                
+              </view>
+            </view>
           </view>
-          <view class="legend-row">
-            <view class="legend-dot awake"></view>
-            <text>清醒期</text>
-            <text class="legend-percent">{{awakePercent}}%</text>
-            <text class="legend-duration">{{awakeDuration}}h</text>
+        </view>
+        
+        
+        <!-- 柱状图（旧样式，暂时保留在多行图下方） -->
+        <view class="sleep-chart-container">
+          <view class="chart-header">
+            <text class="chart-title">睡眠时间线</text>
+
+          </view>
+
+          <view class="chart-bars" bindtap="onChartBarTap">
+            <view 
+              class="chart-bar {{item.type}}" 
+              wx:for="{{sleepChartData}}" 
+              wx:key="index"
+              data-index="{{index}}"
+              data-time="{{item.time}}"
+              data-type="{{item.type}}"
+              style="width: {{item.width}}%; left: {{item.left}}%"
+            >
+              <view class="bar-content">
+                <text class="bar-time">{{item.time}}</text>
+                <text class="bar-duration" wx:if="{{item.duration}}" style="font-size: {{item.fontSize}}rpx;">{{item.duration}}</text>
+                <text class="bar-end-time" wx:if="{{item.endTime}}">{{item.endTime}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        
+
+        <view class="timeline-bar">
+          <view class="timeline-segment offbed" wx:if="{{offbedPercent > 0}}" style="width: {{offbedPercent}}%"></view>
+          <view class="timeline-segment awake" style="width: {{awakePercent}}%"></view>
+          <view class="timeline-segment shallow" style="width: {{shallowPercent}}%"></view>
+          <view class="timeline-segment deep" style="width: {{deepPercent}}%"></view>
+        </view>
+
+        <view class="timeline-labels">
+          <view class="timeline-label offbed" wx:if="{{offbedPercent > 0}}" style="width: {{offbedPercent}}%">
+            <text class="label-text">离床</text>
+            <text class="label-duration">{{offbedDuration}}小时</text>
+          </view>
+          <view class="timeline-label awake" style="width: {{awakePercent}}%">
+            <text class="label-text">清醒</text>
+            <text class="label-duration">{{awakeDuration}}小时</text>
+          </view>
+          <view class="timeline-label shallow" style="width: {{shallowPercent}}%">
+            <text class="label-text">浅睡</text>
+            <text class="label-duration">{{shallowDuration}}小时</text>
+          </view>
+          <view class="timeline-label deep" style="width: {{deepPercent}}%">
+            <text class="label-text">深睡</text>
+            <text class="label-duration">{{deepDuration}}小时</text>
           </view>
         </view>
       </view>
@@ -116,18 +206,6 @@
       <ec-canvas wx:if="{{bodyMoveTrendChart}}" id="bodyMoveTrendChart" canvas-id="bodyMoveTrendChart" ec="{{bodyMoveTrendChart}}"></ec-canvas>
     </view>
 
-    <!-- 打鼾信息 -->
-    <!-- <view class="trend-card">
-      <view class="trend-header">
-        <image src="../../static/warn.png" class="trend-icon"/>
-        <text class="trend-title">打鼾情况</text>
-        <text class="trend-value">{{snoreCount}}次</text>
-      </view>
-      <view class="snore-info">
-        <text class="snore-duration">打鼾时长: {{snoreDuration}}分钟</text>
-      </view>
-    </view> -->
-
     <!-- 睡眠评估 -->
     <view class="trend-card" wx:if="{{sleepAssessment}}">
       <view class="trend-header">
@@ -139,14 +217,7 @@
       </view>
     </view>
 
-    <!-- 睡眠年龄
-    <view class="trend-card" wx:if="{{sleepAge > 0}}">
-      <view class="trend-header">
-        <image src="../../static/score.png" class="trend-icon"/>
-        <text class="trend-title">睡眠年龄</text>
-        <text class="trend-value">{{sleepAge}}岁</text>
-      </view>
-    </view> -->
+
 
     <!-- 入睡时间 -->
     <view class="trend-card" wx:if="{{sleepOnsetTime > 0}}">

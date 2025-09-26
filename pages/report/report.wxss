@@ -114,84 +114,643 @@
   justify-content: center;
   pointer-events: none;
 }
-.stage-row {
-  display: flex;
-  flex-direction: row;
-  margin: 32rpx 32rpx 0 32rpx;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 300rpx;
-  overflow: visible;
-}
-.stage-pie {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 300rpx;
-  height: 300rpx;
-  overflow: visible;
-  margin: 0;
+/* 睡眠阶段时间线样式 */
+.sleep-timeline-container {
+  margin: 32rpx;
   padding: 0;
 }
-.pie-canvas {
-  width: 200rpx;
-  height: 200rpx;
-}
-.stage-legend {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  margin-left: 24rpx;
-}
-.legend-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12rpx;
-}
-.legend-dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 50%;
-  margin-right: 8rpx;
-}
-.legend-dot.shallow { background: #f7c873; }
-.legend-dot.rem { background: #9c27b0; }
-.legend-dot.deep { background: #5e7fff; }
-.legend-percent {
-  margin-left: auto;
-  font-size: 24rpx;
-  color: #fff;
-  margin-right: 16rpx;
+
+.timeline-header {
+  margin-bottom: 24rpx;
 }
 
-.legend-duration {
-  font-size: 24rpx;
+.timeline-title {
+  font-size: 28rpx;
   color: #fff;
-  min-width: 40rpx;
-  text-align: right;
+  font-weight: bold;
 }
-.stage-legend-box {
-  background: #175c77;
-  border-radius: 20rpx;
-  padding: 24rpx 20rpx;
-  margin-left: 32rpx;
-  flex: 1;
+
+.timeline-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 睡眠階段多行塊狀圖樣式 */
+.sleep-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.chart-title {
+  font-size: 32rpx;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.chart-subtitle {
+  font-size: 24rpx;
+  color: #b0b0b0;
+  font-weight: 400;
+}
+
+.sleep-timeline-chart {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.time-axis {
+  position: relative;
+  height: 40rpx;
+  margin-bottom: 20rpx;
+  border-bottom: 1rpx solid #333;
+}
+
+.sleep-timeline-chart .time-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.sleep-timeline-chart .time-label text {
+  font-size: 20rpx;
+  color: #999;
+}
+
+.sleep-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.sleep-stage {
   display: flex;
   align-items: center;
-  min-width: 200rpx;
-  max-width: 300rpx;
+  height: 60rpx;
 }
-.stage-pie ec-canvas {
-  width: 160rpx;
-  height: 160rpx;
+
+.stage-label {
+  width: 120rpx;
+  font-size: 24rpx;
+  color: #fff;
+  text-align: right;
+  padding-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.stage-timeline {
+  position: relative;
+  flex: 1;
+  height: 40rpx;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4rpx;
+  overflow: visible;
+}
+
+.stage-block {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 4rpx;
+  transition: all 0.3s ease;
+}
+
+.stage-block:active {
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+/* 睡眠階段信息框樣式 - 在數據塊旁邊顯示 */
+.block-info-popup {
+  position: absolute;
+  z-index: 100;
+  animation: slideIn 0.3s ease-out;
+  pointer-events: auto;
+  margin-top: 20rpx;
+  transform: translateX(-50%);
+}
+
+/* 覆蓋頂部「開始/結束時間」的字體顏色與大小，避免被通用 .time-label 覆蓋 */
+.summary-row .time-label {
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.summary-row .time-value {
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.trend-card.compact-info {
+  background: #000;
+  border-radius: 12rpx;
+  margin: 0;
+  padding: 16rpx;
+  width: 200rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.3);
+}
+
+.trend-card .block-info-close {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-left: auto;
+  transition: background-color 0.2s ease;
+}
+
+.trend-card .block-info-close:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.trend-card .block-info-close text {
+  font-size: 20rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+.trend-card .block-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  margin-top: 4rpx;
+}
+
+.trend-card .block-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rpx 0;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.1);
+  min-height: 24rpx;
+}
+
+.trend-card .block-info-item:last-child {
+  border-bottom: none;
+}
+
+.trend-card .block-info-label {
+  font-size: 20rpx;
+  color: #fff;
+  font-weight: 400;
+}
+
+.trend-card .block-info-value {
+  font-size: 20rpx;
+  color: #fff;
+  font-weight: 600;
+}
+
+.debug-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200rpx;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1rpx solid #ff0000;
+  border-radius: 8rpx;
+}
+
+.debug-text {
+  color: #ff0000;
+  font-size: 24rpx;
+}
+
+/* iPhone 风格睡眠图表样式 */
+.iphone-sleep-chart {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  backdrop-filter: blur(10rpx);
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.chart-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.5rpx;
+}
+
+.chart-subtitle {
+  font-size: 24rpx;
+  color: #b0b0b0;
+  font-weight: 400;
+}
+
+.sleep-timeline {
+  position: relative;
+}
+
+.time-axis {
+  position: relative;
+  height: 40rpx;
+  margin-bottom: 16rpx;
+}
+
+.time-marker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  /* 添加與數據塊相關聯的樣式 */
+  border-left: 1rpx solid rgba(255, 255, 255, 0.1);
+  padding-left: 8rpx;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.time-label {
+  font-size: 20rpx;
+  color: #8a8a8a;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sleep-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.stage-row {
+  display: flex;
+  align-items: center;
+  height: 64rpx;
+  position: relative;
+}
+
+.stage-label {
+  width: 120rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-right: 20rpx;
+}
+
+.stage-name {
+  font-size: 26rpx;
+  color: #ffffff;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.stage-duration {
+  font-size: 20rpx;
+  color: #8a8a8a;
+  font-weight: 400;
+  margin-top: 4rpx;
+}
+
+.stage-track {
+  flex: 1;
+  position: relative;
+  height: 48rpx;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 24rpx;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+.stage-blocks {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* 不需要額外的 margin-left，因為軌道已經擴展了 */
+}
+
+.stage-block {
+  position: absolute;
+  top: 4rpx;
+  height: 40rpx;
+  border-radius: 20rpx;
+  min-width: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+  /* 添加與時間軸相關聯的樣式 */
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10rpx);
+}
+
+.stage-block:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.block-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.block-duration {
+  font-size: 18rpx;
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+/* iPhone 风格颜色方案 - 与时间线保持一致 */
+.stage-block.offbed { 
+  background: #FF6B6B !important; /* 红色 - 离床 */
+  box-shadow: 0 2rpx 8rpx rgba(255, 107, 107, 0.3) !important;
+}
+
+.stage-block.awake { 
+  background: #FFA07A !important; /* 橙红色 - 清醒 */
+  box-shadow: 0 2rpx 8rpx rgba(255, 160, 122, 0.3) !important;
+}
+
+.stage-block.shallow { 
+  background: #87CEEB !important; /* 浅蓝色 - 浅睡 */
+  box-shadow: 0 2rpx 8rpx rgba(135, 206, 235, 0.3) !important;
+}
+
+.stage-block.deep { 
+  background: #4169E1 !important; /* 深蓝色 - 深睡 */
+  box-shadow: 0 2rpx 8rpx rgba(65, 105, 225, 0.3) !important;
+}
+
+/* 滑动提示框样式 */
+.stage-tooltip {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.tooltip-content {
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 8rpx;
+  padding: 12rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.3);
+}
+
+.tooltip-stage {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: bold;
+  margin-bottom: 4rpx;
+}
+
+.tooltip-time {
+  font-size: 20rpx;
+  color: #b0b0b0;
+  margin-bottom: 2rpx;
+}
+
+.tooltip-duration {
+  font-size: 20rpx;
+  color: #ffd700;
+  font-weight: bold;
+}
+
+/* 滑动指示线样式 */
+.stage-indicator-line {
+  position: fixed;
+  width: 2rpx;
+  background: repeating-linear-gradient(
+    to bottom,
+    #ffffff 0rpx,
+    #ffffff 8rpx,
+    transparent 8rpx,
+    transparent 16rpx
+  );
+  z-index: 999;
+  pointer-events: none;
+  box-shadow: 0 0 4rpx rgba(255, 255, 255, 0.8);
+  opacity: 0.9;
+}
+
+
+.stage-time-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10rpx;
+}
+
+.axis-time { color: #b0c7ff; font-size: 20rpx; }
+
+/* 睡眠柱状图样式 */
+.sleep-chart-container {
+  margin-bottom: 32rpx;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.chart-title {
+  font-size: 26rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+.chart-time-range {
+  font-size: 22rpx;
+  color: #b0b0b0;
+}
+
+.chart-bars {
+  position: relative;
+  height: 80rpx;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.chart-bar {
+  position: absolute;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 4rpx;
+  min-width: 50rpx; /* 設置最小寬度，確保有足夠空間顯示文字 */
+}
+
+.chart-bar.shallow {
+  background: #87CEEB;
+}
+
+.chart-bar.deep {
+  background: #4169E1;
+}
+
+.chart-bar.awake {
+  background: #FFA07A;
+}
+
+.chart-bar.offbed {
+  background: #FF6B6B; /* 离床期 - 红色 */
+}
+
+.chart-bar:active {
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+
+.bar-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.bar-time {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.bar-duration {
+  font-size: 18rpx; /* 調整為18rpx，平衡可讀性和空間 */
+  color: rgba(255, 255, 255, 0.9); /* 提高透明度 */
+  font-weight: 600; /* 加粗 */
+  margin-top: 2rpx;
+  white-space: nowrap;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.bar-end-time {
+  font-size: 12rpx;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 1rpx;
+  white-space: nowrap;
+}
+
+.timeline-bar {
+  display: flex;
+  height: 32rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  margin-bottom: 20rpx;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.timeline-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.timeline-segment.shallow {
+  background: #87CEEB; /* 浅蓝色 - 浅睡 */
+}
+
+.timeline-segment.deep {
+  background: #4169E1; /* 深蓝色 - 深睡 */
+}
+
+.timeline-segment.awake {
+  background: #FFA07A; /* 橙红色 - 清醒 */
+}
+
+.timeline-segment.offbed {
+  background: #FF6B6B; /* 红色 - 离床 */
+}
+
+.timeline-labels {
+  display: flex;
+  height: 80rpx;
+  align-items: center;
+}
+
+.timeline-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  transition: width 0.3s ease;
+  min-width: 0;
+}
+
+.timeline-label.shallow {
+  color: #87CEEB;
+}
+
+.timeline-label.deep {
+  color: #4169E1;
+}
+
+.timeline-label.awake {
+  color: #FFA07A;
+}
+
+.timeline-label.offbed {
+  color: #FF6B6B;
+}
+
+.label-text {
+  font-size: 24rpx;
+  font-weight: bold;
+  margin-bottom: 4rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label-duration {
+  font-size: 20rpx;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .trend-card {
   background: #175c77;
-  border-radius: 16rpx;
-  margin: 32rpx;
-  padding: 24rpx;
+  border-radius: 12rpx;
+  margin: 16rpx 32rpx;
+  padding: 16rpx;
 }
 .trend-header {
   display: flex;
@@ -230,11 +789,13 @@
   background-color: #175c77;
 }
 .time-divider {
-  width: 80%;
+  width: 95%;
   height: 2rpx;
-  background: #cecece;
-  margin: 10rpx 0 10rpx 30rpx;
+  background: rgba(255, 255, 255, 0.6);
+  margin-left: 5rpx;
+  margin-top: 5rpx;
   border-radius: 2rpx;
+  display: block;
 }
 .date-row {
   display: flex;

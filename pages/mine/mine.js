@@ -55,6 +55,22 @@ Page({
     this.deviceManager = new DeviceManager(this);
     
     this.loadAlarmSettings();
+    
+    // 調試：打印接收到的參數
+    console.log('個人中心頁面接收到的參數:', options);
+    console.log('tab參數值:', options.tab);
+    
+    // 檢查是否有tab參數，如果有則直接打開對應的彈窗
+    if (options.tab === 'emergency') {
+      console.log('檢測到emergency參數，準備打開緊急聯繫人彈窗');
+      // 延遲一點時間確保頁面完全加載
+      setTimeout(() => {
+        console.log('開始調用openContactModal方法');
+        this.openContactModal();
+      }, 500);
+    } else {
+      console.log('沒有檢測到emergency參數，不打開彈窗');
+    }
   },
 
   /**
@@ -221,6 +237,9 @@ Page({
    * 打开联系人管理弹窗
    */
   openContactModal() {
+    console.log('openContactModal方法被調用');
+    console.log('當前登錄狀態:', AuthApi.isLoggedIn());
+    
     // 检查用户是否已登录
     if (!AuthApi.isLoggedIn()) {
       console.log('用户未登录，弹出登录提示');
@@ -241,7 +260,9 @@ Page({
       return;
     }
     
+    console.log('用戶已登錄，準備打開緊急聯繫人彈窗');
     this.setData({ showContactModal: true });
+    console.log('緊急聯繫人彈窗狀態已設置為true');
   },
 
   /**

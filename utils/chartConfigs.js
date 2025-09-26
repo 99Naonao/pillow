@@ -3,7 +3,7 @@
  * 包含所有图表的配置模板和初始化方法
  */
 
-import * as echarts from '../components/ec-canvas/echarts';
+const echarts = require('../components/ec-canvas/echarts');
 
 class ChartConfigs {
   /**
@@ -17,26 +17,38 @@ class ChartConfigs {
     return {
       onInit: (canvas, width, height, dpr) => {
         console.log('评分圆环图onInit被调用，分数:', score);
-        const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
-        canvas.setChart(chart);
         
-        const option = {
-          backgroundColor: 'transparent',
-          series: [{
-            type: 'pie',
-            radius: ['90%', '100%'],
-            silent: true,
-            label: { show: false },
-            data: [
-              { value: score, name: '得分', itemStyle: { color: scoreColor } },
-              { value: remaining, name: '空', itemStyle: { color: '#2a223d' } }
-            ]
-          }],
-        };
+        // 檢查 canvas 是否存在
+        if (!canvas) {
+          console.warn('Canvas 為空，無法初始化評分圓環圖');
+          return null;
+        }
         
-        console.log('评分圆环图配置:', option);
-        chart.setOption(option);
-        return chart;
+        try {
+          const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+          canvas.setChart(chart);
+          
+          const option = {
+            backgroundColor: 'transparent',
+            series: [{
+              type: 'pie',
+              radius: ['90%', '100%'],
+              silent: true,
+              label: { show: false },
+              data: [
+                { value: score, name: '得分', itemStyle: { color: scoreColor } },
+                { value: remaining, name: '空', itemStyle: { color: '#2a223d' } }
+              ]
+            }],
+          };
+          
+          console.log('评分圆环图配置:', option);
+          chart.setOption(option);
+          return chart;
+        } catch (error) {
+          console.error('評分圓環圖初始化失敗:', error);
+          return null;
+        }
       }
     };
   }
@@ -50,35 +62,47 @@ class ChartConfigs {
     return {
       onInit: (canvas, width, height, dpr) => {
         console.log('圆环图onInit被调用，数据:', stageData);
-        const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
-        canvas.setChart(chart);
         
-        // 构建图表数据，只包含非零值
-        const chartData = [];
-        if (stageData.shallow > 0) chartData.push({ value: stageData.shallow, name: '浅睡期', itemStyle: { color: '#f7c873' } });
-        if (stageData.awake > 0) chartData.push({ value: stageData.awake, name: '清醒期', itemStyle: { color: '#e97b7b' } });
-        if (stageData.deep > 0) chartData.push({ value: stageData.deep, name: '深睡期', itemStyle: { color: '#5e7fff' } });
-        if (stageData.rem > 0) chartData.push({ value: stageData.rem, name: '快速眼动', itemStyle: { color: '#9c27b0' } });
-        
-        // 如果所有值都为0，显示默认状态
-        if (chartData.length === 0) {
-          chartData.push({ value: 100, name: '无数据', itemStyle: { color: '#666' } });
+        // 檢查 canvas 是否存在
+        if (!canvas) {
+          console.warn('Canvas 為空，無法初始化圓環圖');
+          return null;
         }
         
-        console.log('圆环图最终数据:', chartData);
-        
-        chart.setOption({
-          backgroundColor: 'transparent',
-          series: [{
-            type: 'pie',
-            radius: ['100%', '80%'],
-            avoidLabelOverlap: false,
-            label: { show: false },
-            labelLine: { show: false },
-            data: chartData
-          }]
-        });
-        return chart;
+        try {
+          const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+          canvas.setChart(chart);
+          
+          // 构建图表数据，只包含非零值
+          const chartData = [];
+          if (stageData.shallow > 0) chartData.push({ value: stageData.shallow, name: '浅睡期', itemStyle: { color: '#f7c873' } });
+          if (stageData.awake > 0) chartData.push({ value: stageData.awake, name: '清醒期', itemStyle: { color: '#e97b7b' } });
+          if (stageData.deep > 0) chartData.push({ value: stageData.deep, name: '深睡期', itemStyle: { color: '#5e7fff' } });
+          if (stageData.rem > 0) chartData.push({ value: stageData.rem, name: '快速眼动', itemStyle: { color: '#9c27b0' } });
+          
+          // 如果所有值都为0，显示默认状态
+          if (chartData.length === 0) {
+            chartData.push({ value: 100, name: '无数据', itemStyle: { color: '#666' } });
+          }
+          
+          console.log('圆环图最终数据:', chartData);
+          
+          chart.setOption({
+            backgroundColor: 'transparent',
+            series: [{
+              type: 'pie',
+              radius: ['100%', '80%'],
+              avoidLabelOverlap: false,
+              label: { show: false },
+              labelLine: { show: false },
+              data: chartData
+            }]
+          });
+          return chart;
+        } catch (error) {
+          console.error('圓環圖初始化失敗:', error);
+          return null;
+        }
       }
     };
   }
@@ -94,8 +118,16 @@ class ChartConfigs {
       onInit: (canvas, width, height, dpr) => {
         console.log('心率图表onInit被调用，数据长度:', chartData.heartRateData.length);
         console.log('心率数据样本:', chartData.heartRateData.slice(0, 10));
-        const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
-        canvas.setChart(chart);
+        
+        // 檢查 canvas 是否存在
+        if (!canvas) {
+          console.warn('Canvas 為空，無法初始化心率圖表');
+          return null;
+        }
+        
+        try {
+          const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+          canvas.setChart(chart);
         
         // 计算Y轴范围
         const maxHeartRate = Math.max(...chartData.heartRateData);
@@ -146,6 +178,10 @@ class ChartConfigs {
         console.log('心率图表配置:', option);
         chart.setOption(option);
         return chart;
+        } catch (error) {
+          console.error('心率圖表初始化失敗:', error);
+          return null;
+        }
       }
     };
   }
@@ -160,8 +196,16 @@ class ChartConfigs {
       onInit: (canvas, width, height, dpr) => {
         console.log('呼吸率图表onInit被调用，数据长度:', chartData.breathRateData.length);
         console.log('呼吸率数据样本:', chartData.breathRateData.slice(0, 10));
-        const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
-        canvas.setChart(chart);
+        
+        // 檢查 canvas 是否存在
+        if (!canvas) {
+          console.warn('Canvas 為空，無法初始化呼吸率圖表');
+          return null;
+        }
+        
+        try {
+          const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+          canvas.setChart(chart);
         
         // 计算Y轴范围
         const maxBreathRate = Math.max(...chartData.breathRateData);
@@ -212,6 +256,10 @@ class ChartConfigs {
         console.log('呼吸率图表配置:', option);
         chart.setOption(option);
         return chart;
+        } catch (error) {
+          console.error('呼吸率圖表初始化失敗:', error);
+          return null;
+        }
       }
     };
   }
@@ -226,8 +274,16 @@ class ChartConfigs {
       onInit: (canvas, width, height, dpr) => {
         console.log('体动图表onInit被调用，数据长度:', chartData.bodyMoveData.length);
         console.log('体动数据样本:', chartData.bodyMoveData.slice(0, 10));
-        const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
-        canvas.setChart(chart);
+        
+        // 檢查 canvas 是否存在
+        if (!canvas) {
+          console.warn('Canvas 為空，無法初始化體動圖表');
+          return null;
+        }
+        
+        try {
+          const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+          canvas.setChart(chart);
         
         // 计算Y轴范围
         const maxBodyMove = Math.max(...chartData.bodyMoveData);
@@ -278,6 +334,10 @@ class ChartConfigs {
         console.log('体动图表配置:', option);
         chart.setOption(option);
         return chart;
+        } catch (error) {
+          console.error('體動圖表初始化失敗:', error);
+          return null;
+        }
       }
     };
   }

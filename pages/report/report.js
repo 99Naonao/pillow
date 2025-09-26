@@ -1,15 +1,13 @@
 // pages/report/report.js
-import * as echarts from '../../components/ec-canvas/echarts';
 const DeviceManager = require('../../utils/deviceManager');
-const CommonUtil = require('../../utils/commonUtil');
 const DataProcessor = require('../../utils/dataProcessor');
 const ChartManager = require('../../utils/chartManager');
 
 Page({
   data: {
     sleepTime:'',           // 本次睡眠时长
-    sleepStartTime:'00:00',           // 睡眠开始时间
-    sleepEndTime:'06:38',             // 睡眠结束时间
+    sleepStartTime:'00:00', // 睡眠开始时间
+    sleepEndTime:'06:38',   // 睡眠结束时间
     currentDate: '',        // 页面显示的日期（yyyy.MM.dd） 
     calendarValue: '',      // TDesign日历组件的值（yyyy-MM-dd）
     showCalendar: false,    // 控制日历弹窗显示
@@ -41,8 +39,8 @@ Page({
     snoreCount: 0,          // 打鼾次数
     sleepAge: 0,            // 睡眠年龄
     sleepOnsetTime: 0,      // 入睡时间
-    sleepAssessment: '',     // 睡眠评估
-    advice: '',              // 建议
+    sleepAssessment: '',    // 睡眠评估
+    advice: '',             // 建议
     
     // 曲线图数据数组
     timeLabels: ['00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00'],  // 时间标签
@@ -55,7 +53,20 @@ Page({
     scoreCircleChart: {},
     heartTrendChart: {},
     breathTrendChart: {},
-    bodyMoveTrendChart: {}
+    bodyMoveTrendChart: {},
+    
+    // 睡眠柱状图数据
+    sleepChartData: [],  // 睡眠时间线柱状图数据
+    sleepReport: [],     // 睡眠报告数据
+    offbedPercent: 0,    // 离床百分比
+    offbedDuration: 0,   // 离床时长（小时）
+    
+    // 睡眠阶段图表数据
+    sleepStages: [],
+    sleepTimeLabels: [],
+    // 點擊效果相關
+    selectedBlock: null,
+    showBlockInfo: false
   },
 
   onReady() {
@@ -69,6 +80,7 @@ Page({
     this.chartManager = new ChartManager(this);
     
     // 从 CommonUtil 获取保存的 WiFi MAC 地址
+    const CommonUtil = require('../../utils/commonUtil');
     const wifiMac = CommonUtil.getSavedWifiMac();
     const convertedIds = wx.getStorageSync('convertedCharacteristicIds');
     
@@ -131,13 +143,9 @@ Page({
     const endDate = DataProcessor.getNextDay(selectedDate);
     this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
     
-    // 手動更新圓環組件
+    // 手動更新睡眠階段圖表
     setTimeout(() => {
-      const sleepStageChart = this.selectComponent('#sleepStageChart');
-      if (sleepStageChart) {
-        // sleepStageChart.setStartAngle(90);
-        sleepStageChart.updateChart();
-      }
+      this.updateSleepStageChart();
     }, 100);
   },
 
@@ -216,10 +224,12 @@ Page({
       deepPercent: 0,
       awakePercent: 0,
       remPercent: 0,
+      offbedPercent: 0,
       shallowDuration: 0,
       deepDuration: 0,
       awakeDuration: 0,
       remDuration: 0,
+      offbedDuration: 0,
       // 详细数据
       heartRate: 0,
       breathRate: 0,
@@ -240,7 +250,16 @@ Page({
       scoreCircleChart: null,
       heartTrendChart: null,
       breathTrendChart: null,
-      bodyMoveTrendChart: null
+      bodyMoveTrendChart: null,
+      // 清空睡眠报告数据
+      sleepChartData: [],
+      sleepReport: [],
+      // 清空睡眠阶段图表数据
+      sleepStages: [],
+      sleepTimeLabels: [],
+      // 清空點擊效果狀態
+      selectedBlock: null,
+      showBlockInfo: false
     });
   },
 
@@ -262,6 +281,22 @@ Page({
         sleepTimeDisplay: sleepTimeDisplay
       };
     });
+  },
+
+  /**
+   * 选择报告
+   */
+  onSelectReport(e) {
+    const report = e.detail.value;
+    console.log('选择的报告:', report);
+    
+    if (report && report.id) {
+      // 获取选中报告的详细信息
+      this.loadReportDetail(report.id);
+    } else if (report) {
+      // 如果没有ID，使用列表数据
+      this.displayReport(report);
+    }
   },
 
   /**
@@ -314,6 +349,16 @@ Page({
     // 直接使用API返回的评分等级
     const scoreLevel = report.scoreEvaluate || this.deviceManager.getSleepScoreLevel(report.sleepScore);
     
+    // 獲取睡眠報告數據
+    let sleepReport = [];
+    if (report.left && report.right) {
+      sleepReport = this.deviceManager.getValidSleepReport(report.left, report.right);
+    } else if (report.sleepReport) {
+      sleepReport = report.sleepReport;
+    }
+    
+    console.log('displayReport - 獲取到的sleepReport:', sleepReport);
+
     this.setData({
       currentReport: report,
       sleepScore: report.sleepScore,
@@ -325,10 +370,14 @@ Page({
       deepPercent: stagePercentages.deepPercent,
       awakePercent: stagePercentages.awakePercent,
       remPercent: stagePercentages.remPercent,
+      offbedPercent: stagePercentages.offbedPercent,
       shallowDuration: stagePercentages.lightDuration,
       deepDuration: stagePercentages.deepDuration,
       awakeDuration: stagePercentages.awakeDuration,
       remDuration: stagePercentages.remDuration,
+      offbedDuration: stagePercentages.offbedDuration,
+      // 睡眠報告數據
+      sleepReport: sleepReport,
       // 详细数据
       heartRate: report.heartRate,
       breathRate: report.breathRate,
@@ -343,12 +392,10 @@ Page({
       // 初始化图表
       this.chartManager.initAllCharts(report);
       
-      // 手動觸發睡眠階段圖表更新
-      const sleepStageChart = this.selectComponent('#sleepStageChart');
-      if (sleepStageChart) {
-        console.log('手動觸發睡眠階段圖表更新');
-        sleepStageChart.updateChart();
-      }
+      // 生成睡眠柱状图数据
+      this.generateSleepChartData();
+      
+      // SleepStageChart 組件會通過 observers 自動響應數據變化，無需手動觸發
     });
   },
 
@@ -385,6 +432,16 @@ Page({
     // 直接使用API返回的评分等级
     const scoreLevel = reportDetail.scoreEvaluate || this.deviceManager.getSleepScoreLevel(reportDetail.sleepScore);
     
+    // 獲取睡眠報告數據
+    let sleepReport = [];
+    if (reportDetail.left && reportDetail.right) {
+      sleepReport = this.deviceManager.getValidSleepReport(reportDetail.left, reportDetail.right);
+    } else if (reportDetail.sleepReport) {
+      sleepReport = reportDetail.sleepReport;
+    }
+    
+    console.log('displayReportDetail - 獲取到的sleepReport:', sleepReport);
+
     this.setData({
       currentReport: reportDetail,
       sleepScore: reportDetail.sleepScore,
@@ -396,10 +453,14 @@ Page({
       deepPercent: stagePercentages.deepPercent,
       awakePercent: stagePercentages.awakePercent,
       remPercent: stagePercentages.remPercent,
+      offbedPercent: stagePercentages.offbedPercent,
       shallowDuration: stagePercentages.lightDuration,
       deepDuration: stagePercentages.deepDuration,
       awakeDuration: stagePercentages.awakeDuration,
       remDuration: stagePercentages.remDuration,
+      offbedDuration: stagePercentages.offbedDuration,
+      // 睡眠報告數據
+      sleepReport: sleepReport,
       // 详细数据
       heartRate: reportDetail.heartRate,
       breathRate: reportDetail.breathRate,
@@ -414,29 +475,421 @@ Page({
       // 初始化图表
       this.chartManager.initAllCharts(reportDetail);
       
-      // 手動觸發睡眠階段圖表更新
-      const sleepStageChart = this.selectComponent('#sleepStageChart');
-      if (sleepStageChart) {
-        console.log('手動觸發睡眠階段圖表更新');
-        sleepStageChart.updateChart();
+      // 生成睡眠柱状图数据
+      this.generateSleepChartData();
+      
+      // 初始化睡眠階段圖表
+      this.initSleepStageChart();
+    });
+  },
+
+
+  /**
+   * 生成睡眠柱状图数据
+   */
+  generateSleepChartData() {
+    const { currentReport } = this.data;
+    
+    console.log('=== 生成睡眠柱状图数据开始 ===');
+    console.log('currentReport:', currentReport);
+    
+    if (!currentReport) {
+      console.log('currentReport为空，清空柱状图数据');
+      this.setData({ 
+        sleepChartData: [],
+        sleepReport: []
+      });
+      return;
+    }
+    
+    // 檢查必要字段是否存在
+    if (!currentReport.startSleepTime || !currentReport.endSleepTime) {
+      console.log('缺少必要的時間字段，清空柱状图数据');
+      this.setData({ 
+        sleepChartData: [],
+        sleepReport: []
+      });
+      return;
+    }
+    
+    // 使用deviceManager的getValidSleepReport方法获取睡眠报告数据
+    let sleepReport = [];
+    
+    if (currentReport.left && currentReport.right) {
+      // 如果有left和right数据，使用deviceManager的方法
+      sleepReport = this.deviceManager.getValidSleepReport(currentReport.left, currentReport.right);
+      console.log('使用deviceManager.getValidSleepReport获取数据:', sleepReport);
+    } else if (currentReport.sleepReport) {
+      // 如果已经有处理好的sleepReport数据
+      sleepReport = currentReport.sleepReport;
+      console.log('使用currentReport.sleepReport数据:', sleepReport);
+    } else {
+      console.log('没有找到有效的睡眠报告数据');
+      this.setData({ sleepChartData: [] });
+      return;
+    }
+    
+    if (!sleepReport || sleepReport.length === 0) {
+      console.log('sleepReport为空或长度为0');
+      this.setData({ sleepChartData: [] });
+      return;
+    }
+    
+    console.log('从sleep_report生成柱状图数据:', sleepReport);
+    
+    // 计算总睡眠时长（分钟）
+    const totalMinutes = sleepReport.reduce((sum, item) => sum + item.value, 0);
+    
+    if (totalMinutes <= 0) {
+      this.setData({ sleepChartData: [] });
+      return;
+    }
+    
+    // 生成柱状图数据（舊樣式）
+    const chartData = [];
+    let currentTime = 0;
+    
+    // 計算實際睡眠時間範圍（以分鐘為單位）
+    const sleepStartTime = this.data.sleepStartTime; // 格式: "12:45"
+    const sleepEndTime = this.data.sleepEndTime; // 格式: "14:48"
+    const [startHour, startMinute] = sleepStartTime.split(':').map(Number);
+    const [endHour, endMinute] = sleepEndTime.split(':').map(Number);
+    const sleepStartMinutes = startHour * 60 + startMinute;
+    const sleepEndMinutes = endHour * 60 + endMinute;
+    const sleepDurationMinutes = sleepEndMinutes - sleepStartMinutes; // 實際睡眠時長
+    
+    sleepReport.forEach((item, index) => {
+      const duration = item.value; // 分钟
+      // 恢復正常的百分比計算
+      const width = (duration / sleepDurationMinutes) * 100;
+      const left = (currentTime / sleepDurationMinutes) * 100;
+      
+      // 根据state确定类型
+      let type = 'awake';
+      switch (item.state) {
+        case 1:
+          type = 'deep'; // 深睡
+          break;
+        case 2:
+          type = 'rem'; // 中睡（快速眼动）
+          break;
+        case 3:
+          type = 'shallow'; // 浅睡
+          break;
+        case 4:
+          type = 'awake'; // 清醒
+          break;
+        case 5:
+          type = 'offbed'; // 离床
+          break;
+        default:
+          type = 'awake';
       }
+      
+      // 计算开始和结束时间 - 使用實際睡眠開始時間
+      const startTime = this.calculateAbsoluteTime(sleepStartTime, currentTime);
+      const endTime = this.calculateAbsoluteTime(sleepStartTime, currentTime + duration);
+      const durationMinutes = Math.round(duration);
+      
+      // 計算動態字體大小
+      const fontSize = this.calculateFontSize(width);
+      
+      // 生成柱状图数据（舊樣式）
+      chartData.push({
+        name: type,
+        value: duration,
+        duration: `${durationMinutes}分钟`,
+        width: width,
+        left: left,
+        durationMinutes: durationMinutes,
+        startTime: startTime,
+        endTime: endTime,
+        state: item.state,
+        type: type,
+        originalData: item,
+        fontSize: fontSize // 添加字體大小屬性
+      });
+      
+      currentTime += duration;
+    });
+    
+    this.setData({ 
+      sleepChartData: chartData, 
+      sleepReport: sleepReport
+    });
+    console.log('生成睡眠柱状图数据:', chartData);
+    console.log('柱状图数据长度:', chartData.length);
+    console.log('=== 生成睡眠柱状图数据结束 ===');
+  },
+
+  /**
+   * 从分钟数格式化时间
+   */
+  formatTimeFromMinutes(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  },
+
+  /**
+   * 計算絕對時間（基於睡眠開始時間）
+   */
+  calculateAbsoluteTime(sleepStartTime, offsetMinutes) {
+    // 解析睡眠開始時間
+    const [startHour, startMinute] = sleepStartTime.split(':').map(Number);
+    const startTotalMinutes = startHour * 60 + startMinute;
+    
+    // 計算絕對時間
+    const absoluteTotalMinutes = startTotalMinutes + offsetMinutes;
+    
+    // 處理跨天情況
+    const finalMinutes = absoluteTotalMinutes % (24 * 60);
+    
+    const hours = Math.floor(finalMinutes / 60);
+    const mins = Math.floor(finalMinutes % 60);
+    
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  },
+
+  /**
+   * 从日期时间字符串格式化时间
+   */
+  formatTimeFromDateTime(dateTimeStr) {
+    if (!dateTimeStr) return '00:00';
+    const date = new Date(dateTimeStr);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  },
+
+  /**
+   * 图表柱状图点击事件
+   */
+  onChartBarTap(e) {
+    const { index, time, type } = e.currentTarget.dataset;
+    console.log('点击图表柱状图:', { index, time, type });
+    
+    const chartData = this.data.sleepChartData;
+    if (chartData && chartData[index]) {
+      const item = chartData[index];
+      console.log('点击的睡眠阶段数据:', item);
+      
+      // 显示详细信息
+      wx.showModal({
+        title: '睡眠阶段详情',
+        content: `阶段: ${item.type}\n开始时间: ${item.startTime}\n结束时间: ${item.endTime}\n持续时间: ${item.duration}`,
+        showCancel: false,
+        confirmText: '确定'
+      });
+    }
+  },
+
+  /**
+   * 初始化睡眠階段圖表
+   */
+  initSleepStageChart() {
+    console.log('=== 初始化睡眠階段圖表 ===');
+    const { sleepReport, sleepStartTime, sleepEndTime } = this.data;
+    
+    if (!sleepReport || sleepReport.length === 0) {
+      console.log('沒有睡眠報告數據，清空圖表數據');
+      this.setData({ 
+        sleepStages: [],
+        sleepTimeLabels: []
+      });
+      return;
+    }
+    
+    console.log('睡眠報告數據:', sleepReport);
+    console.log('睡眠時間範圍:', sleepStartTime, '到', sleepEndTime);
+    
+    // 計算睡眠時長
+    const totalMinutes = sleepReport.reduce((sum, item) => sum + item.value, 0);
+    if (totalMinutes <= 0) {
+      console.log('總睡眠時長為0，無法生成圖表');
+      this.setData({ 
+        sleepStages: [],
+        sleepTimeLabels: []
+      });
+      return;
+    }
+    
+    console.log('總睡眠時長（分鐘）:', totalMinutes);
+    
+    // 生成圖表數據
+    const chartData = this.createSleepStageChartData(sleepReport, totalMinutes);
+    this.setData(chartData);
+    
+    console.log('睡眠階段圖表數據已設置:', chartData);
+  },
+
+  /**
+   * 創建睡眠階段圖表配置
+   */
+  createSleepStageChartData(sleepReport, totalMinutes) {
+    console.log('創建睡眠階段圖表數據 - sleepReport:', sleepReport, 'totalMinutes:', totalMinutes);
+    
+    // 獲取睡眠開始時間
+    const { sleepStartTime } = this.data;
+    console.log('睡眠開始時間:', sleepStartTime);
+    
+    // 定義階段配置 - 按照您的要求：离床、清醒、浅睡、深睡
+    const stageConfigs = [
+      { name: '离床', color: '#FF6B6B', state: 5 },      // 紅色 - 离床
+      { name: '清醒', color: '#FFA07A', state: 4 },      // 橙色 - 清醒
+      { name: '浅睡', color: '#87CEEB', state: 3 },      // 淺藍色 - 浅睡
+      { name: '深睡', color: '#4169E1', state: 1 }       // 深藍色 - 深睡
+    ];
+    
+    // 生成時間軸標籤
+    const timeLabels = [];
+    const timeInterval = totalMinutes / 6; // 分成6個時間段
+    for (let i = 0; i <= 6; i++) {
+      const timeInMinutes = i * timeInterval;
+      const hour = Math.floor(timeInMinutes / 60);
+      const minute = Math.floor(timeInMinutes % 60);
+      timeLabels.push({
+        time: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+        position: (i / 6) * 100
+      });
+    }
+    
+    // 為每個睡眠階段生成數據
+    const sleepStages = [];
+    let currentTime = 0;
+    
+    // 先為每個階段初始化空的 blocks 數組
+    stageConfigs.forEach((config) => {
+      sleepStages.push({
+        name: config.name,
+        color: config.color,
+        blocks: []
+      });
+    });
+    
+    // 按時間順序遍歷睡眠報告，為對應階段添加數據
+    sleepReport.forEach((item, index) => {
+      const startPercent = (currentTime / totalMinutes) * 100;
+      const durationPercent = (item.value / totalMinutes) * 100;
+      
+      console.log(`處理第 ${index + 1} 個項目:`, {
+        state: item.state,
+        value: item.value,
+        currentTime: currentTime,
+        startPercent: startPercent,
+        durationPercent: durationPercent
+      });
+      
+      // 找到對應的階段配置
+      const stageConfig = stageConfigs.find(config => config.state === item.state);
+      if (stageConfig) {
+        const stageIndex = stageConfigs.findIndex(config => config.state === item.state);
+        
+        const blockData = {
+          left: startPercent,
+          width: durationPercent,
+          color: stageConfig.color,
+          stage: stageConfig.name,
+          startTime: this.calculateAbsoluteTime(sleepStartTime, currentTime),
+          endTime: this.calculateAbsoluteTime(sleepStartTime, currentTime + item.value),
+          duration: item.value
+        };
+        
+        console.log(`添加到階段 ${stageConfig.name}:`, blockData);
+        
+        sleepStages[stageIndex].blocks.push(blockData);
+      } else {
+        console.warn(`未找到狀態 ${item.state} 對應的階段配置`);
+      }
+      
+      // 累計時間
+      currentTime += item.value;
+    });
+    
+    // 輸出調試信息
+    sleepStages.forEach((stage, index) => {
+      console.log(`階段 ${stage.name} 數據:`, stage.blocks);
+    });
+    
+    console.log('最終生成的睡眠階段數據:', sleepStages);
+    console.log('時間軸標籤:', timeLabels);
+    
+    return {
+      sleepStages: sleepStages,
+      sleepTimeLabels: timeLabels
+    };
+  },
+
+  /**
+   * 更新睡眠階段圖表
+   */
+  updateSleepStageChart() {
+    console.log('更新睡眠階段圖表');
+    this.initSleepStageChart();
+  },
+
+  /**
+   * 點擊睡眠階段塊
+   */
+  onStageBlockTap(e) {
+    console.log('點擊事件觸發:', e);
+    const { stage, start, end, duration } = e.currentTarget.dataset;
+    console.log('點擊睡眠階段塊:', { stage, start, end, duration });
+    
+    // 找到對應的塊數據，獲取位置信息
+    let blockData = null;
+    this.data.sleepStages.forEach(stageData => {
+      stageData.blocks.forEach(block => {
+        if (block.stage === stage && 
+            block.startTime === start && 
+            block.endTime === end) {
+          blockData = block;
+        }
+      });
+    });
+    
+    console.log('找到的塊數據:', blockData);
+    
+    this.setData({
+      selectedBlock: {
+        stage: stage,
+        startTime: start,
+        endTime: end,
+        duration: parseInt(duration),
+        left: blockData ? blockData.left : 0
+      },
+      showBlockInfo: true
+    });
+    
+    console.log('設置後數據狀態:', this.data.showBlockInfo, this.data.selectedBlock);
+    console.log('selectedBlock.left:', this.data.selectedBlock.left);
+    console.log('selectedBlock.stage:', this.data.selectedBlock.stage);
+  },
+
+  /**
+   * 關閉睡眠階段信息框
+   */
+  closeBlockInfo() {
+    this.setData({
+      selectedBlock: null,
+      showBlockInfo: false
     });
   },
 
   /**
-   * 选择报告
+   * 根據柱狀圖寬度計算動態字體大小
    */
-  onSelectReport(e) {
-    const report = e.detail.value;
-    console.log('选择的报告:', report);
+  calculateFontSize(widthPercent) {
+    const minFontSize = 12; // 最小字體大小
+    const maxFontSize = 20; // 最大字體大小
+    const minWidth = 5; // 最小寬度百分比
+    const maxWidth = 30; // 最大寬度百分比
     
-    if (report && report.id) {
-      // 获取选中报告的详细信息
-      this.loadReportDetail(report.id);
-    } else if (report) {
-      // 如果没有ID，使用列表数据
-      this.displayReport(report);
-    }
+    if (widthPercent < minWidth) return minFontSize;
+    if (widthPercent > maxWidth) return maxFontSize;
+    
+    // 線性插值計算字體大小
+    return Math.round(minFontSize + (maxFontSize - minFontSize) * (widthPercent - minWidth) / (maxWidth - minWidth));
   },
 
   /**
@@ -466,3 +919,5 @@ Page({
     });
   }
 });
+  
+  

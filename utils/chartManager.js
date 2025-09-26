@@ -156,26 +156,71 @@ class ChartManager {
    * @param {Object} reportDetail 报告详情
    */
   initAllCharts(reportDetail) {
-    // 计算睡眠阶段百分比
-    const DataProcessor = require('./dataProcessor');
-    const stagePercentages = DataProcessor.calculateSleepStagePercentages(reportDetail);
+    // 檢查 reportDetail 是否存在
+    if (!reportDetail) {
+      console.log('reportDetail 為空，清空所有圖表');
+      this.clearAllCharts();
+      return;
+    }
     
-    // 提取趋势数据
-    const trendData = DataProcessor.extractTrendData(reportDetail);
+    try {
+      // 计算睡眠阶段百分比
+      const DataProcessor = require('./dataProcessor');
+      const stagePercentages = DataProcessor.calculateSleepStagePercentages(reportDetail);
+      
+      // 提取趋势数据
+      const trendData = DataProcessor.extractTrendData(reportDetail);
+      
+      // 更新睡眠期圆环图
+      this.updateStagePieChart({
+        shallow: stagePercentages.lightPercent,
+        awake: stagePercentages.awakePercent,
+        deep: stagePercentages.deepPercent,
+        rem: stagePercentages.remPercent
+      });
+      
+      // 更新评分圆环图
+      this.updateScoreCircleChart(reportDetail.sleepScore || 0);
+      
+      // 更新趋势图表
+      this.updateTrendCharts(trendData);
+    } catch (error) {
+      console.error('初始化图表时出错:', error);
+      // 出错时清空所有图表
+      this.clearAllCharts();
+    }
+  }
+
+  /**
+   * 清空所有图表
+   */
+  clearAllCharts() {
+    console.log('清空所有图表');
     
-    // 更新睡眠期圆环图
-    this.updateStagePieChart({
-      shallow: stagePercentages.lightPercent,
-      awake: stagePercentages.awakePercent,
-      deep: stagePercentages.deepPercent,
-      rem: stagePercentages.remPercent
+    // 清空评分圆环图
+    this.page.setData({
+      scoreCircleChart: null
     });
     
-    // 更新评分圆环图
-    this.updateScoreCircleChart(reportDetail.sleepScore);
+    // 清空睡眠阶段饼图
+    this.page.setData({
+      stagePieChart: null
+    });
     
-    // 更新趋势图表
-    this.updateTrendCharts(trendData);
+    // 清空心率趋势图
+    this.page.setData({
+      heartTrendChart: null
+    });
+    
+    // 清空呼吸率趋势图
+    this.page.setData({
+      breathTrendChart: null
+    });
+    
+    // 清空体动趋势图
+    this.page.setData({
+      bodyMoveTrendChart: null
+    });
   }
 }
 
