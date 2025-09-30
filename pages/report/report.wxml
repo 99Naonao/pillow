@@ -150,9 +150,9 @@
 
         <view class="timeline-bar">
           <view class="timeline-segment offbed" wx:if="{{offbedPercent > 0}}" style="width: {{offbedPercent}}%"></view>
-          <view class="timeline-segment awake" style="width: {{awakePercent}}%"></view>
-          <view class="timeline-segment shallow" style="width: {{shallowPercent}}%"></view>
-          <view class="timeline-segment deep" style="width: {{deepPercent}}%"></view>
+          <view class="timeline-segment awake" wx:if="{{awakePercent > 0}}" style="width: {{awakePercent}}%"></view>
+          <view class="timeline-segment shallow" wx:if="{{shallowPercent > 0}}" style="width: {{shallowPercent}}%"></view>
+          <view class="timeline-segment deep" wx:if="{{deepPercent > 0}}" style="width: {{deepPercent}}%"></view>
         </view>
 
         <view class="timeline-labels">
@@ -160,15 +160,15 @@
             <text class="label-text">离床</text>
             <text class="label-duration">{{offbedDuration}}小时</text>
           </view>
-          <view class="timeline-label awake" style="width: {{awakePercent}}%">
+          <view class="timeline-label awake" wx:if="{{awakePercent > 0}}" style="width: {{awakePercent}}%">
             <text class="label-text">清醒</text>
             <text class="label-duration">{{awakeDuration}}小时</text>
           </view>
-          <view class="timeline-label shallow" style="width: {{shallowPercent}}%">
+          <view class="timeline-label shallow" wx:if="{{shallowPercent > 0}}" style="width: {{shallowPercent}}%">
             <text class="label-text">浅睡</text>
             <text class="label-duration">{{shallowDuration}}小时</text>
           </view>
-          <view class="timeline-label deep" style="width: {{deepPercent}}%">
+          <view class="timeline-label deep" wx:if="{{deepPercent > 0}}" style="width: {{deepPercent}}%">
             <text class="label-text">深睡</text>
             <text class="label-duration">{{deepDuration}}小时</text>
           </view>

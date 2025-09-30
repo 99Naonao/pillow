@@ -78,21 +78,85 @@ const CommonUtil = require('./commonUtil');
 function checkBluetoothAndLocationByDeviceType() {
   const type = CommonUtil.getSystemType();
   if (type === 'ios') {
-    // iOS 只需蓝牙权限，无需位置权限
+    // iOS 需要先检查蓝牙权限状态，再申请权限
     return new Promise((resolve, reject) => {
-      wx.openBluetoothAdapter({
-        success: resolve,
-        fail: () => {
-          wx.showModal({
-            title: '蓝牙权限提醒',
-            content: '请确保已开启蓝牙功能，并在系统设置中授权蓝牙权限，否则无法正常连接设备。',
-            confirmText: '去设置',
-            cancelText: '取消',
-            success: (modalRes) => {
-              if (modalRes.confirm) wx.openSetting();
-              reject();
-            }
-          });
+      // 1. 先检查微信App的蓝牙权限状态
+      wx.getSetting({
+        success: (res) => {
+          console.log('iOS权限检查 - 微信设置:', res.authSetting);
+          
+          const hasBluetoothAuth = res.authSetting['scope.bluetooth'];
+          console.log('蓝牙权限状态:', hasBluetoothAuth);
+          
+          if (!hasBluetoothAuth) {
+            // 2. 申请蓝牙权限
+            console.log('iOS需要蓝牙权限，开始申请蓝牙权限');
+            wx.authorize({
+              scope: 'scope.bluetooth',
+              success: () => {
+                console.log('蓝牙权限申请成功，初始化蓝牙适配器');
+                initBluetoothAdapter();
+              },
+              fail: () => {
+                console.log('蓝牙权限申请失败，引导用户手动开启');
+                showBluetoothPermissionModal();
+                reject();
+              }
+            });
+          } else {
+            // 3. 已有权限，直接初始化
+            console.log('蓝牙权限已授权，初始化蓝牙适配器');
+            initBluetoothAdapter();
+          }
+          
+          function initBluetoothAdapter() {
+            wx.openBluetoothAdapter({
+              success: () => {
+                console.log('iOS蓝牙适配器初始化成功');
+                resolve();
+              },
+              fail: (err) => {
+                console.error('iOS蓝牙适配器初始化失败:', err);
+                if (err.errCode === 10001) {
+                  // 蓝牙未开启
+                  wx.showModal({
+                    title: '蓝牙未开启',
+                    content: '请在系统设置中开启蓝牙功能，若您是ios设备，请额外开启微信App的蓝牙权限，然后重新尝试连接设备。',
+                    confirmText: '知道了',
+                    showCancel: false,
+                    success: () => reject()
+                  });
+                } else {
+                  // 其他权限问题
+                  showBluetoothPermissionModal();
+                }
+              }
+            });
+          }
+          
+          function showBluetoothPermissionModal() {
+            wx.showModal({
+              title: '蓝牙权限未开启提醒',
+              content: '请确保已开启蓝牙功能，您可按如下操作设置蓝牙\n1.手机开启蓝牙权限\n2.iOS设备需开启微信App的蓝牙权限\n3.小程序授予蓝牙权限',
+              confirmText: '去设置',
+              cancelText: '取消',
+              success: (modalRes) => {
+                if (modalRes.confirm) {
+                  wx.openSetting({
+                    success: (settingRes) => {
+                      console.log('用户进入设置页面:', settingRes.authSetting);
+                    }
+                  });
+                }
+                reject();
+              }
+            });
+          }
+        },
+        fail: (err) => {
+          console.error('获取微信设置失败:', err);
+          showBluetoothPermissionModal();
+          reject();
         }
       });
     });

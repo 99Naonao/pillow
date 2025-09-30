@@ -68,7 +68,7 @@ class HealthConfig {
     const errors = [];
     for (const [key, value] of Object.entries(config)) {
       if (!this._validateValue(key, value)) {
-        errors.push(`參數 ${key} 驗證失敗`);
+        errors.push(`参数 ${key} 验证失败`);
       }
     }
     
@@ -87,7 +87,7 @@ class HealthConfig {
 
   // 重置為默認配置
   reset() {
-    // 獲取 WiFi MAC 地址
+    // 获取 WiFi MAC 地址
     const wifiMac = CommonUtil.getSavedWifiMac() || "";
     
     this._config = {
@@ -95,8 +95,8 @@ class HealthConfig {
       mac: wifiMac,
       is_hr_message: false,
       is_hr_voice: false,
-      hr_too_fast: 110,
-      hr_too_slow: 45,
+      hr_too_fast: 100,
+      hr_too_slow: 50,
       is_br_message: false,
       is_br_voice: false,
       br_too_fast: 30,
@@ -109,8 +109,8 @@ class HealthConfig {
       is_sos_message: false,
       is_sos_voice: false,
       is_apnea_message: false,
-      is_apnea_voice: false,
-      phone_list: ["15626901012", "15626901013"]
+      is_apnea_voice: true,
+      phone_list: []
     };
   }
 
@@ -147,7 +147,7 @@ class HealthConfig {
     const errors = [];
     for (const [key, value] of Object.entries(this._config)) {
       if (!this._validateValue(key, value)) {
-        errors.push(`參數 ${key} 值無效: ${value}`);
+        errors.push(`参数 ${key} 值无效: ${value}`);
       }
     }
     return {

@@ -265,19 +265,46 @@ class DataProcessor {
       totalPercent: deepPercent + lightPercent + remPercent + awakePercent + offbedPercent
     });
     
-    // 如果離床時長為0，不包含離床相關數據
-    const result = {
-      deepPercent,
-      lightPercent,
-      remPercent,
-      awakePercent,
-      deepDuration: (deepSleep / 60).toFixed(1),    // 转换为小时
-      lightDuration: (lightSleep / 60).toFixed(1),  // 转换为小时
-      remDuration: (remSleep / 60).toFixed(1),      // 转换为小时
-      awakeDuration: (awake / 60).toFixed(1)        // 转换为小时
-    };
+    // 創建結果對象，只有當各階段時長大於0時才包含相關數據
+    const result = {};
     
-    // 只有當離床時長大於0時才添加離床相關數據
+    // 深睡階段
+    if (deepSleep > 0) {
+      result.deepPercent = deepPercent;
+      result.deepDuration = (deepSleep / 60).toFixed(1);
+    } else {
+      result.deepPercent = 0;
+      result.deepDuration = 0;
+    }
+    
+    // 浅睡階段
+    if (lightSleep > 0) {
+      result.lightPercent = lightPercent;
+      result.lightDuration = (lightSleep / 60).toFixed(1);
+    } else {
+      result.lightPercent = 0;
+      result.lightDuration = 0;
+    }
+    
+    // 快速眼動階段
+    if (remSleep > 0) {
+      result.remPercent = remPercent;
+      result.remDuration = (remSleep / 60).toFixed(1);
+    } else {
+      result.remPercent = 0;
+      result.remDuration = 0;
+    }
+    
+    // 清醒階段
+    if (awake > 0) {
+      result.awakePercent = awakePercent;
+      result.awakeDuration = (awake / 60).toFixed(1);
+    } else {
+      result.awakePercent = 0;
+      result.awakeDuration = 0;
+    }
+    
+    // 離床階段
     if (offbedDuration > 0) {
       result.offbedPercent = offbedPercent;
       result.offbedDuration = (offbedDuration / 60).toFixed(1);
