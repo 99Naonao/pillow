@@ -34,14 +34,14 @@
        {{deviceConnected ? (turnOver === 1 ? '有' : (turnOver === 0 ? '无' : '..')) : '..'}}
      </view>
    </view>
-    <!-- 是否离枕 -->
+    <!-- 离枕状态 -->
     <view class="card">
       <view class="card-header">
         <image src="../../static/exit.png" class="card-icon"/>
-        <text class="card-title">是否离枕</text>
+        <text class="card-title">离枕状态</text>
       </view>
       <view class="card-value">
-        {{deviceConnected ? (isLeavePillow !== null ? (isLeavePillow ? '是' : '否') : '..') : '..'}}
+        {{deviceConnected ? (isLeavePillow !== null ? (isLeavePillow ? '离枕' : '在枕') : '..') : '..'}}
       </view>
     </view>
     
