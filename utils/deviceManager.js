@@ -724,19 +724,21 @@ voiceNotifation(params){
     
     // 检查left数据是否有效且无异常
     const leftValid = leftSleepReport.length > 0;
-    const leftNormal = !this.hasAbnormalSleepReport(leftSleepReport);
+    const leftNormal = !this.hasAbnormalSleepReport(leftSleepReport) && !this.isReportDataAbnormal(left);
     
     // 检查right数据是否有效且无异常
     const rightValid = rightSleepReport.length > 0;
-    const rightNormal = !this.hasAbnormalSleepReport(rightSleepReport);
+    const rightNormal = !this.hasAbnormalSleepReport(rightSleepReport) && !this.isReportDataAbnormal(right);
     
     console.log('睡眠报告数据检查:', {
       leftValid,
       leftNormal,
       leftLength: leftSleepReport.length,
+      leftAbnormal: this.isReportDataAbnormal(left),
       rightValid,
       rightNormal,
-      rightLength: rightSleepReport.length
+      rightLength: rightSleepReport.length,
+      rightAbnormal: this.isReportDataAbnormal(right)
     });
     
     // 如果left数据有效且无异常，使用left
@@ -752,6 +754,32 @@ voiceNotifation(params){
     // 如果都无效或异常，返回空数组
     console.log('睡眠报告数据无效或异常，返回空数组');
     return [];
+  }
+
+  /**
+   * 检查报告数据是否异常（基于bed_duration、sleep_duration、sleep_score）
+   * @param {Object} reportData 报告数据
+   * @returns {boolean} 是否有异常
+   */
+  isReportDataAbnormal(reportData) {
+    if (!reportData) return true;
+    
+    // 检查三个关键参数：bed_duration、sleep_duration、sleep_score
+    const bedDuration = reportData.bed_duration || 0;
+    const sleepDuration = reportData.sleep_duration || 0;
+    const sleepScore = reportData.sleep_score || 0;
+    
+    // 任意一个参数为0都认为异常
+    const isAbnormal = bedDuration === 0 || sleepDuration === 0 || sleepScore === 0;
+    
+    console.log('报告数据异常检查:', {
+      bedDuration,
+      sleepDuration,
+      sleepScore,
+      isAbnormal
+    });
+    
+    return isAbnormal;
   }
 
   /**

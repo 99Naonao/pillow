@@ -103,7 +103,11 @@ Page({
     
     // 加载今天的睡眠报告，end_date 比 start_date 多一天
     const endDate = DataProcessor.getNextDay(today);
-    this.loadSleepReports(today, endDate, wifiMac);
+    this.loadSleepReports(today, endDate, wifiMac)
+    // this.loadSleepReports(today, endDate, "f4:cf:a2:80:9f:ac");
+    
+    // 知道睡眠报告id以后的获取详细睡眠报告详情测试方法
+    // this.testSleepReportDetail("f4:cf:a2:80:9f:ac", 41250);
   },
 
   // 日历相关事件处理
@@ -305,6 +309,7 @@ Page({
   loadReportDetail(reportId) {
     this.deviceManager.getSleepReportDetail({
       report_id: reportId
+      // report_id: 41250
     })
       .then(result => {
         console.log('获取到的报告详情:', result);
@@ -343,12 +348,6 @@ Page({
     const endTime = DataProcessor.parseTimeFromDateTime(report.endSleepTime);
     const sleepTimeDisplay = DataProcessor.formatSleepTimeDisplay(report.sleepDuration);
     
-    // 计算睡眠阶段百分比
-    const stagePercentages = DataProcessor.calculateSleepStagePercentages(report);
-    
-    // 直接使用API返回的评分等级
-    const scoreLevel = report.scoreEvaluate || this.deviceManager.getSleepScoreLevel(report.sleepScore);
-    
     // 獲取睡眠報告數據
     let sleepReport = [];
     if (report.left && report.right) {
@@ -357,7 +356,31 @@ Page({
       sleepReport = report.sleepReport;
     }
     
+    // 選擇用於計算的報告數據
+    let selectedReport = report;
+    if (report.left && report.right) {
+      // 根據異常檢查選擇有效的報告數據
+      const leftAbnormal = this.deviceManager.isReportDataAbnormal(report.left);
+      const rightAbnormal = this.deviceManager.isReportDataAbnormal(report.right);
+      
+      if (!leftAbnormal) {
+        selectedReport = report.left;
+      } else if (!rightAbnormal) {
+        selectedReport = report.right;
+      } else {
+        // 如果都異常，選擇數據更豐富的
+        selectedReport = report.left.sleep_report && report.left.sleep_report.length > 0 ? report.left : report.right;
+      }
+    }
+    
+    // 计算睡眠阶段百分比
+    const stagePercentages = DataProcessor.calculateSleepStagePercentages(selectedReport);
+    
+    // 直接使用API返回的评分等级
+    const scoreLevel = report.scoreEvaluate || this.deviceManager.getSleepScoreLevel(report.sleepScore);
+    
     console.log('displayReport - 獲取到的sleepReport:', sleepReport);
+    console.log('displayReport - 選擇的報告數據:', selectedReport);
 
     this.setData({
       currentReport: report,
@@ -550,13 +573,16 @@ Page({
     let currentTime = 0;
     
     // 計算實際睡眠時間範圍（以分鐘為單位）
-    const sleepStartTime = this.data.sleepStartTime; // 格式: "12:45"
-    const sleepEndTime = this.data.sleepEndTime; // 格式: "14:48"
+    const sleepStartTime = this.data.sleepStartTime; // 格式: "HH:mm"
+    const sleepEndTime = this.data.sleepEndTime;   // 格式: "HH:mm"
     const [startHour, startMinute] = sleepStartTime.split(':').map(Number);
     const [endHour, endMinute] = sleepEndTime.split(':').map(Number);
     const sleepStartMinutes = startHour * 60 + startMinute;
     const sleepEndMinutes = endHour * 60 + endMinute;
-    const sleepDurationMinutes = sleepEndMinutes - sleepStartMinutes; // 實際睡眠時長
+    // 處理跨天：用循環差確保為非負且 < 1440
+    const spanMinutes = (sleepEndMinutes - sleepStartMinutes + 24 * 60) % (24 * 60);
+    // 如果跨天導致計算為0（例如同時刻結束），回退到累積段時長
+    const sleepDurationMinutes = spanMinutes > 0 ? spanMinutes : totalMinutes;
     
     sleepReport.forEach((item, index) => {
       const duration = item.value; // 分钟
@@ -916,6 +942,116 @@ Page({
           icon: 'none'
         });
       }
+    });
+  },
+
+  /**
+   * 測試方法：獲取睡眠報告詳情並打印日誌
+   * @param {string} wifiMac WiFi MAC地址
+   * @param {report_id} report_id 报告id
+   */
+  testSleepReportDetail(wifiMac, report_id) {
+    console.log('=== 開始測試睡眠報告詳情 ===');
+    
+    if (!wifiMac) {
+      console.log('❌ WiFi MAC地址為空，無法執行測試');
+      return;
+    }
+
+    // 調用獲取睡眠報告詳情的API
+    this.deviceManager.getSleepReportDetail({
+      key: wifiMac,
+      report_id: report_id
+    })
+    .then(result => {
+      console.log('=== 睡眠報告詳情測試結果 ===');
+      console.log('API返回結果:', result);
+      
+      if (result && result.data && result.data.length > 0) {
+        const reportData = result.data[0];
+        console.log('=== 第一個報告的詳細數據 ===');
+        console.log('報告ID:', reportData.report_id);
+        console.log('MAC地址:', reportData.mac);
+        console.log('日期:', reportData.date);
+        console.log('星期:', reportData.day_of_week);
+        
+        // 檢查left數據
+        if (reportData.left) {
+          console.log('=== LEFT數據詳情 ===');
+          console.log('bed_duration:', reportData.left.bed_duration);
+          console.log('sleep_duration:', reportData.left.sleep_duration);
+          console.log('deep_sleep_duration:', reportData.left.deep_sleep_duration);
+          console.log('light_sleep_duration:', reportData.left.light_sleep_duration);
+          console.log('rem_sleep_duration:', reportData.left.rem_sleep_duration);
+          console.log('sleep_score:', reportData.left.sleep_score);
+          console.log('score_evaluate:', reportData.left.score_evaluate);
+          console.log('start_sleep_time:', reportData.left.start_sleep_time);
+          console.log('end_sleep_time:', reportData.left.end_sleep_time);
+          console.log('heart_rate:', reportData.left.heart_rate);
+          console.log('breath_rate:', reportData.left.breath_rate);
+          console.log('turn_count:', reportData.left.turn_count);
+          console.log('snore_duration:', reportData.left.snore_duration);
+          console.log('snore_count:', reportData.left.snore_count);
+          console.log('sleep_onset_time:', reportData.left.sleep_onset_time);
+          console.log('sleep_age:', reportData.left.sleep_age);
+          console.log('sleep_report長度:', reportData.left.sleep_report ? reportData.left.sleep_report.length : 0);
+          console.log('sleep_report數據:', reportData.left.sleep_report);
+          
+          // 檢查異常狀態
+          const leftAbnormal = this.deviceManager.isReportDataAbnormal(reportData.left);
+          console.log('LEFT數據是否異常:', leftAbnormal);
+        } else {
+          console.log('❌ LEFT數據不存在');
+        }
+        
+        // 檢查right數據
+        if (reportData.right) {
+          console.log('=== RIGHT數據詳情 ===');
+          console.log('bed_duration:', reportData.right.bed_duration);
+          console.log('sleep_duration:', reportData.right.sleep_duration);
+          console.log('deep_sleep_duration:', reportData.right.deep_sleep_duration);
+          console.log('light_sleep_duration:', reportData.right.light_sleep_duration);
+          console.log('rem_sleep_duration:', reportData.right.rem_sleep_duration);
+          console.log('sleep_score:', reportData.right.sleep_score);
+          console.log('score_evaluate:', reportData.right.score_evaluate);
+          console.log('start_sleep_time:', reportData.right.start_sleep_time);
+          console.log('end_sleep_time:', reportData.right.end_sleep_time);
+          console.log('heart_rate:', reportData.right.heart_rate);
+          console.log('breath_rate:', reportData.right.breath_rate);
+          console.log('turn_count:', reportData.right.turn_count);
+          console.log('snore_duration:', reportData.right.snore_duration);
+          console.log('snore_count:', reportData.right.snore_count);
+          console.log('sleep_onset_time:', reportData.right.sleep_onset_time);
+          console.log('sleep_age:', reportData.right.sleep_age);
+          console.log('sleep_report長度:', reportData.right.sleep_report ? reportData.right.sleep_report.length : 0);
+          console.log('sleep_report數據:', reportData.right.sleep_report);
+          
+          // 檢查異常狀態
+          const rightAbnormal = this.deviceManager.isReportDataAbnormal(reportData.right);
+          console.log('RIGHT數據是否異常:', rightAbnormal);
+        } else {
+          console.log('❌ RIGHT數據不存在');
+        }
+        
+        // 測試數據選擇邏輯
+        console.log('=== 數據選擇邏輯測試 ===');
+        const selectedSleepReport = this.deviceManager.getValidSleepReport(reportData.left, reportData.right);
+        console.log('選擇的睡眠報告數據:', selectedSleepReport);
+        console.log('選擇的數據長度:', selectedSleepReport.length);
+        
+        // 測試睡眠階段百分比計算
+        console.log('=== 睡眠階段百分比計算測試 ===');
+        const stagePercentages = DataProcessor.calculateSleepStagePercentages(reportData);
+        console.log('計算的睡眠階段百分比:', stagePercentages);
+        
+      } else {
+        console.log('❌ 沒有找到睡眠報告數據');
+      }
+      
+      console.log('=== 睡眠報告詳情測試完成 ===');
+    })
+    .catch(error => {
+      console.error('❌ 測試睡眠報告詳情失敗:', error);
     });
   }
 });
