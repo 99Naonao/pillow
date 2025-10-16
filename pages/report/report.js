@@ -132,6 +132,7 @@ Page({
     // 加载选中日期的睡眠报告
     const endDate = DataProcessor.getNextDay(selectedDate);
     this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
+    // this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
   },
 
   onDateChange(e) {
@@ -146,7 +147,7 @@ Page({
     // 加载选中日期的睡眠报告
     const endDate = DataProcessor.getNextDay(selectedDate);
     this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
-    
+    // this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
     // 手動更新睡眠階段圖表
     setTimeout(() => {
       this.updateSleepStageChart();
