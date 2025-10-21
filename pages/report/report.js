@@ -101,8 +101,9 @@ Page({
       calendarValue: today
     });
     
-    // 加载今天的睡眠报告，end_date 比 start_date 多一天
+    // 加载今天的睡眠报告，查询范围包含当天到明天
     const endDate = DataProcessor.getNextDay(today);
+    
     // this.loadSleepReports(today, endDate, wifiMac)
     this.loadSleepReports(today, endDate, "f4:cf:a2:80:9f:ac");
     
@@ -129,8 +130,9 @@ Page({
       showCalendar: false
     });
     
-    // 加载选中日期的睡眠报告
+    // 加载选中日期的睡眠报告，查询范围包含当天到明天
     const endDate = DataProcessor.getNextDay(selectedDate);
+    
     // this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
     this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
   },
@@ -144,8 +146,9 @@ Page({
       calendarValue: selectedDate
     });
     
-    // 加载选中日期的睡眠报告
+    // 加载选中日期的睡眠报告，查询范围包含当天到明天
     const endDate = DataProcessor.getNextDay(selectedDate);
+    
     // this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
     this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
     // 手動更新睡眠階段圖表
@@ -274,10 +277,15 @@ Page({
   formatSleepReports(reports) {
     if (!Array.isArray(reports)) return [];
     
-    return reports.map(report => {
-      const startTime = DataProcessor.parseTimeFromDateTime(report.startSleepTime);
-      const endTime = DataProcessor.parseTimeFromDateTime(report.endSleepTime);
-      const sleepTimeDisplay = DataProcessor.formatSleepTimeDisplay(report.sleepDuration);
+    console.log('[formatSleepReports] 原始报告数量:', reports.length);
+    
+    const formattedReports = reports.map(report => {
+      // 从start_time和end_time中提取时间部分
+      const startTime = DataProcessor.parseTimeFromDateTime(report.start_time);
+      const endTime = DataProcessor.parseTimeFromDateTime(report.end_time);
+      const sleepTimeDisplay = DataProcessor.formatSleepTimeDisplay(report.sleep_duration);
+      
+      console.log('[formatSleepReports] 报告开始时间:', startTime, '结束时间:', endTime);
       
       return {
         ...report,
@@ -286,7 +294,11 @@ Page({
         sleepTimeDisplay: sleepTimeDisplay
       };
     });
+    
+    console.log('[formatSleepReports] 格式化后报告数量:', formattedReports.length);
+    return formattedReports;
   },
+
 
   /**
    * 选择报告
@@ -877,13 +889,35 @@ Page({
     
     console.log('找到的塊數據:', blockData);
     
+    // 计算弹出框位置，避免超出屏幕边界
+    let popupStyle = {};
+    const blockLeft = blockData ? blockData.left : 0;
+    const popupWidth = 180; // 弹出框宽度（rpx）
+    const screenWidth = 750; // 屏幕宽度（rpx）
+    
+    // 如果块位置接近右边界，调整弹出框样式
+    if (blockLeft > screenWidth - popupWidth) {
+      popupStyle = {
+        right: '10rpx',
+        left: 'auto',
+        transform: 'none'
+      };
+    } else {
+      popupStyle = {
+        left: blockLeft + 'rpx',
+        right: 'auto',
+        transform: 'translateX(-50%)'
+      };
+    }
+    
     this.setData({
       selectedBlock: {
         stage: stage,
         startTime: start,
         endTime: end,
         duration: parseInt(duration),
-        left: blockData ? blockData.left : 0
+        left: blockLeft,
+        popupStyle: popupStyle
       },
       showBlockInfo: true
     });

@@ -39,6 +39,28 @@ class DataProcessor {
   }
 
   /**
+   * 获取指定日期的前一天
+   * @param {string} dateStr 日期字符串，格式为 yyyy-MM-dd
+   * @returns {string} 前一天的日期字符串，格式为 yyyy-MM-dd
+   */
+  static getPreviousDay(dateStr) {
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        console.error('无效的日期格式:', dateStr);
+        return dateStr;
+      }
+      date.setDate(date.getDate() - 1);
+      const previousDay = this.formatDate(date);
+      console.log('日期计算:', { original: dateStr, previousDay: previousDay });
+      return previousDay;
+    } catch (error) {
+      console.error('计算前一天日期失败:', error);
+      return dateStr;
+    }
+  }
+
+  /**
    * 从日期时间字符串中解析出时间部分
    * @param {string} dateTimeStr 日期时间字符串，格式如 "2023-09-03 16:16" 或直接的时间 "16:16"
    * @returns {string} 时间字符串，格式如 "16:16"

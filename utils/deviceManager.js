@@ -642,11 +642,43 @@ voiceNotifation(params){
       }
     };
     
+    // 计算基于起床日期的报告日期
+    const getReportDate = () => {
+      const startSleepTime = getStringValue('start_sleep_time', 'start_sleep_time');
+      const endSleepTime = getStringValue('end_sleep_time', 'end_sleep_time');
+      
+      // 如果开始时间和结束时间都存在，判断是否跨天
+      if (startSleepTime && endSleepTime) {
+        try {
+          // 解析时间
+          const [startHour, startMinute] = startSleepTime.split(':').map(Number);
+          const [endHour, endMinute] = endSleepTime.split(':').map(Number);
+          
+          const startMinutes = startHour * 60 + startMinute;
+          const endMinutes = endHour * 60 + endMinute;
+          
+          // 如果结束时间小于开始时间，说明跨天了
+          if (endMinutes < startMinutes) {
+            // 跨天情况：使用起床日期（原日期的下一天）
+            const originalDate = new Date(data.date);
+            originalDate.setDate(originalDate.getDate() + 1);
+            return originalDate.toISOString().split('T')[0];
+          }
+        } catch (error) {
+          console.error('解析睡眠时间失败:', error);
+        }
+      }
+      
+      // 非跨天情况或解析失败，使用原日期
+      return data.date;
+    };
+
     return {
       // 基本信息
       reportId: data.report_id,
       mac: data.mac,
-      date: data.date,
+      date: getReportDate(), // 使用基于起床日期的日期
+      originalDate: data.date, // 保留原始日期用于调试
       dayOfWeek: data.day_of_week,
       
       // 睡眠时长数据 - 使用左右数据合并逻辑

@@ -88,7 +88,7 @@
                 <view 
                   class="block-info-popup" 
                   wx:if="{{showBlockInfo && selectedBlock.stage === item.name}}" 
-                  style="left: {{selectedBlock.left}}%; top: 0;"
+                  style="{{selectedBlock.popupStyle}}; top: 0;"
                   bindtap="closeBlockInfo">
                   <view class="trend-card compact-info" catchtap="">
                     <view class="trend-header">

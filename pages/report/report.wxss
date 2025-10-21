@@ -231,6 +231,11 @@
   pointer-events: auto;
   margin-top: 20rpx;
   transform: translateX(-50%);
+  /* 确保弹出框不会超出屏幕边界 */
+  max-width: 180rpx;
+  min-width: 120rpx;
+  /* 当位置接近右边界时，调整transform */
+  right: 10rpx;
 }
 
 /* 覆蓋頂部「開始/結束時間」的字體顏色與大小，避免被通用 .time-label 覆蓋 */
