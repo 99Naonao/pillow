@@ -1,0 +1,68 @@
+<!-- 弹窗遮罩层 -->
+<view class="modal-mask" wx:if="{{visible}}" bindtap="onMaskTap">
+  <!-- 弹窗主体 -->
+  <view class="modal-container" catchtap="stopPropagation">
+    <!-- 关闭按钮 -->
+    <view class="modal-close" wx:if="{{showClose}}" bindtap="onClose">
+      <t-icon name="close" size="40rpx" color="#999"></t-icon>
+    </view>
+    
+    <!-- 标题区域 -->
+    <view class="modal-header" wx:if="{{title || icon}}">
+      <!-- 图标 -->
+      <view class="modal-icon" wx:if="{{icon}}">
+        <image src="{{icon}}" class="icon-image" mode="aspectFit"></image>
+      </view>
+      <!-- 标题文字 -->
+      <text class="modal-title" wx:if="{{title}}">{{title}}</text>
+    </view>
+    
+    <!-- 内容区域 -->
+    <view class="modal-content">
+      <!-- 视频内容 -->
+      <video 
+        wx:if="{{videoSrc}}" 
+        src="{{videoSrc}}" 
+        class="modal-video"
+        controls="{{videoControls}}"
+        autoplay="{{videoAutoplay}}"
+        poster="{{videoPoster}}"
+        bindplay="onVideoPlay"
+        bindpause="onVideoPause"
+        binderror="onVideoError"
+      ></video>
+      
+      <!-- 文字内容 -->
+      <text class="modal-text" wx:if="{{content}}">{{content}}</text>
+      
+      <!-- 自定义内容插槽 -->
+      <slot name="content"></slot>
+    </view>
+    
+    <!-- 按钮区域 -->
+    <view class="modal-footer" wx:if="{{showCancel || showConfirm}}">
+      <!-- 取消按钮 -->
+      <button 
+        class="modal-btn modal-btn-cancel" 
+        wx:if="{{showCancel}}"
+        bindtap="onCancel"
+        size="default"
+        type="{{cancelType}}"
+      >
+        {{cancelText}}
+      </button>
+      
+      <!-- 确定按钮 -->
+      <button 
+        class="modal-btn modal-btn-confirm confirm-class" 
+        wx:if="{{showConfirm}}"
+        bindtap="onConfirm"
+        size="default"
+        type="{{confirmType}}"
+        loading="{{confirmLoading}}"
+      >
+        {{confirmText}}
+      </button>
+    </view>
+  </view>
+</view>

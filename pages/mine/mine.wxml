@@ -46,32 +46,43 @@
       </view>
       <image class="mine-arrow" src="../../static/right.png"/>
     </view>
-    <view class="mine-func-row" bindtap="onShowProtocol">
-      <view class="mine-func-left">
-        <image class="mine-func-icon" src="../../static/service.png"/>
-        <view class="mine-func-text">
-          <text class="mine-func-label">服务协议</text>
+    <!-- 协议相关卡片 - 可展开 -->
+    <view class="protocol-card">
+      <view class="protocol-main-row" bindtap="toggleProtocolExpanded">
+        <view class="mine-func-left">
+          <image class="mine-func-icon" src="../../static/service.png"/>
+          <view class="mine-func-text">
+            <text class="mine-func-label">协议与政策</text>
+            <text class="mine-func-desc">服务协议、用户协议、隐私政策</text>
+          </view>
+        </view>
+        <image class="protocol-arrow {{protocolExpanded ? 'expanded' : ''}}" src="../../static/right.png"/>
+      </view>
+      
+      <!-- 展开的协议选项 -->
+      <view class="protocol-options {{protocolExpanded ? 'show' : ''}}">
+        <view class="protocol-option" bindtap="onShowProtocol">
+          <view class="protocol-option-left">
+            <image class="protocol-option-icon" src="../../static/service.png"/>
+            <text class="protocol-option-text">服务协议</text>
+          </view>
+          <image class="protocol-option-arrow" src="../../static/right.png"/>
+        </view>
+        <view class="protocol-option" bindtap="onShowAbout">
+          <view class="protocol-option-left">
+            <image class="protocol-option-icon" src="../../static/info.png"/>
+            <text class="protocol-option-text">用户协议</text>
+          </view>
+          <image class="protocol-option-arrow" src="../../static/right.png"/>
+        </view>
+        <view class="protocol-option" bindtap="onShowPrivacy">
+          <view class="protocol-option-left">
+            <image class="protocol-option-icon" src="../../static/info.png"/>
+            <text class="protocol-option-text">隐私政策</text>
+          </view>
+          <image class="protocol-option-arrow" src="../../static/right.png"/>
         </view>
       </view>
-      <image class="mine-arrow" src="../../static/right.png"/>
-    </view>
-    <view class="mine-func-row" bindtap="onShowAbout">
-      <view class="mine-func-left">
-        <image class="mine-func-icon" src="../../static/info.png"/>
-        <view class="mine-func-text">
-          <text class="mine-func-label">用户协议</text>
-        </view>
-      </view>
-      <image class="mine-arrow" src="../../static/right.png"/>
-    </view>
-    <view class="mine-func-row" bindtap="onShowPrivacy">
-      <view class="mine-func-left">
-        <image class="mine-func-icon" src="../../static/info.png"/>
-        <view class="mine-func-text">
-          <text class="mine-func-label">隐私政策</text>
-        </view>
-      </view>
-      <image class="mine-arrow" src="../../static/right.png"/>
     </view>
   </view>
 
@@ -153,6 +164,19 @@
         <button class="new-avatar-modal-btn cancel" bindtap="closeNewAvatarModal">取消</button>
         <button class="new-avatar-modal-btn confirm" bindtap="saveNewUserInfo">确定</button>
       </view>
+    </view>
+  </view>
+
+  <!-- 开发环境测试页面入口 -->
+  <view wx:if="{{showTestPages}}" class="test-pages-section">
+    <view class="test-pages-title">开发测试</view>
+    <view class="test-pages-buttons">
+      <button class="test-page-btn" bindtap="goToTestWifi">
+        <text class="test-page-btn-text">配网测试</text>
+      </button>
+      <button class="test-page-btn" bindtap="goToTestModal">
+        <text class="test-page-btn-text">弹窗测试</text>
+      </button>
     </view>
   </view>
 

@@ -1,7 +1,20 @@
 // app.js
+const EnvUtil = require('./utils/envUtil');
+
 App({
   onLaunch() {
     console.log('[app.js] 小程序启动');
+    
+    // 打印環境信息
+    EnvUtil.logEnvInfo();
+    
+    // 根據環境設置全局配置
+    this.globalData = {
+      isDev: EnvUtil.isDev(),
+      isTrial: EnvUtil.isTrial(),
+      isRelease: EnvUtil.isRelease(),
+      envVersion: EnvUtil.getEnvVersion()
+    };
   },
 
   onShow() {
@@ -30,7 +43,12 @@ App({
             wx.removeStorageSync('connectedDevice');
           },
           fail: (error) => {
-            console.error('[app.js] 断开蓝牙连接失败:', error);
+            // 忽略连接不存在的错误
+            if (error.errCode === 10006) {
+              console.log('[app.js] 设备连接已不存在，无需断开');
+            } else {
+              console.error('[app.js] 断开蓝牙连接失败:', error);
+            }
           }
         });
       }

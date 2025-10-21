@@ -7,11 +7,12 @@ class CommonUtil {
   /**
    * 转换蓝牙mac为wifi    
    * @param {string} bluetoothMac 蓝牙MAC地址（格式：XX:XX:XX:XX:XX:XX）
+   * @param {string} deviceName 设备名称，用于判断使用-1还是-2
    * @returns {string|null} 转换后的WiFi MAC，失败返回null
    */
-  static converAndSaveMac(bluetoothMac){
-    console.log('开始转换蓝牙MAC为WiFi MAC，输入:', bluetoothMac);
-    const wifiMac = this.convertBluetoothToWifiMac(bluetoothMac);
+  static converAndSaveMac(bluetoothMac, deviceName = ''){
+    console.log('开始转换蓝牙MAC为WiFi MAC，输入:', bluetoothMac, '设备名称:', deviceName);
+    const wifiMac = this.convertBluetoothToWifiMac(bluetoothMac, deviceName);
     if(wifiMac){
       try {
         wx.setStorageSync(STORAGE_KEY,wifiMac);
@@ -56,9 +57,10 @@ class CommonUtil {
 
   /**
    * @param {string} bluetoothMac 蓝牙MAC地址（格式：XX:XX:XX:XX:XX:XX）
+   * @param {string} deviceName 设备名称，用于判断使用-1还是-2
    * @returns {string|null} 转换后的WiFi MAC，失败返回null
    */
-  static convertBluetoothToWifiMac(bluetoothMac) {
+  static convertBluetoothToWifiMac(bluetoothMac, deviceName = '') {
     try {
       // 标准化MAC地址
       const normalizedMac = bluetoothMac
@@ -78,25 +80,62 @@ class CommonUtil {
         return null;
       }
       
-      // 处理最后一个十六进制段（减2）
+      // 根据设备名称判断使用-1还是-2
+      let offset = -2; // 默认使用-2（旧设备）
+      let deviceType = '旧设备';
+      
+      if (deviceName && deviceName.startsWith('GoodSleep')) {
+        offset = -1; // 新设备使用-1
+        deviceType = '新设备';
+      } else if (deviceName && deviceName.startsWith('GOODSLEEP')) {
+        offset = -2; // 旧设备使用-2
+        deviceType = '旧设备';
+      }
+      
+      console.log(`设备类型判断: ${deviceName} -> ${deviceType}, 使用偏移量: ${offset}`);
+      
+      // 使用判断出的偏移量进行转换
+      let wifiMac = this._tryConvertMacWithOffset(macSegments, offset);
+      if (wifiMac) {
+        console.log(`MAC转换成功（${deviceType}）:`, bluetoothMac, '->', wifiMac);
+        return wifiMac;
+      }
+      
+      console.error(`MAC转换失败（${deviceType}，偏移量${offset}）`);
+      return null;
+    } catch (error) {
+      console.error('MAC转换失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 尝试使用指定偏移量转换MAC地址
+   * @param {Array} macSegments MAC地址段数组
+   * @param {number} offset 偏移量（-1或-2）
+   * @returns {string|null} 转换后的MAC地址，失败返回null
+   */
+  static _tryConvertMacWithOffset(macSegments, offset) {
+    try {
       const lastSegment = macSegments[5];
       const decimalValue = parseInt(lastSegment, 16);
-      const newDecimal = decimalValue - 2;
+      const newDecimal = decimalValue + offset; // offset是负数，所以用加法
       
       // 检查数值范围（0-255）
       if (newDecimal < 0 || newDecimal > 255) {
-        console.error('转换后的值超出范围:', newDecimal);
+        console.log(`MAC偏移${offset}超出范围:`, newDecimal);
         return null;
       }
       
       // 转换为两位十六进制（补0）
       const newHex = newDecimal.toString(16).padStart(2, '0').toUpperCase();
-      macSegments[5] = newHex;
+      const newMacSegments = [...macSegments];
+      newMacSegments[5] = newHex;
       
       // 组装新MAC地址
-      return macSegments.join(':');
+      return newMacSegments.join(':');
     } catch (error) {
-      console.error('MAC转换失败:', error);
+      console.error(`MAC偏移${offset}转换失败:`, error);
       return null;
     }
   }

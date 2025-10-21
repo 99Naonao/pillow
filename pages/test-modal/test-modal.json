@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "彈窗組件測試",
+  "usingComponents": {
+    "modal-dialog": "/components/ModalDialog/modalDialog"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "nav-bar": "../../components/HeaderNavBar/headerNav"
+  },
+  "navigationBarTitleText": "配网测试"
+}

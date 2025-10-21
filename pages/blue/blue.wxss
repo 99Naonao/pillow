@@ -316,17 +316,47 @@
   padding: 2rpx 16rpx;
   margin-left: 12rpx;
 }
+.wifi-password-container {
+  position: relative;
+  width: 100%;
+  margin: 0 0 24rpx 0;
+}
+
 .wifi-password-input {
   width: 100%;
   height: 50px;
-  margin: 0 0 24rpx 0;
-  padding: 20rpx 24rpx;
+  padding: 20rpx 60rpx 20rpx 24rpx;
   border-radius: 20rpx;
   border: none;
   background: #fff;
   font-size: 28rpx;
-  color: #c4c4c4;
+  color: #333;
   box-sizing: border-box;
+}
+
+.password-toggle-icon {
+  position: absolute;
+  right: 20rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.eye-icon {
+  width: 32rpx;
+  height: 32rpx;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.password-toggle-icon:active .eye-icon {
+  opacity: 1;
 }
 .wifi-btn-row {
   display: flex;
@@ -465,5 +495,35 @@
   font-size: 32rpx;
   padding: 0 48rpx;
   min-width: 200rpx;
+}
+
+/* 引导弹窗自定义样式 */
+.guide-modal-container {
+  height: 80vh !important;
+  max-height: 80vh !important;
+}
+
+.guide-modal-content {
+  height: calc(80vh - 200rpx) !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.guide-modal-video {
+  flex: 1;
+  margin-bottom: 40rpx;
+}
+
+.guide-modal-button {
+  width: 90% !important;
+  margin: 0 auto !important;
+  background: linear-gradient(90deg, #2B3A6B 0%, #274472 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 32rpx !important;
+  height: 80rpx !important;
+  font-size: 32rpx !important;
+  font-weight: bold !important;
 }
 

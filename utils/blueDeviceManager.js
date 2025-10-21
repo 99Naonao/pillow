@@ -13,12 +13,12 @@ class BlueDeviceManager {
      * 搜索蓝牙设备
      */
     async searchBluetoothDevices(callback) {
-        // 检查当前页面是否为blue页面
+        // 检查当前页面是否支持蓝牙搜索（blue页面或test-wifi页面）
         const currentRoute = this.page.route || '';
-        if (!currentRoute.includes('blue')) {
-            console.log('当前页面不是blue页面，跳过蓝牙搜索:', currentRoute);
-            if (callback) callback();
-            return;
+        if (!currentRoute.includes('blue') && !currentRoute.includes('test-wifi')) {
+            console.log('当前页面不支持蓝牙搜索，跳过蓝牙搜索:', currentRoute);
+            if (callback) callback([]);
+            return Promise.resolve([]);
         }
         
         const { data } = this.page;
@@ -26,20 +26,22 @@ class BlueDeviceManager {
         // 如果正在搜索，直接返回
         if (data.isSearching) {
             console.log('正在搜索中，跳过重复搜索');
-            if (callback) callback();
-            return;
+            if (callback) callback([]);
+            return Promise.resolve([]);
         }
         
         this.page.setData({ isSearching: true });
         
-        try {
-            await this.bluetoothManager.searchBluetoothDevices((devices) => {
+        return new Promise((resolve, reject) => {
+            this.bluetoothManager.searchBluetoothDevices((devices) => {
                 console.log('搜索到的所有设备:', devices);
                 
                 // 检查设备数组是否为空
                 if (!devices || devices.length === 0) {
                     console.log('没有搜索到任何设备');
-                    if (callback) callback();
+                    this.page.setData({ isSearching: false });
+                    if (callback) callback([]);
+                    resolve([]);
                     return;
                 }
                 
@@ -53,13 +55,16 @@ class BlueDeviceManager {
                     isSearching: false
                 });
                 
-                if (callback) callback();
+                if (callback) callback(finalDevices);
+                resolve(finalDevices);
             });
-        } catch (error) {
+        }).catch((error) => {
             console.error('搜索蓝牙设备失败:', error);
             this.page.setData({ isSearching: false });
             wx.showToast({ title: '搜索设备失败', icon: 'none' });
-        }
+            if (callback) callback([]);
+            throw error;
+        });
     }
 
     /**
@@ -68,7 +73,9 @@ class BlueDeviceManager {
     _filterDevices(devices) {
         return devices.filter(device => {
             const hasName = device.name && device.name.length > 0;
-            const containsGoodsleep = device.name && device.name.includes('GOODSLEEP');
+            // 使用不区分大小写的搜索
+            const containsGoodsleep = device.name && 
+                device.name.toUpperCase().includes('GOODSLEEP');
             
             console.log('设备过滤检查:', {
                 deviceName: device.name,
@@ -204,14 +211,40 @@ class BlueDeviceManager {
     }
 
     /**
+     * 测试页面连接蓝牙设备（不需要登录检查）
+     */
+    async connectBluetoothForTest(deviceId, onSuccess) {
+        console.log('测试页面连接蓝牙设备:', deviceId);
+        
+        try {
+            // 直接调用底层蓝牙管理器连接
+            const result = await this.bluetoothManager.connectBluetooth(deviceId, null);
+            
+            // 连接成功后，获取服务和特征值来确认连接
+            await this._getServiceAndCharacteristics(deviceId);
+            
+            console.log('测试页面蓝牙连接成功:', deviceId);
+            
+            if (onSuccess) {
+                onSuccess();
+            }
+            
+            return result;
+        } catch (error) {
+            console.error('测试页面蓝牙连接失败:', error);
+            throw error;
+        }
+    }
+
+    /**
      * 连接蓝牙设备
      */
-    async connectBluetooth(deviceId) {
-        // 檢查用戶是否已登录
+    async connectBluetooth(deviceId, onSuccess) {
+        // 检查用户是否已登录
         const AuthApi = require('./authApi');
         if (!AuthApi.isLoggedIn()) {
-            console.error('用戶未登录，無法連接設備');
-            throw new Error('請先登录後再連接設備');
+            console.error('用户未登录，无法连接设备');
+            throw new Error('请先登录后再连接设备');
         }
         
         const device = this.page.data.devices.find(d => d.deviceId === deviceId);
@@ -236,7 +269,7 @@ class BlueDeviceManager {
             const bluetoothMac = this.page.UuidConverter.convertUUIDToMacFormat(deviceId, advertisServiceUUIDs);
             console.log('UUID转换为蓝牙MAC地址:', deviceId, '->', bluetoothMac);
             
-            const wifiMacAddress = this.page.commonUtil.converAndSaveMac(bluetoothMac);
+            const wifiMacAddress = this.page.commonUtil.converAndSaveMac(bluetoothMac, device ? device.name : '');
             if (wifiMacAddress) {
                 this.page.setData({ wifiMac: wifiMacAddress });
                 console.log('已保存WiFi MAC地址：', wifiMacAddress);
@@ -270,7 +303,7 @@ class BlueDeviceManager {
                 is5GConnected: false,
                 // 重置错误处理标记
                 _isShowingWifiError: false
-                // 注意：不重置wifiMac，保護已保存的WiFi MAC信息
+                // 注意：不重置wifiMac，保护已保存的WiFi MAC信息
             });
             
             // 获取服务和特征值
@@ -279,6 +312,20 @@ class BlueDeviceManager {
             // 初始化WiFi步骤
             console.log('开始初始化WiFi步骤');
             await this.page.wifiConfigManager.initWifiStep();
+            
+            // 连接成功后停止蓝牙搜索
+            try {
+                await this.bluetoothManager.stopBluetoothDevicesDiscovery();
+                console.log('蓝牙连接成功，已停止设备搜索');
+            } catch (stopError) {
+                console.warn('停止蓝牙搜索失败:', stopError);
+            }
+            
+            // 调用成功回调
+            if (onSuccess && typeof onSuccess === 'function') {
+                console.log('调用连接成功回调');
+                onSuccess();
+            }
             
         } catch (error) {
             console.error('连接蓝牙设备失败:', error);
@@ -338,6 +385,15 @@ class BlueDeviceManager {
             try {
                 await this.bluetoothManager.disconnectBluetooth(deviceId);
                 console.log('蓝牙连接已断开');
+                
+                // 断开连接后重新开始搜索蓝牙设备
+                try {
+                    await this.searchBluetoothDevices();
+                    console.log('断开连接后重新开始搜索蓝牙设备');
+                } catch (searchError) {
+                    console.warn('重新搜索蓝牙设备失败:', searchError);
+                }
+                
                 // 注意：不调用clearSavedWifiMac()，保护已保存的WiFi MAC信息
                 console.log('WiFi MAC信息已保留，不会被清除');
             } catch (error) {
@@ -393,6 +449,14 @@ class BlueDeviceManager {
      */
     stopBluetoothConnectionListener() {
         this.bluetoothManager.stopBluetoothConnectionListener();
+        
+        // 停止蓝牙设备搜索
+        try {
+            this.bluetoothManager.stopBluetoothDevicesDiscovery();
+            console.log('页面隐藏，已停止蓝牙设备搜索');
+        } catch (error) {
+            console.warn('停止蓝牙设备搜索失败:', error);
+        }
     }
 }
 

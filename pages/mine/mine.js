@@ -3,6 +3,7 @@ const DeviceManager = require('../../utils/deviceManager');
 const AuthApi = require('../../utils/authApi');
 const CommonUtil = require('../../utils/commonUtil');
 const HealthConfig = require('../../utils/healthConfig');
+const EnvUtil = require('../../utils/envUtil');
 
 Page({
 
@@ -44,7 +45,11 @@ Page({
     alarmed: false, // 是否已告警
     // 协议查看相关
     showProtocolViewer: false,
-    currentProtocolType: 'service'
+    currentProtocolType: 'service',
+    // 协议卡片展开状态
+    protocolExpanded: false,
+    // 开发环境相关
+    showTestPages: false
   },
 
   /**
@@ -53,6 +58,16 @@ Page({
   onLoad(options) {
     // 初始化设备管理器
     this.deviceManager = new DeviceManager(this);
+    
+    // 判断是否为开发环境
+    const isDev = EnvUtil.isDev();
+    this.setData({
+      showTestPages: isDev
+    });
+    
+    if (isDev) {
+      console.log('开发环境：显示测试页面入口');
+    }
     
     this.loadAlarmSettings();
     
@@ -586,17 +601,28 @@ Page({
     console.log('=== 语音告警触发完成 ===');
   },
 
+  /**
+   * 切换协议卡片展开状态
+   */
+  toggleProtocolExpanded() {
+    this.setData({
+      protocolExpanded: !this.data.protocolExpanded
+    });
+  },
+
   onShowProtocol() {
     this.setData({
       currentProtocolType: 'service',
-      showProtocolViewer: true
+      showProtocolViewer: true,
+      protocolExpanded: false // 点击后收起卡片
     });
   },
 
   onShowAbout() {
     this.setData({
       currentProtocolType: 'user',
-      showProtocolViewer: true
+      showProtocolViewer: true,
+      protocolExpanded: false // 点击后收起卡片
     });
   },
 
@@ -606,7 +632,8 @@ Page({
   onShowPrivacy() {
     this.setData({
       currentProtocolType: 'privacy',
-      showProtocolViewer: true
+      showProtocolViewer: true,
+      protocolExpanded: false // 点击后收起卡片
     });
   },
 
@@ -821,5 +848,23 @@ Page({
 
     console.log('页面显示已更新');
     console.log('本地用户信息更新成功:', updatedUserInfo);
+  },
+
+  /**
+   * 跳转到配网测试页面
+   */
+  goToTestWifi() {
+    wx.navigateTo({
+      url: '/pages/test-wifi/test-wifi'
+    });
+  },
+
+  /**
+   * 跳转到弹窗测试页面
+   */
+  goToTestModal() {
+    wx.navigateTo({
+      url: '/pages/test-modal/test-modal'
+    });
   }
 });

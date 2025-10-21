@@ -232,7 +232,15 @@ class BluetoothManager {
             wx.closeBLEConnection({
                 deviceId,
                 success: resolve,
-                fail: reject
+                fail: (error) => {
+                    // 忽略连接不存在的错误
+                    if (error.errCode === 10006) {
+                        console.log('设备连接已不存在，无需断开');
+                        resolve(); // 当作成功处理
+                    } else {
+                        reject(error);
+                    }
+                }
             });
         });
     }

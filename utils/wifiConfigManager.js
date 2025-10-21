@@ -1,12 +1,62 @@
 /**
- * WiFi配置管理模塊
+ * WiFi配置管理模块
  */
 const WifiManager = require('./wifiManager');
+
+// 引用airkiss插件
+const airkiss = requirePlugin('airkiss');
 
 class WifiConfigManager {
     constructor(page) {
         this.page = page;
         this.wifiManager = new WifiManager();
+        this.airkissManager = null; // 延迟初始化airkiss
+    }
+
+    /**
+     * 判断设备类型
+     * @returns {string} 'old' 旧设备, 'new' 新设备
+     */
+    _getDeviceType() {
+        const connectedDevice = this.page.data.devices?.find(d => d.deviceId === this.page.data.connectedDeviceId);
+        const deviceName = connectedDevice?.name || '';
+        
+        if (deviceName.startsWith('GoodSleep')) {
+            console.log('检测到新设备:', deviceName);
+            return 'new';
+        } else if (deviceName.startsWith('GOODSLEEP')) {
+            console.log('检测到旧设备:', deviceName);
+            return 'old';
+        } else {
+            console.log('未知设备类型，默认使用旧设备配网:', deviceName);
+            return 'old';
+        }
+    }
+
+    /**
+     * 初始化airkiss管理器
+     */
+    _initAirkissManager() {
+        if (!this.airkissManager) {
+            try {
+                // 检查airkiss插件是否可用
+                if (!airkiss) {
+                    console.error('airkiss插件未找到，请检查插件配置');
+                    return null;
+                }
+                
+                this.airkissManager = airkiss;
+                console.log('airkiss管理器初始化成功');
+            } catch (error) {
+                console.error('airkiss管理器初始化失败:', error);
+                console.error('请确保：');
+                console.error('1. 在微信开发者工具中已安装airkiss插件');
+                console.error('2. project.config.json和app.json中已正确配置插件');
+                console.error('3. 微信开发者工具版本支持插件功能');
+                this.airkissManager = null;
+            }
+        }
+        return this.airkissManager;
     }
 
     /**
@@ -156,8 +206,22 @@ class WifiConfigManager {
     /**
      * 发送WiFi配置
      */
-    async sendWifiConfig() {
-        if (!this.page.data.wifiPassword) {
+    async sendWifiConfig(wifiConfig = null) {
+        // 进入新的配网流程前，先清理所有旧的超时定时器
+        this._clearWifiConfigTimeout();
+        if (this._airkissTimeout) {
+            clearTimeout(this._airkissTimeout);
+            this._airkissTimeout = null;
+            console.log('清理历史 airkiss 超时定时器');
+        }
+
+        // 如果没有传入WiFi配置，使用页面数据
+        const config = wifiConfig || {
+            ssid: this.page.data.wifiName,
+            password: this.page.data.wifiPassword
+        };
+        
+        if (!config.password) {
             wx.showToast({ title: '请输入WiFi密码', icon: 'none' });
             return;
         }
@@ -168,21 +232,38 @@ class WifiConfigManager {
         }
 
         try {
-            console.log('开始发送Good Sleep配网指令');
+            console.log('开始发送配网指令');
+            
+            // 判断设备类型
+            const deviceType = this._getDeviceType();
+            console.log('设备类型:', deviceType);
             
             // 显示加载提示
             wx.showLoading({ title: 'Wi-Fi连接中...', mask: true });
             
-            // 构建Good Sleep配网指令 - 使用图片中的格式
-            const wifiConfig = {
-                ssid: this.page.data.wifiName,
-                password: this.page.data.wifiPassword
+            // 构建WiFi配置信息
+            const wifiConfigInfo = {
+                ssid: config.ssid,
+                password: config.password
             };
             
-            console.log('WiFi配置信息:', wifiConfig);
+            console.log('WiFi配置信息:', wifiConfigInfo);
             
-            // 发送配网指令到Good Sleep设备
-            const success = await this._sendGoodSleepWifiConfig(wifiConfig);
+            let success = false;
+            
+            if (deviceType === 'old') {
+                // 旧设备：使用Good Sleep配网指令
+                console.log('使用旧设备配网方式');
+                success = await this._sendGoodSleepWifiConfig(wifiConfigInfo);
+            } else if (deviceType === 'new') {
+                // 新设备：使用airkiss配网
+                console.log('使用新设备airkiss配网方式');
+                try {
+                    success = await this._sendAirkissWifiConfig(wifiConfigInfo);
+                } catch (airkissError) {
+                    console.error('airkiss配网出现异常:', airkissError);
+                }
+            }
             
             if (success) {
                 wx.showToast({ title: '配网指令已发送', icon: 'success' });
@@ -195,20 +276,27 @@ class WifiConfigManager {
                 });
                 
                 // 开始监听设备配网结果
-                this._startGoodSleepWifiConfigListener();
+                if (deviceType === 'old') {
+                    this._startGoodSleepWifiConfigListener();
+                } else {
+                    this._startAirkissWifiConfigListener();
+                }
                 
                 // 设置配网超时处理
-                // this._setWifiConfigTimeout();
+                this._setWifiConfigTimeout();
                 
             } else {
                 wx.hideLoading();
                 wx.showToast({ title: '发送失败', icon: 'none' });
+                // 配网发送失败则回到第一步，断开蓝牙连接，保留密码
+                this._resetToFirstStep();
             }
             
         } catch (error) {
             wx.hideLoading();
             console.error('发送Good Sleep配网指令失败:', error);
             wx.showToast({ title: '发送失败', icon: 'none' });
+            this._resetToFirstStep();
         }
     }
 
@@ -224,7 +312,7 @@ class WifiConfigManager {
                 return false;
             }
             
-            // 构建Good Sleep配网指令数据 - 使用图片中的格式
+            // 构建Good Sleep配网指令数据
             const commandData = this._buildGoodSleepWifiConfigCommand(wifiConfig);
             console.log('Good Sleep配网指令数据:', commandData);
             
@@ -245,7 +333,7 @@ class WifiConfigManager {
     }
 
     /**
-     * 构建Good Sleep WiFi配网指令 - 使用图片中的格式
+     * 构建Good Sleep WiFi配网指令
      */
     _buildGoodSleepWifiConfigCommand(wifiConfig) {
         try {
@@ -471,6 +559,10 @@ class WifiConfigManager {
                 case 0x04: // WIFI 连接成功,TCP连接成功
                     wx.hideLoading();
                     wx.showToast({ title: '配网成功', icon: 'success' });
+                    
+                    // 清除配网超时定时器
+                    this._clearWifiConfigTimeout();
+                    
                     this.page.setData({
                         stepsCompleted: [true, true, true],
                         currentTab: 2,
@@ -513,12 +605,21 @@ class WifiConfigManager {
     _setWifiConfigTimeout() {
         // 清除之前的超时定时器
         this._clearWifiConfigTimeout();
-        // 10秒后如果还没有收到配网结果，继续等待
+        
+        // 设置总超时时间（60秒）
         this.wifiConfigTimeout = setTimeout(() => {
-            console.log('Good Sleep配网超时，未收到设备响应，继续等待...');
-            // 重新设置配网超时，继续等待
-            this._setWifiConfigTimeout();
-        }, 15000); // 10秒超时
+            console.log('配网总超时（60秒），停止配网');
+            wx.hideLoading();
+            wx.showToast({ title: '配网超时', icon: 'none' });
+            
+            // 停止所有配网相关操作
+            this.stopWifiConfig();
+            
+            // 回到第一步
+            this._resetToFirstStep();
+        }, 60000); // 60秒总超时
+        
+        console.log('配网超时定时器已设置（60秒）');
     }
 
     /**
@@ -527,6 +628,10 @@ class WifiConfigManager {
     stopWifiConfig() {
         console.log('手动停止配网');
         this._clearWifiConfigTimeout();
+        
+        // 停止airkiss配网
+        this.stopAirkissConfig();
+        
         wx.hideLoading();
         this.page.setData({ isConfiguring: false });
         wx.showToast({ title: '已停止配网', icon: 'none' });
@@ -547,6 +652,302 @@ class WifiConfigManager {
         // 重置配网状态
         if (this.page && this.page.setData) {
             this.page.setData({ isConfiguring: false });
+        }
+    }
+
+    /**
+     * 发送airkiss WiFi配网
+     */
+    _sendAirkissWifiConfig(wifiConfig) {
+        try {
+            const airkissManager = this._initAirkissManager();
+            if (!airkissManager) {
+                console.error('airkiss管理器初始化失败');
+                return false;
+            }
+            
+            console.log('开始airkiss配网:', wifiConfig);
+            
+            // 验证WiFi配置数据
+            if (!wifiConfig.ssid || !wifiConfig.password) {
+                console.error('WiFi配置数据不完整');
+                return false;
+            }
+                      
+            // 初始化WiFi
+            // this._initWifiForAirkiss().catch(wifiError => {
+            //     console.warn('WiFi初始化失败，继续尝试配网:', wifiError);
+            // });
+            
+            // 使用airkiss发送WiFi配置
+            return this._sendAirkissWifiCredentials(wifiConfig).then(configResult => {
+                if (!configResult) {
+                    console.error('airkiss WiFi配置发送失败');
+                    return false;
+                }
+                
+                console.log('airkiss配网指令发送成功');
+                return true;
+            });
+            
+        } catch (error) {
+            console.error('发送airkiss WiFi配网失败:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 初始化WiFi（参考安信可示例）
+     */
+    async _initWifiForAirkiss() {
+        return new Promise((resolve, reject) => {
+            wx.startWifi({
+                success: (res) => {
+                    console.log('WiFi初始化成功:', res.errMsg);
+                    resolve(res);
+                },
+                fail: (res) => {
+                    console.warn('WiFi初始化失败:', res);
+                    reject(res);
+                }
+            });
+        });
+    }
+
+    /**
+     * 停止airkiss配网
+     */
+    stopAirkissConfig() {
+        try {
+            const airkissManager = this._initAirkissManager();
+            if (airkissManager && airkissManager.stopAirkiss) {
+                airkissManager.stopAirkiss();
+                console.log('airkiss配网已停止');
+            }
+            
+            // 清理定时器
+            if (this._airkissTimeout) {
+                clearTimeout(this._airkissTimeout);
+                this._airkissTimeout = null;
+            }
+        } catch (error) {
+            console.error('停止airkiss配网失败:', error);
+        }
+    }
+
+
+    /**
+     * 发送airkiss WiFi凭据
+     */
+    async _sendAirkissWifiCredentials(wifiConfig) {
+        try {
+            const airkissManager = this._initAirkissManager();
+            if (!airkissManager) {
+                console.error('airkiss管理器未初始化');
+                return false;
+            }
+            
+            console.log('发送airkiss WiFi凭据:', wifiConfig);
+            
+            // 验证WiFi配置数据格式
+            if (!this._validateWifiConfigData(wifiConfig)) {
+                console.error('WiFi配置数据格式无效');
+                return false;
+            }
+            
+            // 使用airkiss插件发送WiFi配置
+            return new Promise((resolve) => {
+                try {
+                    console.log('调用airkiss.startAirkiss:', wifiConfig.ssid, wifiConfig.password);
+                    airkissManager.startAirkiss(
+                        wifiConfig.ssid,
+                        wifiConfig.password,
+                        (res) => {
+                            try {
+                                console.log('airkiss 回调结果:', res);
+                                wx.hideLoading();
+                                
+                                switch (res.code) {
+                                    case 0:
+                                        wx.showModal({
+                                            title: '初始化失败',
+                                            content: res.result,
+                                            showCancel: false,
+                                            confirmText: '收到',
+                                        });
+                                        resolve(false);
+                                        break;
+                                    case 1:
+                                        // 清除配网超时定时器
+                                        this._clearWifiConfigTimeout();
+                                        
+                                        // 更新页面状态
+                                        if (this.page && this.page.setData) {
+                                            this.page.setData({
+                                                stepsCompleted: [true, true, true],
+                                                currentTab: 2,
+                                                isConfiguring: false
+                                            });
+                                        }
+                                        // wx.showModal({
+                                        //     title: '配网成功',
+                                        //     content: '设备IP：' + res.ip + '\r\n 设备Mac：' + res.bssid,
+                                        //     showCancel: false,
+                                        //     confirmText: '好的',
+                                        // });
+                                        resolve(true);
+                                        break;
+                                    case 2:
+                                        wx.showModal({
+                                            title: '配网失败',
+                                            content: '请检查密码是否正确',
+                                            showCancel: false,
+                                            confirmText: '收到',
+                                        });
+                                        this._resetToFirstStep();
+                                        resolve(false);
+                                        break;
+                                    default:
+                                        console.warn('airkiss 未知回调:', res);
+                                        resolve(false);
+                                        break;
+                                }
+                            } catch (cbErr) {
+                                console.error('airkiss 回调处理异常:', cbErr);
+                                wx.hideLoading();
+                                resolve(false);
+                            }
+                        }
+                    );
+                } catch (callErr) {
+                    console.error('调用 airkiss.startAirkiss 异常:', callErr);
+                    resolve(false);
+                }
+            });
+            
+        } catch (error) {
+            console.error('发送airkiss WiFi凭据失败:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 验证WiFi配置数据
+     */
+    _validateWifiConfigData(wifiConfig) {
+        try {
+            if (!wifiConfig || typeof wifiConfig !== 'object') {
+                console.error('WiFi配置不是有效对象');
+                return false;
+            }
+            
+            if (!wifiConfig.ssid || typeof wifiConfig.ssid !== 'string') {
+                console.error('SSID无效');
+                return false;
+            }
+            
+            if (!wifiConfig.password || typeof wifiConfig.password !== 'string') {
+                console.error('密码无效');
+                return false;
+            }
+            
+            // 检查SSID和密码长度
+            if (wifiConfig.ssid.length === 0 || wifiConfig.ssid.length > 32) {
+                console.error('SSID长度无效:', wifiConfig.ssid.length);
+                return false;
+            }
+            
+            if (wifiConfig.password.length === 0 || wifiConfig.password.length > 63) {
+                console.error('密码长度无效:', wifiConfig.password.length);
+                return false;
+            }
+            
+            // 检查是否包含特殊字符
+            const ssidValid = /^[a-zA-Z0-9\-_]+$/.test(wifiConfig.ssid);
+            if (!ssidValid) {
+                console.warn('SSID包含特殊字符，可能导致配网问题');
+            }
+            
+            console.log('WiFi配置数据验证通过');
+            return true;
+            
+        } catch (error) {
+            console.error('WiFi配置数据验证失败:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 开始airkiss配网监听
+     */
+    _startAirkissWifiConfigListener() {
+        try {
+            const airkissManager = this._initAirkissManager();
+            if (!airkissManager) {
+                console.error('airkiss管理器未初始化');
+                return;
+            }
+                      
+            // 启动前先清理旧的 airkiss 超时定时器
+            if (this._airkissTimeout) {
+                clearTimeout(this._airkissTimeout);
+                this._airkissTimeout = null;
+                console.log('启动前清理旧的 airkiss 超时定时器');
+            }
+
+            // 设置配网超时检查（与总超时时间协调）
+            this._airkissTimeout = setTimeout(() => {
+                console.log('airkiss配网超时');
+                wx.hideLoading();
+                wx.showToast({ title: '配网超时', icon: 'none' });
+                this._resetToFirstStep();
+            }, 50000); // 50秒超时，比总超时时间短10秒
+                        
+            console.log('airkiss配网监听已启动');
+            
+        } catch (error) {
+            console.error('启动airkiss配网监听失败:', error);
+        }
+    }
+
+    /**
+     * 重置到第一步：断开蓝牙连接，保留密码信息
+     */
+    _resetToFirstStep() {
+        try {
+            // 断开当前蓝牙连接
+            if (this.page && this.page.data.connectedDeviceId) {
+                console.log('配网失败，断开蓝牙连接:', this.page.data.connectedDeviceId);
+                this.page.blueDeviceManager.disconnectBluetooth(this.page.data.connectedDeviceId);
+            }
+            
+            // 清除本地存储的设备信息
+            wx.removeStorageSync('connectedDevice');
+            
+            // 重置页面状态到第一步，保留密码信息
+            if (this.page && this.page.setData) {
+                this.page.setData({
+                    isConfiguring: false,
+                    currentTab: 0,
+                    stepsCompleted: [false, false, false],
+                    connectedDeviceId: '',
+                    devices: [],
+                    isSearching: false,
+                    // 保留密码信息
+                    // wifiPassword: this.page.data.wifiPassword, // 密码保持不变
+                    // wifiName: this.page.data.wifiName, // WiFi名称保持不变
+                    savedWifiConfig: null // 清除保存的WiFi配置
+                });
+            }
+            
+            // 重新初始化WiFi步骤
+            console.log('配网失败回到第一步，重新初始化WiFi');
+            this.initWifiStep();
+            
+            console.log('已重置到第一步，蓝牙连接已断开，密码信息已保留');
+            
+        } catch (error) {
+            console.error('重置到第一步失败:', error);
         }
     }
 }

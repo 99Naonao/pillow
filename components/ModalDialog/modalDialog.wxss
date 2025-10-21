@@ -1,0 +1,212 @@
+/* 弹窗遮罩层 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+  box-sizing: border-box;
+}
+
+/* 弹窗主体容器 */
+.modal-container {
+  background-color: #fff;
+  border-radius: 16rpx;
+  max-width: 600rpx;
+  width: 100%;
+  max-height: 80vh;
+  position: relative;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  animation: modalShow 0.3s ease-out;
+}
+
+/* 弹窗显示动画 */
+@keyframes modalShow {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(-50rpx);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 关闭按钮 */
+.modal-close {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.modal-close:active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* 标题区域 */
+.modal-header {
+  padding: 40rpx 40rpx 20rpx;
+  text-align: center;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.modal-icon {
+  margin-bottom: 20rpx;
+  display: flex;
+  justify-content: center;
+}
+
+.icon-image {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 8rpx;
+}
+
+.modal-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+/* 内容区域 */
+.modal-content {
+  padding: 40rpx;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.modal-video {
+  width: 100%;
+  height: 300rpx;
+  border-radius: 8rpx;
+  margin-bottom: 20rpx;
+}
+
+.modal-text {
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.6;
+  word-break: break-all;
+  display: block;
+}
+
+/* 按钮区域 */
+.modal-footer {
+  padding: 20rpx 40rpx 40rpx;
+  display: flex;
+  gap: 20rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.modal-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.modal-btn::after {
+  border: none;
+}
+
+.modal-btn-cancel {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.modal-btn-cancel:active {
+  background-color: #e8e8e8;
+}
+
+.modal-btn-confirm {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+.modal-btn-confirm:active {
+  background-color: #40a9ff;
+}
+
+.modal-btn-confirm[type="primary"] {
+  background-color: #1890ff;
+}
+
+.modal-btn-confirm[type="warn"] {
+  background-color: #ff4d4f;
+}
+
+.modal-btn-confirm[type="warn"]:active {
+  background-color: #ff7875;
+}
+
+/* 单个按钮时占弹窗宽度的80%并居中 */
+.modal-footer .modal-btn:only-child {
+  width: 80%;
+  margin: 0 auto;
+}
+
+/* 响应式适配 */
+@media (max-width: 750rpx) {
+  .modal-container {
+    margin: 20rpx;
+    max-width: calc(100vw - 40rpx);
+  }
+  
+  .modal-header,
+  .modal-content,
+  .modal-footer {
+    padding-left: 30rpx;
+    padding-right: 30rpx;
+  }
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .modal-container {
+    background-color: #1f1f1f;
+  }
+  
+  .modal-title {
+    color: #fff;
+  }
+  
+  .modal-text {
+    color: #ccc;
+  }
+  
+  .modal-header,
+  .modal-footer {
+    border-color: #333;
+  }
+  
+  .modal-btn-cancel {
+    background-color: #333;
+    color: #ccc;
+  }
+  
+  .modal-btn-cancel:active {
+    background-color: #444;
+  }
+}
