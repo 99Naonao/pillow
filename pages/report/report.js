@@ -103,8 +103,8 @@ Page({
     
     // 加载今天的睡眠报告，end_date 比 start_date 多一天
     const endDate = DataProcessor.getNextDay(today);
-    this.loadSleepReports(today, endDate, wifiMac)
-    // this.loadSleepReports(today, endDate, "f4:cf:a2:80:9f:ac");
+    // this.loadSleepReports(today, endDate, wifiMac)
+    this.loadSleepReports(today, endDate, "f4:cf:a2:80:9f:ac");
     
     // 知道睡眠报告id以后的获取详细睡眠报告详情测试方法
     // this.testSleepReportDetail("f4:cf:a2:80:9f:ac", 41250);
@@ -131,8 +131,8 @@ Page({
     
     // 加载选中日期的睡眠报告
     const endDate = DataProcessor.getNextDay(selectedDate);
-    this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
-    // this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
+    // this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
+    this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
   },
 
   onDateChange(e) {
@@ -146,8 +146,8 @@ Page({
     
     // 加载选中日期的睡眠报告
     const endDate = DataProcessor.getNextDay(selectedDate);
-    this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
-    // this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
+    // this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
+    this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
     // 手動更新睡眠階段圖表
     setTimeout(() => {
       this.updateSleepStageChart();
@@ -762,7 +762,7 @@ Page({
     
     // 定義階段配置 - 按照您的要求：离床、清醒、浅睡、深睡
     const stageConfigs = [
-      { name: '离床', color: '#FF6B6B', state: 5 },      // 紅色 - 离床
+      { name: '离枕', color: '#FF6B6B', state: 5 },      // 紅色 - 离床
       { name: '清醒', color: '#FFA07A', state: 4 },      // 橙色 - 清醒
       { name: '浅睡', color: '#87CEEB', state: 3 },      // 淺藍色 - 浅睡
       { name: '深睡', color: '#4169E1', state: 1 }       // 深藍色 - 深睡
