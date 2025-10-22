@@ -51,9 +51,6 @@ Page({
         // 错误处理
         _isShowingWifiError: false, // 防止重复显示WiFi错误提示
         
-        // 设备初始化控制
-        deviceInitialized: false, // 设备是否已初始化成功
-        isInitializing: false, // 是否正在初始化
         
         // 序列号管理（参考项目）
         sequenceCount: 0,
@@ -180,11 +177,6 @@ Page({
             this._wifiConfigTimeout = null;
         }
         
-        // 清除初始化相关计时器
-        if (this._initDelayTimer) {
-            clearTimeout(this._initDelayTimer);
-            this._initDelayTimer = null;
-        }
     },
 
     // 检查所有权限
@@ -389,16 +381,6 @@ Page({
         }
         if (this.data.is5GConnected) {
             wx.showToast({ title: '请选择2.4G WiFi', icon: 'none' });
-            return;
-        }
-        
-        // 检查设备是否已初始化完成
-        if (!this.data.deviceInitialized) {
-            wx.showToast({ 
-                title: '设备正在初始化中，请稍候', 
-                icon: 'none',
-                duration: 2000
-            });
             return;
         }
         
@@ -724,8 +706,6 @@ Page({
                 console.log("初始化结果：", JSON.stringify(result))
                 if (result.result) {
                     console.log('初始化成功')
-                    // 设置设备初始化完成状态
-                    this.setData({ deviceInitialized: true });
                     // 参考项目：初始化成功后不显示提示，直接允许配网
                 } else {
                     console.log('初始化失败')
