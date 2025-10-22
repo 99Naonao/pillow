@@ -514,7 +514,6 @@
   flex: 1;
   margin-bottom: 40rpx;
 }
-
 .guide-modal-button {
   width: 90% !important;
   margin: 0 auto !important;
@@ -526,4 +525,5 @@
   font-size: 32rpx !important;
   font-weight: bold !important;
 }
+
 

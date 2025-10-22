@@ -19,6 +19,7 @@ Page({
     // WiFi信息
     wifiName: '',
     wifiPassword: '',
+    wifiMac: '', // WiFi MAC地址
     
     // 蓝牙相关
     isBluetoothConnected: false,
@@ -78,6 +79,12 @@ Page({
     // 停止BluFi扫描
     if (blufi) {
       blufi.stopDiscoverBle();
+    }
+    
+    // 清除连接超时定时器
+    if (this._connectionTimeout) {
+      clearTimeout(this._connectionTimeout);
+      this._connectionTimeout = null;
     }
     
     // 清理资源
@@ -182,12 +189,60 @@ Page({
       title: '连接蓝牙设备中...',
     });
     
+    // 设置连接超时定时器（15秒）
+    this._connectionTimeout = setTimeout(() => {
+      wx.hideLoading();
+      console.log('[test-wifi] 设备连接超时');
+      
+      this.setData({
+        isBluetoothConnected: false,
+        statusMessage: '设备连接超时',
+        isConfiguring: false
+      });
+      
+      this.showStatusModal('连接超时', '设备连接超时，请检查：\n1. 设备是否已进入配网模式\n2. 设备是否在附近\n3. 设备是否被其他应用占用\n\n是否重试连接？');
+    }, 15000); // 15秒超时
+    
     // 使用BluFi连接设备（按照原版BluFi项目的方式）
     blufi.notifyConnectBle({
       isStart: true,
       deviceId: deviceId,
       name: deviceName
     });
+  },
+
+  /**
+   * 根据蓝牙设备MAC地址计算WiFi MAC地址
+   * WiFi MAC = 蓝牙MAC尾数 - 1
+   */
+  _calculateWifiMac(bluetoothDeviceId) {
+    try {
+      // 蓝牙设备ID通常是MAC地址格式，如 "AA:BB:CC:DD:EE:FF"
+      // 提取最后两位数字
+      const macParts = bluetoothDeviceId.split(':');
+      if (macParts.length >= 6) {
+        const lastPart = macParts[5]; // 获取最后一部分
+        const lastByte = parseInt(lastPart, 16); // 转换为十进制
+        const wifiLastByte = lastByte - 1; // WiFi MAC = 蓝牙MAC - 1
+        
+        // 确保结果在有效范围内 (0-255)
+        const validWifiByte = wifiLastByte < 0 ? 255 : wifiLastByte;
+        
+        // 重新构建WiFi MAC地址
+        const wifiMacParts = [...macParts];
+        wifiMacParts[5] = validWifiByte.toString(16).padStart(2, '0').toUpperCase();
+        const wifiMac = wifiMacParts.join(':');
+        
+        console.log('[test-wifi] 蓝牙MAC:', bluetoothDeviceId);
+        console.log('[test-wifi] 计算WiFi MAC:', wifiMac);
+        
+        return wifiMac;
+      }
+    } catch (error) {
+      console.error('[test-wifi] 计算WiFi MAC失败:', error);
+    }
+    
+    return '';
   },
 
   /**
@@ -288,6 +343,13 @@ Page({
       case blufi.XBLUFI_TYPE.TYPE_CONNECTED:
         // 设备连接结果（按照原版BluFi项目的方式）
         console.log('[test-wifi] 连接回调:', JSON.stringify(result));
+        
+        // 清除连接超时定时器
+        if (this._connectionTimeout) {
+          clearTimeout(this._connectionTimeout);
+          this._connectionTimeout = null;
+        }
+        
         if (result.result) {
           wx.hideLoading();
           wx.showToast({
@@ -307,12 +369,32 @@ Page({
         } else {
           wx.hideLoading();
           console.log('[test-wifi] 设备连接失败:', result.data);
+          
+          // 提供更详细的错误信息
+          let errorMessage = '设备连接失败';
+          if (result.data && result.data.errorCode) {
+            const errorCode = result.data.errorCode;
+            switch (errorCode) {
+              case 10003:
+                errorMessage = '连接被拒绝，请确保设备已进入配网模式且未被其他设备连接';
+                break;
+              case 10004:
+                errorMessage = '连接超时，请检查设备是否在附近且信号良好';
+                break;
+              case 10005:
+                errorMessage = '设备不支持，请检查设备是否支持BluFi配网';
+                break;
+              default:
+                errorMessage = `连接失败 (错误码: ${errorCode})`;
+            }
+          }
+          
           this.setData({
             isBluetoothConnected: false,
             statusMessage: '设备连接失败',
             isConfiguring: false
           });
-          this.showStatusModal('连接失败', '设备连接失败，请重试');
+          this.showStatusModal('连接失败', errorMessage + '\n\n请尝试：\n1. 确保设备已进入配网模式\n2. 检查设备是否在附近\n3. 重启设备后重试');
         }
         break;
         
@@ -338,13 +420,29 @@ Page({
           // 配网成功
           if (result.data && result.data.progress == 100) {
             const ssid = result.data.ssid;
+            
+            // 根据蓝牙设备MAC地址计算WiFi MAC地址
+            const wifiMac = this._calculateWifiMac(this.data.connectedDeviceId);
+            
+            console.log('[test-wifi] 配网成功，计算WiFi MAC:', wifiMac);
+            
+            // 保存WiFi MAC地址到本地存储
+            if (wifiMac) {
+              wx.setStorage({
+                key: 'wifi_device_mac',
+                data: wifiMac
+              });
+              console.log('[test-wifi] 已保存WiFi MAC地址:', wifiMac);
+            }
+            
             this.setData({
               statusMessage: 'WiFi配网成功！',
-              isConfiguring: false
+              isConfiguring: false,
+              wifiMac: wifiMac // 保存到页面数据中
             });
             
             // 显示成功信息（按照原版BluFi项目的方式）
-            this.showStatusModal('配网成功', `连接成功路由器【${ssid}】`);
+            this.showStatusModal('配网成功', `连接成功路由器【${ssid}】\nWiFi MAC: ${wifiMac || '计算失败'}`);
           } else {
             // 配网进行中
             this.setData({
@@ -356,7 +454,7 @@ Page({
         break;
         
       case blufi.XBLUFI_TYPE.TYPE_STATUS_CONNECTED:
-        // 设备连接状态变化（按照原版BluFi项目的方式）
+        // 
         console.log('[test-wifi] 设备连接状态变化:', result);
         this.setData({
           isBluetoothConnected: result.result

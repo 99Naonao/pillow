@@ -190,51 +190,6 @@ function listenSendCustomData(isSetListener, funtion) {
 
 
 
-/**
- * 开始发现蓝牙设备
- */
-function startDiscoverBle() {
-  notifyStartDiscoverBle({ isStart: true });
-}
-
-/**
- * 停止发现蓝牙设备
- */
-function stopDiscoverBle() {
-  notifyStartDiscoverBle({ isStart: false });
-}
-
-/**
- * 连接设备
- * @param {string} deviceId 设备ID
- */
-function connectDevice(deviceId) {
-  notifyConnectBle({ isStart: true, deviceId: deviceId });
-}
-
-/**
- * 发送路由器SSID和密码
- * @param {object} options 包含ssid和password的对象
- */
-function sendRouterSsidAndPassword(options) {
-  notifySendRouterSsidAndPassword(options);
-}
-
-/**
- * 发送自定义数据
- * @param {object} options 包含customData的对象
- */
-function sendCustomData(options) {
-  notifySendCustomData(options);
-}
-
-/**
- * 获取附近的SSID
- */
-function getNearRouterSsid() {
-  notifySendGetNearRouterSsid();
-}
-
 /****************************** 对外  ***************************************/
 
 module.exports = {
@@ -261,17 +216,11 @@ module.exports = {
   notifySendCustomData,
   listenSendCustomData,
 
+
   notifySendGetNearRouterSsid,
   listenSendGetNearRouterSsid,
 
-  initXBlufi,
 
-  // 新增的便捷方法
-  startDiscoverBle,
-  stopDiscoverBle,
-  connectDevice,
-  sendRouterSsidAndPassword,
-  sendCustomData,
-  getNearRouterSsid,
+  initXBlufi,
 
 };
