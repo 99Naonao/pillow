@@ -14,7 +14,7 @@
     "pages/blue/blue",
     "pages/report/report",
     "pages/mine/mine",
-    "pages/test-modal/test-modal",
+    "pages/blufi/index",
     "pages/test-wifi/test-wifi"
   ],
   "tabBar": {

@@ -50,6 +50,13 @@ Page({
 
         // 错误处理
         _isShowingWifiError: false, // 防止重复显示WiFi错误提示
+        
+        // 设备初始化控制
+        deviceInitialized: false, // 设备是否已初始化成功
+        isInitializing: false, // 是否正在初始化
+        
+        // 序列号管理（参考项目）
+        sequenceCount: 0,
     },
 
     onLoad() {
@@ -69,15 +76,11 @@ Page({
             console.log('頁面初始化時恢復已保存的WiFi MAC:', savedWifiMac);
         }
         
-        // 檢查是否有已連接的設備，如果有則初始化設備
+        // 檢查是否有已連接的設備
         const device = wx.getStorageSync('connectedDevice');
         if (device && device.deviceId) {
-            console.log('onLoad: 發現已連接設備，開始初始化:', device.deviceId);
+            console.log('onLoad: 發現已連接設備:', device.deviceId);
             this.setData({ connectedDeviceId: device.deviceId });
-            // 延遲初始化，確保BluFi已準備好
-            setTimeout(() => {
-                this._initDevice();
-            }, 1000);
         }
     },
 
@@ -109,10 +112,13 @@ Page({
             if (device && device.deviceId) {
                 this.blueDeviceManager.checkDeviceConnectionStatus(device.deviceId).then(isConnected => {
                     if (isConnected) {
-                        this.setData({ connectedDeviceId: device.deviceId });
+                        this.setData({ 
+                            connectedDeviceId: device.deviceId,
+                            currentTab: 1 // 跳转到WiFi配置步骤
+                        });
                         console.log('设备确实已连接，设置已连接设备ID:', device.deviceId);
-                        // 设备已连接，自动进入第三步配网
-                        this.startWifiConfig();
+                        // 设备已连接，跳转到WiFi配置步骤，等待用户输入WiFi信息
+                        this.initWifiStep();
                     } else {
                         console.log('设备未真正连接，清除本地存储');
                         wx.removeStorageSync('connectedDevice');
@@ -130,9 +136,9 @@ Page({
                 console.log('等待用户确认引导弹窗后开始搜索');
             }
         } else if (this.data.currentTab === 1) {
-            // 第二步：WiFi配置
-            console.log('第二步：检查WiFi状态');
-            this.initWifiStep();
+            // 第二步：WiFi配置（已通过initWifi()初始化）
+            console.log('第二步：WiFi配置步骤');
+            // 不再调用initWifiStep()，因为已经在连接成功时调用了initWifi()
         }
     },
 
@@ -167,6 +173,18 @@ Page({
             clearTimeout(this._connectionTimeout);
             this._connectionTimeout = null;
         }
+        
+        // 清除配网超时定时器
+        if (this._wifiConfigTimeout) {
+            clearTimeout(this._wifiConfigTimeout);
+            this._wifiConfigTimeout = null;
+        }
+        
+        // 清除初始化相关计时器
+        if (this._initDelayTimer) {
+            clearTimeout(this._initDelayTimer);
+            this._initDelayTimer = null;
+        }
     },
 
     // 检查所有权限
@@ -176,7 +194,6 @@ Page({
 
     // 初始化WiFi步骤
     initWifiStep() {
-        console.log('开始初始化WiFi步骤');
         // 使用WiFi配置管理器初始化WiFi步骤
         this.wifiConfigManager.initWifiStep();
     },
@@ -374,6 +391,17 @@ Page({
             wx.showToast({ title: '请选择2.4G WiFi', icon: 'none' });
             return;
         }
+        
+        // 检查设备是否已初始化完成
+        if (!this.data.deviceInitialized) {
+            wx.showToast({ 
+                title: '设备正在初始化中，请稍候', 
+                icon: 'none',
+                duration: 2000
+            });
+            return;
+        }
+        
         console.log('WiFi配置完成，保存WiFi信息:', {
             wifiName: this.data.wifiName,
             wifiPassword: this.data.wifiPassword
@@ -387,68 +415,32 @@ Page({
             }
         });
 
-        // 开始配网（设备已在onLoad时初始化）
+        // 开始配网
         this.startWifiConfig();
     },
 
-    // 初始化设备
-    _initDevice() {
-        const { connectedDeviceId } = this.data;
+    // 开始配网（完全使用参考项目代码）
+    startWifiConfig() {
+        console.log('开始配网');
         
-        if (!connectedDeviceId) {
-            console.error('没有已连接的设备ID');
+        // 检查WiFi配置
+        if (!this.data.wifiName) {
             wx.showToast({
-                title: '请先连接设备',
+                title: 'SSID不能为空',
+                icon: 'none'
+            });
+            return;
+        }
+        if (!this.data.wifiPassword) {
+            wx.showToast({
+                title: '密码不能为空',
                 icon: 'none'
             });
             return;
         }
         
-        console.log('[blue] 初始化设备:', connectedDeviceId);
-        
-        // 初始化设备（按照BluFi项目的方式）
-        blufi.notifyInitBleEsp32({
-            deviceId: connectedDeviceId
-        });
-        
-        // 显示初始化加载提示
-        // wx.showLoading({
-        //     title: '设备初始化中',
-        //     mask: true
-        // });
-    },
-
-    // 开始配网
-    startWifiConfig() {
-        console.log('开始配网');
-        
-        // 检查是否有保存的WiFi配置
-        if (!this.data.savedWifiConfig) {
-            console.error('没有保存的WiFi配置信息');
-            wx.showToast({ title: 'WiFi配置信息丢失', icon: 'none' });
-            return;
-        }
-        
-        console.log('使用保存的WiFi配置进行配网:', this.data.savedWifiConfig);
-        
-        // 设置配网状态并跳转到第三步
-        this.setData({ 
-            currentTab: 2, // 跳转到第三步
-            isConfiguring: true,
-            stepsCompleted: [true, true, true]
-        });
-        
-        // 显示配网加载提示
-        wx.showLoading({
-            title: '正在配网',
-            mask: true
-        });
-        
-        // 发送配网信息（使用BluFi）
-        blufi.notifySendRouterSsidAndPassword({
-            ssid: this.data.savedWifiConfig.ssid,
-            password: this.data.savedWifiConfig.password
-        });
+        // 使用参考项目的配网方法
+        this.connectWifi();
     },
 
     // 显示WiFi列表
@@ -559,6 +551,7 @@ Page({
      */
     _handleBlufiResult(result) {
         console.log('BluFi结果:', result);
+        console.log('BluFi结果类型:', result.type, '結果:', result.result);
         
         switch (result.type) {
             case blufi.XBLUFI_TYPE.TYPE_GET_DEVICE_LISTS:
@@ -604,21 +597,18 @@ Page({
                     this.setData({
                         connectedDeviceId: result.data.deviceId,
                         stepsCompleted: [true, true, false],
-                        devices: updatedDevices
-                    });
-                    
-                    // 连接成功后跳转到WiFi配置步骤
-                    this.setData({
+                        devices: updatedDevices,
                         currentTab: 1, // 跳转到WiFi配置步骤
-                        stepsCompleted: [true, true, false]
+                        sequenceCount: 0 // 重置序列号（参考项目）
                     });
                     
-                    // 初始化设备（按照BluFi项目的方式）
                     console.log('蓝牙连接成功，开始初始化设备');
-                    this._initDevice();
                     
-                    // 初始化WiFi步骤
-                    this.initWifiStep();
+                    // 立即初始化设备（参考项目）
+                    blufi.notifyInitBleEsp32({ deviceId: result.data.deviceId });
+                    
+                    // 初始化WiFi步骤（参考项目）
+                    this.initWifi();
                 } else {
                     wx.hideLoading();
                     console.log('设备连接失败:', result.data);
@@ -662,11 +652,21 @@ Page({
                 // 配网结果
                 wx.hideLoading();
                 console.log('配网结果:', result);
+                console.log('配网结果詳情:', JSON.stringify(result));
+                console.log('當前配網狀態:', this.data.isConfiguring);
+                console.log('當前WiFi配置:', this.data.savedWifiConfig);
+                
+                // 清除配网超时计时器
+                if (this._wifiConfigTimeout) {
+                    clearTimeout(this._wifiConfigTimeout);
+                    this._wifiConfigTimeout = null;
+                }
                 
                 if (!result.result) {
                     // 配网失败
                     this.setData({
-                        isConfiguring: false
+                        isConfiguring: false,
+                        currentTab: 1 // 回到WiFi配置步骤
                     });
                     wx.showModal({
                         title: '配网失败',
@@ -718,31 +718,28 @@ Page({
                 }
                 break;
                 
-                break;
-                
             case blufi.XBLUFI_TYPE.TYPE_INIT_ESP32_RESULT:
                 // 设备初始化结果
                 wx.hideLoading();
-                console.log('初始化结果:', JSON.stringify(result));
-                
+                console.log("初始化结果：", JSON.stringify(result))
                 if (result.result) {
-                    console.log('设备初始化成功，开始配网');
-                    // 初始化成功后自动开始配网
-                    this.startWifiConfig();
+                    console.log('初始化成功')
+                    // 设置设备初始化完成状态
+                    this.setData({ deviceInitialized: true });
+                    // 参考项目：初始化成功后不显示提示，直接允许配网
                 } else {
-                    console.error('设备初始化失败:', result.data);
+                    console.log('初始化失败')
+                    this.setData({
+                        connected: false
+                    })
                     wx.showModal({
-                        title: '初始化失败',
-                        content: '设备初始化失败，请重试',
-                        showCancel: true,
-                        cancelText: '取消',
-                        confirmText: '重试',
-                        success: (res) => {
-                            if (res.confirm) {
-                                this._initDevice();
-                            }
+                        title: '温馨提示',
+                        content: `设备初始化失败`,
+                        showCancel: false, //是否显示取消按钮
+                        success: function (res) {
+                            // 可以添加返回逻辑
                         }
-                    });
+                    })
                 }
                 break;
         }
@@ -780,5 +777,139 @@ Page({
         }
         
         return '';
+    },
+
+    // UTF8编码函数（参考项目）
+    encodeUtf8: function(text) {
+        const code = encodeURIComponent(text);
+        const bytes = [];
+        for (var i = 0; i < code.length; i++) {
+            const c = code.charAt(i);
+            if (c === '%') {
+                const hex = code.charAt(i + 1) + code.charAt(i + 2);
+                const hexVal = parseInt(hex, 16);
+                bytes.push(hexVal);
+                i += 2;
+            } else {
+                bytes.push(c.charCodeAt(0));
+            }
+        }
+        return bytes;
+    },
+
+    // 直接写入特征值（参考项目）
+    writeCharacteristicValue: function(data) {
+        const { connectedDeviceId } = this.data;
+        if (!connectedDeviceId) {
+            console.error('没有已连接的设备ID');
+            return;
+        }
+
+        wx.writeBLECharacteristicValue({
+            deviceId: connectedDeviceId,
+            serviceId: "0000FFFF-0000-1000-8000-00805F9B34FB",
+            characteristicId: "0000FF01-0000-1000-8000-00805F9B34FB",
+            value: data,
+            success: function (res) {
+                console.log('特征值写入成功:', res);
+            },
+            fail: function (res) {
+                console.error('特征值写入失败:', res);
+            }
+        });
+    },
+
+    // 初始化WiFi（完全使用参考项目代码）
+    initWifi() {
+        wx.startWifi();
+        wx.getConnectedWifi({
+            success: (res) => {
+                if (res.wifi.SSID.indexOf("5G") != -1) {
+                    wx.showToast({
+                        title: '不支持配置5G WiFi网络',
+                        icon: 'none',
+                        duration: 3000
+                    })
+                }
+                let password = wx.getStorageSync(res.wifi.SSID)
+                console.log("restore password:", password)
+                this.setData({
+                    wifiName: res.wifi.SSID,
+                    wifiPassword: password == undefined ? "" : password,
+                    wifiSelected: true // 设置WiFi已选择状态
+                })
+            },
+            fail: (res) => {
+                console.log(res);
+                this.setData({
+                    wifiName: null,
+                })
+            }
+        });
+    },
+
+    // 配网方法（完全使用参考项目代码）
+    connectWifi() {
+        wx.showLoading({
+            title: '正在配网',
+            mask: true
+        });
+        this.setData({ 
+            isConfiguring: true,
+            currentTab: 2 // 跳转到第三步
+        });
+        
+        // 使用全局序列号（参考项目）
+        let ssid_payload = [0x09, 0x00, this.data.sequenceCount++];
+        let pwd_payload = [0x0D, 0x00, this.data.sequenceCount++];
+        let connect_payload = [0x0C, 0x00, 0x02, this.data.sequenceCount++];
+
+        var temp_ssid_payload = []
+        for(var i = 0; i < this.data.wifiName.length; i++){
+            var ssid_utf8 = this.encodeUtf8(this.data.wifiName[i])
+            temp_ssid_payload.push(...ssid_utf8);
+        }
+
+        ssid_payload.push(temp_ssid_payload.length);
+        ssid_payload.push(...temp_ssid_payload);
+        var temp_pwd_payload = []
+        for(var i = 0; i < this.data.wifiPassword.length; i++){
+            var pwd_utf8 = this.encodeUtf8(this.data.wifiPassword[i])
+            temp_pwd_payload.push(...pwd_utf8);
+        }
+        pwd_payload.push(temp_pwd_payload.length);
+        pwd_payload.push(...temp_pwd_payload);
+
+        var ssidArray = new Uint8Array(ssid_payload);
+        var passwordArray = new Uint8Array(pwd_payload);
+        var connectCMD = new Uint8Array(connect_payload);
+        console.log('发送配网信息')
+        this.writeCharacteristicValue(ssidArray.buffer)
+        this.writeCharacteristicValue(passwordArray.buffer)
+        this.writeCharacteristicValue(connectCMD.buffer)
+
+        // 设置20秒配网超时（参考项目）
+        this._wifiConfigTimeout = setTimeout(() => {
+            console.log('[blue] 配网超时（20秒）');
+            wx.hideLoading();
+            
+            this.setData({
+                isConfiguring: false,
+                currentTab: 1 // 回到WiFi配置步骤
+            });
+            
+            wx.showModal({
+                title: '配网超时',
+                content: '配网超时，请检查WiFi密码是否正确，或设备是否在配网模式',
+                showCancel: true,
+                cancelText: '取消',
+                confirmText: '重试',
+                success: (res) => {
+                    if (res.confirm) {
+                        this.connectWifi();
+                    }
+                }
+            });
+        }, 20000); // 20秒超时
     }
 });

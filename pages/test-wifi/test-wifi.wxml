@@ -18,10 +18,26 @@
   <!-- 步骤1: WiFi信息填写 -->
   <view wx:if="{{currentStep === 1}}" class="step-content">
     <view class="form-section">
-      <view class="form-title">填写WiFi信息</view>
+      <view class="form-title">选择WiFi网络</view>
       
+      <!-- WiFi选择器 -->
       <view class="form-item">
         <text class="form-label">WiFi名称</text>
+        <picker 
+          bindchange="onWifiPickerChange" 
+          value="{{selectedWifiIndex}}" 
+          range="{{wifiList}}"
+          disabled="{{!isInitOK || wifiList.length === 0}}"
+        >
+          <view class="picker">
+            {{wifiList.length > 0 ? wifiList[selectedWifiIndex] : '请等待获取WiFi信息...'}}
+          </view>
+        </picker>
+      </view>
+      
+      <!-- 手动输入WiFi名称 -->
+      <view class="form-item">
+        <text class="form-label">或手动输入WiFi名称</text>
         <input 
           class="form-input" 
           placeholder="请输入WiFi名称" 
@@ -37,14 +53,18 @@
           class="form-input" 
           placeholder="请输入WiFi密码" 
           value="{{wifiPassword}}"
-          bind:input="onWifiPasswordInput"
+          bind:input="onPasswordInput"
           password="{{true}}"
           maxlength="64"
         />
       </view>
       
-      <button class="next-btn" bindtap="onNextStep">
-        下一步
+      <button 
+        class="next-btn" 
+        bindtap="startWifiConfig"
+        disabled="{{!isInitOK || !wifiName || !wifiPassword}}"
+      >
+        {{isInitOK ? '开始配网' : '设备初始化中...'}}
       </button>
     </view>
   </view>

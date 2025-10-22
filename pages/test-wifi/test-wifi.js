@@ -12,14 +12,12 @@ Page({
    * 页面的初始数据
    */
   data: {
-    // 步骤控制
-    currentStep: 1, // 1: WiFi信息填写, 2: 蓝牙连接和配网
-    totalSteps: 2,
-    
     // WiFi信息
     wifiName: '',
     wifiPassword: '',
     wifiMac: '', // WiFi MAC地址
+    wifiList: [], // 设备扫描的WiFi列表
+    selectedWifiIndex: 0, // 选中的WiFi索引
     
     // 蓝牙相关
     isBluetoothConnected: false,
@@ -30,8 +28,12 @@ Page({
     bluetoothDevices: [], // 搜索到的蓝牙设备列表
     showDeviceList: false, // 是否显示设备列表
     
+    // 设备状态
+    isInitOK: false, // 设备是否初始化成功
+    connected: true, // 蓝牙连接状态
+    
     // 状态信息
-    statusMessage: '请填写WiFi信息',
+    statusMessage: '请连接蓝牙设备',
     showStatusModal: false,
     statusModalTitle: '',
     statusModalContent: ''
@@ -65,6 +67,15 @@ Page({
     
     // 初始化BluFi配网
     this._initBlufi();
+    
+    // 如果有传入的设备ID，直接连接并初始化
+    if (options.deviceId) {
+      this.setData({
+        connectedDeviceId: options.deviceId,
+        connected: true
+      });
+      this._initDeviceAndStartConfig();
+    }
   },
 
   /**
@@ -435,6 +446,12 @@ Page({
               console.log('[test-wifi] 已保存WiFi MAC地址:', wifiMac);
             }
             
+            // 保存WiFi密码到本地存储（按照参考项目的方式）
+            wx.setStorage({
+              key: wifiName,
+              data: wifiPassword
+            });
+            
             this.setData({
               statusMessage: 'WiFi配网成功！',
               isConfiguring: false,
@@ -471,28 +488,83 @@ Page({
         break;
         
       case blufi.XBLUFI_TYPE.TYPE_INIT_ESP32_RESULT:
-        // 设备初始化结果（按照原版BluFi项目的方式）
+        // 设备初始化结果
         wx.hideLoading();
         console.log('[test-wifi] 初始化结果:', JSON.stringify(result));
         
         if (result.result) {
           console.log('[test-wifi] 初始化成功');
-          this.setData({
-            statusMessage: '设备初始化成功，开始配网...'
-          });
-          
-          // 初始化成功后开始配网
-          this.startWifiConfig();
+          // 初始化成功后获取手机当前连接的WiFi
+          this.getCurrentWifiInfo();
         } else {
           console.log('[test-wifi] 初始化失败');
           this.setData({
-            statusMessage: '设备初始化失败',
-            isConfiguring: false
+            connected: false,
+            isInitOK: false
           });
-          this.showStatusModal('初始化失败', '设备初始化失败，请重试');
+          wx.showModal({
+            title: '温馨提示',
+            content: '设备初始化失败',
+            showCancel: false,
+            success: (res) => {
+              wx.navigateBack();
+            }
+          });
         }
         break;
     }
+  },
+
+  /**
+   * 获取手机当前连接的WiFi信息
+   */
+  getCurrentWifiInfo() {
+    console.log('[test-wifi] 开始获取手机当前WiFi信息');
+    
+    // 先启动WiFi模块
+    wx.startWifi({
+      success: () => {
+        console.log('[test-wifi] WiFi模块启动成功');
+        // 获取当前连接的WiFi
+        wx.getConnectedWifi({
+          success: (res) => {
+            console.log('[test-wifi] 获取到当前WiFi:', res.wifi);
+            const wifiInfo = res.wifi;
+            
+            this.setData({
+              wifiName: wifiInfo.SSID,
+              wifiList: [wifiInfo.SSID], // 只包含当前WiFi
+              selectedWifiIndex: 0,
+              isInitOK: true
+            });
+            
+            console.log('[test-wifi] 已设置当前WiFi:', wifiInfo.SSID);
+          },
+          fail: (err) => {
+            console.error('[test-wifi] 获取当前WiFi失败:', err);
+            // 如果获取失败，显示手动输入界面
+            this.setData({
+              isInitOK: true
+            });
+            wx.showToast({
+              title: '请手动输入WiFi信息',
+              icon: 'none'
+            });
+          }
+        });
+      },
+      fail: (err) => {
+        console.error('[test-wifi] WiFi模块启动失败:', err);
+        // 如果WiFi模块启动失败，显示手动输入界面
+        this.setData({
+          isInitOK: true
+        });
+        wx.showToast({
+          title: '请手动输入WiFi信息',
+          icon: 'none'
+        });
+      }
+    });
   },
 
   /**
@@ -503,7 +575,7 @@ Page({
     
     console.log('[test-wifi] 初始化设备:', connectedDeviceId);
     
-    // 初始化设备（按照原版BluFi项目的方式）
+    // 初始化设备（按照参考项目的方式）
     blufi.notifyInitBleEsp32({
       deviceId: connectedDeviceId
     });
@@ -511,6 +583,47 @@ Page({
     // 显示初始化加载提示
     wx.showLoading({
       title: '设备初始化中',
+    });
+  },
+
+  /**
+   * 选择WiFi
+   */
+  onWifiPickerChange(e) {
+    const index = e.detail.value;
+    const selectedWifi = this.data.wifiList[index];
+    
+    console.log('[test-wifi] 选择WiFi:', selectedWifi);
+    
+    this.setData({
+      selectedWifiIndex: index,
+      wifiName: selectedWifi
+    });
+    
+    // 检查是否有保存的密码
+    const savedPassword = wx.getStorageSync(selectedWifi);
+    if (savedPassword) {
+      this.setData({
+        wifiPassword: savedPassword
+      });
+    }
+  },
+
+  /**
+   * 手动输入WiFi名称
+   */
+  onWifiNameInput(e) {
+    this.setData({
+      wifiName: e.detail.value
+    });
+  },
+
+  /**
+   * 输入WiFi密码
+   */
+  onPasswordInput(e) {
+    this.setData({
+      wifiPassword: e.detail.value
     });
   },
 

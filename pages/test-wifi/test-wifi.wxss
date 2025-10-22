@@ -113,6 +113,25 @@
   border-color: #0b2853;
 }
 
+/* Picker样式 */
+.picker {
+  width: 100%;
+  height: 80rpx;
+  border: 2rpx solid #e0e0e0;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.picker:active {
+  border-color: #0b2853;
+}
+
 .next-btn {
   width: 100%;
   height: 80rpx;
