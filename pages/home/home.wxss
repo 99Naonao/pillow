@@ -184,3 +184,108 @@ page {
   text-align: center;
   width: 100%;
 }
+
+/* 血氧悬浮气泡样式 */
+.spo2-bubble {
+  position: absolute;
+  top: -150rpx;
+  right: 24rpx;
+  z-index: 5;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20rpx);
+  }
+}
+
+.spo2-bubble-inner {
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
+  border-radius: 50rpx;
+  padding: 28rpx 36rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 
+    0 10rpx 40rpx rgba(0,0,0,0.2),
+    0 0 0 4rpx rgba(207, 182, 121, 0.3),
+    inset 0 2rpx 10rpx rgba(255,255,255,0.8);
+  backdrop-filter: blur(20rpx);
+}
+
+.spo2-icon-wrapper {
+  width: 80rpx;
+  height: 80rpx;
+  background: linear-gradient(135deg, #cfb679 0%, #d4c089 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 24rpx;
+  box-shadow: 
+    0 6rpx 20rpx rgba(207, 182, 121, 0.4),
+    inset 0 -2rpx 6rpx rgba(0,0,0,0.1);
+}
+
+.spo2-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.spo2-value-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.spo2-label {
+  font-size: 24rpx;
+  color: #0b2853;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+  opacity: 0.8;
+}
+
+.spo2-value {
+  font-size: 56rpx;
+  font-weight: bold;
+  color: #0b2853;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+}
+
+.spo2-unit {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-left: 4rpx;
+  opacity: 0.7;
+}
+
+/* 血氧连接按钮样式 */
+.spo2-connect-btn {
+  position: absolute;
+  top: -150rpx;
+  right: 24rpx;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20rpx);
+  border-radius: 24rpx;
+  padding: 20rpx 40rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.spo2-connect-btn:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.spo2-connect-text {
+  font-size: 24rpx;
+  color: #0b2853;
+  font-weight: 600;
+}

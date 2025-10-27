@@ -23,6 +23,25 @@
       <view class="card-value">
         {{deviceConnected ? (breathRate !== null ? breathRate + ' 次/分' : '.. 次/分') : '.. 次/分'}}
       </view>
+      <!-- 血氧悬浮气泡 -->
+      <view class="spo2-bubble" wx:if="{{oximeterConnected}}">
+        <view class="spo2-bubble-inner">
+          <view class="spo2-icon-wrapper">
+            <image src="../../static/oximeter.png" class="spo2-icon"/>
+          </view>
+          <view class="spo2-value-wrapper">
+            <view class="spo2-label">血氧</view>
+            <view class="spo2-value">
+              {{spo2 !== null ? spo2 : '--'}}
+              <text class="spo2-unit">%</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <!-- 血氧连接按钮 -->
+      <view class="spo2-connect-btn" wx:if="{{!oximeterConnected}}" bind:tap="connectOximeter">
+        <text class="spo2-connect-text">点击连接血氧仪</text>
+      </view>
     </view>
    <!-- 体动状态 -->
    <view class="card">
@@ -44,7 +63,6 @@
         {{deviceConnected ? (isLeavePillow !== null ? (isLeavePillow ? '离枕' : '在枕') : '..') : '..'}}
       </view>
     </view>
-    
     <!-- 设备状态指示器 -->
     <view class="device-status-overlay" bind:tap="toBlueIndex">
       <view class="status-circle {{deviceStatusClass}}">

@@ -2,6 +2,7 @@
 const DeviceManager = require('../../utils/deviceManager');
 const AuthApi = require('../../utils/authApi');
 const BluetoothManager = require('../../utils/bluetoothManager');
+const OximeterDeviceManager = require('../../utils/oximeterDeviceManager');
 
 Page({
 
@@ -15,6 +16,10 @@ Page({
     breathRate: null,
     turnOver: null,
     isLeavePillow: true,
+    spo2: null, // 血氧值
+    perfusionIndex: null, // 灌注度
+    batteryVoltage: null, // 电池电压
+    oximeterConnected: false, // 血氧仪连接状态
     _realtimeTimer: null, // 定时器句柄
     _lastCheckTime: 0,    // 上次检查时间戳
     _checkInterval: 30000, // 检查间隔（30秒）
@@ -32,6 +37,17 @@ Page({
    */
   onLoad(options) {
     this.deviceManager = new DeviceManager(this);
+    
+    // 初始化血氧仪管理器
+    this.oximeterManager = new OximeterDeviceManager(this);
+    this.oximeterManager.setOnDataUpdateCallback((data) => {
+      console.log('[home] 血氧数据更新:', data);
+      this.setData({
+        spo2: data.spo2,
+        perfusionIndex: data.perfusionIndex,
+        batteryVoltage: data.batteryVoltage
+      });
+    });
     
     // 检查用户是否已登录
     if (!AuthApi.isLoggedIn()) {
@@ -126,7 +142,10 @@ Page({
           heartRate: null,
           breathRate: null,
           turnOver: null,
-          isLeavePillow: true
+          isLeavePillow: true,
+          spo2: null,
+          perfusionIndex: null,
+          batteryVoltage: null
         });
         this.deviceManager.clearRealtimeTimer();
         
@@ -247,6 +266,11 @@ Page({
     this.deviceManager.clearRealtimeTimer();
     // 停止心跳监控
     this.stopDeviceHeartbeatMonitor();
+    
+    // 断开血氧仪连接
+    if (this.oximeterManager) {
+      this.oximeterManager.disconnectDevice();
+    }
   },
 
   /**
@@ -274,6 +298,74 @@ Page({
       url: '/pages/blue/blue',
       // url: '/pages/blufi/index',
     })
+  },
+
+  /**
+   * 连接血氧仪
+   */
+  async connectOximeter() {
+    try {
+      wx.showLoading({ title: '搜索设备中...' });
+      
+      // 搜索血氧仪设备
+      const devices = await this.oximeterManager.startBluetoothSearch();
+      
+      if (devices.length === 0) {
+        wx.hideLoading();
+        wx.showModal({
+          title: '提示',
+          content: '未找到血氧仪设备，请确保设备已开启蓝牙',
+          showCancel: false
+        });
+        return;
+      }
+      
+      // 连接第一个找到的设备
+      const targetDevice = devices[0];
+      
+      wx.hideLoading();
+      wx.showLoading({ title: '连接中...' });
+      
+      await this.oximeterManager.connectDevice(targetDevice.deviceId);
+      
+      wx.hideLoading();
+      
+      this.setData({ oximeterConnected: true });
+      
+      wx.showToast({
+        title: '连接成功',
+        icon: 'success',
+        duration: 2000
+      });
+    } catch (error) {
+      wx.hideLoading();
+      this.setData({ oximeterConnected: false });
+      wx.showModal({
+        title: '连接失败',
+        content: error.message || '无法连接血氧仪设备',
+        showCancel: false
+      });
+    }
+  },
+
+  /**
+   * 断开血氧仪
+   */
+  disconnectOximeter() {
+    if (this.oximeterManager) {
+      this.oximeterManager.disconnectDevice();
+      this.setData({
+        oximeterConnected: false,
+        spo2: null,
+        perfusionIndex: null,
+        batteryVoltage: null
+      });
+      wx.showToast({
+        title: '已断开',
+        icon: 'success',
+        duration: 1500
+      });
+    }
   },
 
   // 检查设备连接状态 - 使用心跳检测替代蓝牙检查
@@ -493,7 +585,10 @@ Page({
           heartRate: null,
           breathRate: null,
           turnOver: null,
-          isLeavePillow: true
+          isLeavePillow: true,
+          spo2: null,
+          perfusionIndex: null,
+          batteryVoltage: null
         });
         
         // 更新设备状态显示
@@ -569,7 +664,10 @@ Page({
           heartRate: null,
           breathRate: null,
           turnOver: null,
-          isLeavePillow: true
+          isLeavePillow: true,
+          spo2: null,
+          perfusionIndex: null,
+          batteryVoltage: null
         });
         
         // 停止实时数据定时器
@@ -653,7 +751,10 @@ Page({
           heartRate: null,
           breathRate: null,
           turnOver: null,
-          isLeavePillow: true
+          isLeavePillow: true,
+          spo2: null,
+          perfusionIndex: null,
+          batteryVoltage: null
         });
         
         // 更新设备状态显示
