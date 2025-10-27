@@ -51,6 +51,8 @@ class BluetoothManager {
 
             // 开始搜索
             wx.startBluetoothDevicesDiscovery({
+                allowDuplicatesKey: true,  // 允许重复设备（iOS需要）
+                interval: 50,              // 50ms间隔（iOS需要）
                 success: () => {
                     console.log('开始搜索蓝牙设备成功');
                 },
@@ -243,6 +245,163 @@ class BluetoothManager {
                 }
             });
         });
+    }
+
+    /**
+     * 将十六进制字符串转换为ArrayBuffer
+     * @param {string} hexString 十六进制字符串
+     * @returns {ArrayBuffer|null} 转换后的ArrayBuffer，失败返回null
+     */
+    static hexStringToArrayBuffer(hexString) {
+        try {
+            if (!hexString || typeof hexString !== 'string') {
+                return null;
+            }
+            
+            // 移除空格和冒号
+            const cleanHex = hexString.replace(/[\s:]/g, '');
+            
+            // 确保字符串长度为偶数
+            if (cleanHex.length % 2 !== 0) {
+                console.error('十六进制字符串长度必须是偶数');
+                return null;
+            }
+            
+            // 创建ArrayBuffer
+            const arrayBuffer = new ArrayBuffer(cleanHex.length / 2);
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            // 将每两个字符转换为一个字节
+            for (let i = 0; i < cleanHex.length; i += 2) {
+                const byte = parseInt(cleanHex.substring(i, i + 2), 16);
+                if (isNaN(byte)) {
+                    console.error(`无效的十六进制字符: ${cleanHex.substring(i, i + 2)}`);
+                    return null;
+                }
+                uint8Array[i / 2] = byte;
+            }
+            
+            return arrayBuffer;
+        } catch (error) {
+            console.error('十六进制字符串转ArrayBuffer失败:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 从十六进制数组中提取MAC地址
+     * @param {Array} hexArray 十六进制数组，如 ["0x0", "0x0", "0xB4", "0xC", ...]
+     * @returns {string|null} 提取的MAC地址，失败返回null
+     */
+    static extractMacFromHexArray(hexArray) {
+        try {
+            // 确保有足够的数据
+            if (hexArray.length < 11) {
+                return null;
+            }
+            
+            // 去除0x前缀并转为大写
+            const raw = hexArray.map(item => item.replace('0x', '').toUpperCase());
+            
+            // 提取MAC地址
+            // 数据格式：["0", "0", "B4", "C", "20", "E0", "E", "50", "91", "C", "30"]
+            // 目标：B4:C2:E0:E5:91:C3
+            const macSegments = [
+                raw[2],                        // B4
+                raw[3] + raw[4].charAt(0),    // C + 2 → C2
+                raw[5],                        // E0
+                raw[6] + raw[7].charAt(0),    // E + 5 → E5
+                raw[8],                        // 91
+                raw[9] + raw[10].charAt(0)     // C + 3 → C3
+            ];
+            
+            return macSegments.join(':');
+        } catch (error) {
+            console.error('提取MAC地址失败:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 从广播数据中提取制造商数据
+     * @param {ArrayBuffer} advertisData 广播数据
+     * @returns {Object|null} 制造商数据 {companyId, data}，失败返回null
+     */
+    static extractManufacturerData(advertisData) {
+        try {
+            if (!advertisData) {
+                return null;
+            }
+
+            // 将ArrayBuffer转换为Uint8Array
+            const data = new Uint8Array(advertisData);
+
+            // 解析广播数据中的制造商数据
+            let offset = 0;
+            while (offset < data.length) {
+                if (offset + 1 >= data.length) break;
+                
+                const length = data[offset];
+                if (length === 0 || offset + length >= data.length) break;
+                
+                const type = data[offset + 1];
+                
+                // 制造商特定数据类型为0xFF
+                if (type === 0xFF) {
+                    if (offset + 3 < data.length) {
+                        const manufacturerData = {
+                            companyId: (data[offset + 2] << 8) | data[offset + 3], // 公司标识符
+                            data: Array.from(data.slice(offset + 4, offset + length + 1)) // 制造商自定义数据
+                        };
+                        
+                        return manufacturerData;
+                    }
+                }
+                
+                offset += length + 1;
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('提取制造商数据失败:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 根据蓝牙设备MAC地址计算WiFi MAC地址（Android方法）
+     * WiFi MAC = 蓝牙MAC尾数 - 1
+     * @param {string} bluetoothDeviceId 蓝牙设备ID（MAC地址格式）
+     * @returns {string} WiFi MAC地址，失败返回 空字符串
+     */
+    static calculateWifiMac(bluetoothDeviceId) {
+        try {
+            // 蓝牙设备ID通常是MAC地址格式，如 "AA:BB:CC:DD:EE:FF"
+            // 提取最后两位数字
+            const macParts = bluetoothDeviceId.split(':');
+            if (macParts.length >= 6) {
+                const lastPart = macParts[5]; // 获取最后一部分
+                const lastByte = parseInt(lastPart, 16); // 转换为十进制
+                const wifiLastByte = lastByte - 1; // WiFi MAC = 蓝牙MAC - 1
+                
+                // 确保结果在有效范围内 (0-255)
+                const validWifiByte = wifiLastByte < 0 ? 255 : wifiLastByte;
+                
+                // 重新构建WiFi MAC地址
+                const wifiMacParts = [...macParts];
+                wifiMacParts[5] = validWifiByte.toString(16).padStart(2, '0').toUpperCase();
+                const wifiMac = wifiMacParts.join(':');
+                
+                console.log('蓝牙MAC:', bluetoothDeviceId);
+                console.log('计算WiFi MAC:', wifiMac);
+                
+                return wifiMac;
+            }
+        } catch (error) {
+            console.error('计算WiFi MAC失败:', error);
+        }
+        
+        return '';
     }
 }
 

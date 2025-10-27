@@ -216,7 +216,7 @@ class WifiManager {
         
         wx.showModal({
             title: '温馨提示',
-            content: '当前链接的是5G WiFi，仅支持2.4G WiFi，请切换到2.4G WiFi网络。',
+            content: '当前连接的是5G WiFi，仅支持2.4G WiFi，请切换到2.4G WiFi网络。',
             confirmText: '知道了',
             showCancel: false
         });

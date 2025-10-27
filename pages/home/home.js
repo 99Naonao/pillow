@@ -272,6 +272,7 @@ Page({
   toBlueIndex(){
     wx.navigateTo({
       url: '/pages/blue/blue',
+      // url: '/pages/blufi/index',
     })
   },
 
