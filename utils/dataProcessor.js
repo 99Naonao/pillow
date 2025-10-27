@@ -5,6 +5,50 @@
 
 class DataProcessor {
   /**
+   * 兼容iOS的日期解析函数
+   * @param {string} dateStr 日期字符串
+   * @returns {Date} 日期对象
+   */
+  static parseDate(dateStr) {
+    console.log('[DataProcessor.parseDate] 输入:', dateStr, '类型:', typeof dateStr);
+    
+    if (!dateStr) {
+      console.log('[DataProcessor.parseDate] 输入为空，返回当前日期');
+      return new Date();
+    }
+    
+    try {
+      // iOS兼容的日期格式转换
+      let normalizedDateStr = dateStr;
+      
+      // 处理 "2025-10-24 07:04" 格式，转换为 "2025-10-24T07:04:00"
+      if (/^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}$/.test(dateStr)) {
+        normalizedDateStr = dateStr.replace(' ', 'T') + ':00';
+      }
+      // 处理 "2025-10-24 07:04:00" 格式，转换为 "2025-10-24T07:04:00"
+      else if (/^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}$/.test(dateStr)) {
+        normalizedDateStr = dateStr.replace(' ', 'T');
+      }
+      // 处理 "2025-10-24" 格式，保持原样
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        normalizedDateStr = dateStr;
+      }
+      
+      const date = new Date(normalizedDateStr);
+      
+      if (isNaN(date.getTime())) {
+        console.error('无效的日期格式:', dateStr, '转换后:', normalizedDateStr);
+        return new Date();
+      }
+      
+      return date;
+    } catch (error) {
+      console.error('日期解析失败:', error, '输入:', dateStr);
+      return new Date();
+    }
+  }
+
+  /**
    * 格式化日期
    * @param {Date} date 日期对象
    * @returns {string} 格式化后的日期字符串 yyyy-MM-dd
@@ -23,7 +67,7 @@ class DataProcessor {
    */
   static getNextDay(dateStr) {
     try {
-      const date = new Date(dateStr);
+      const date = this.parseDate(dateStr);
       if (isNaN(date.getTime())) {
         console.error('无效的日期格式:', dateStr);
         return dateStr;
@@ -45,7 +89,7 @@ class DataProcessor {
    */
   static getPreviousDay(dateStr) {
     try {
-      const date = new Date(dateStr);
+      const date = this.parseDate(dateStr);
       if (isNaN(date.getTime())) {
         console.error('无效的日期格式:', dateStr);
         return dateStr;
