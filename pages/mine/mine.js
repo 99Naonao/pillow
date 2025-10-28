@@ -848,23 +848,5 @@ Page({
 
     console.log('页面显示已更新');
     console.log('本地用户信息更新成功:', updatedUserInfo);
-  },
-
-  /**
-   * 跳转到配网测试页面
-   */
-  goToTestWifi() {
-    wx.navigateTo({
-      url: '/pages/test-wifi/test-wifi'
-    });
-  },
-
-  /**
-   * 跳转到弹窗测试页面
-   */
-  goToTestModal() {
-    wx.navigateTo({
-      url: '/pages/test-modal/test-modal'
-    });
   }
 });

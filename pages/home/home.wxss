@@ -188,7 +188,7 @@ page {
 /* 血氧悬浮气泡样式 */
 .spo2-bubble {
   position: absolute;
-  top: -150rpx;
+  top: -210rpx;
   right: 24rpx;
   z-index: 5;
   animation: float 3s ease-in-out infinite;
@@ -260,6 +260,30 @@ page {
 
 .spo2-unit {
   font-size: 32rpx;
+  font-weight: 600;
+  margin-left: 4rpx;
+  opacity: 0.7;
+}
+
+.spo2-pr-label {
+  font-size: 20rpx;
+  color: #0b2853;
+  font-weight: 600;
+  margin-top: 12rpx;
+  opacity: 0.8;
+}
+
+.spo2-pr-value {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #0b2853;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+}
+
+.spo2-unit-small {
+  font-size: 24rpx;
   font-weight: 600;
   margin-left: 4rpx;
   opacity: 0.7;

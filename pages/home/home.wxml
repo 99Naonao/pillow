@@ -24,8 +24,8 @@
         {{deviceConnected ? (breathRate !== null ? breathRate + ' 次/分' : '.. 次/分') : '.. 次/分'}}
       </view>
       <!-- 血氧悬浮气泡 -->
-      <view class="spo2-bubble" wx:if="{{oximeterConnected}}">
-        <view class="spo2-bubble-inner">
+      <view class="spo2-bubble">
+        <view class="spo2-bubble-inner"  wx:if="{{oximeterConnected}}">
           <view class="spo2-icon-wrapper">
             <image src="../../static/oximeter.png" class="spo2-icon"/>
           </view>
@@ -34,6 +34,11 @@
             <view class="spo2-value">
               {{spo2 !== null ? spo2 : '--'}}
               <text class="spo2-unit">%</text>
+            </view>
+            <view class="spo2-pr-label">脉率</view>
+            <view class="spo2-pr-value">
+              {{pulseRate !== null ? pulseRate : '--'}}
+              <text class="spo2-unit-small">bpm</text>
             </view>
           </view>
         </view>

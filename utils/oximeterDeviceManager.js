@@ -1,144 +1,168 @@
 /**
- * 血氧仪设备管理类
- * 负责血氧仪的蓝牙连接、数据接收和解析
+ * 血氧仪设备管理类 - 使用Yimi工具集
+ * 基于：亿米蓝牙血氧仪通信协议(透传) V1.3
+ * 
+ * 文档编号：KF-1602-01-002(V1.3)
  */
-const Spo2ProtocolManager = require('./spo2ProtocolManager');
+const YimiBluetoothManager = require('./Yimi/YimiBluetoothManager');
+const YimiOximeterProtocol = require('./Yimi/YimiOximeterProtocol');
 
 class OximeterDeviceManager {
   constructor(page) {
     this.page = page;
-    this.protocolManager = new Spo2ProtocolManager();
     
-    // 蓝牙相关
-    this.deviceId = null;
-    this.serviceId = null;
-    this.notifyCharId = null;
-    this.writeCharId = null;
+    // 使用Yimi工具
+    this.bluetoothManager = new YimiBluetoothManager();
+    this.protocol = new YimiOximeterProtocol();
     
     // 连接状态
     this.isConnected = false;
+    this.isStable = false; // 是否处于稳定期
+    this.connectTime = null; // 连接时间
     
     // 数据更新回调
     this.onDataUpdate = null;
+    this.onWaveformUpdate = null; // 波形数据回调
+    
+    // 绑定协议到蓝牙管理器
+    this.bluetoothManager.setProtocol(this.protocol);
+    
+    // 设置协议事件监听
+    this.setupProtocolListeners();
+    
+    console.log('[血氧仪管理器] 初始化完成，使用Yimi工具集');
   }
 
   /**
-   * 开始搜索血氧仪设备
+   * 设置协议事件监听
+   * @private
    */
-  startBluetoothSearch() {
-    return new Promise((resolve, reject) => {
-      wx.startBluetoothDevicesDiscovery({
-        allowDuplicatesKey: true,
-        interval: 500,
-        success: (res) => {
-          console.log('[血氧仪] 开始搜索蓝牙设备');
-          
-          const devices = [];
-          
-          // 监听发现设备事件
-          wx.onBluetoothDeviceFound((res) => {
-            res.devices.forEach((device) => {
-              if (device.name && device.name.toLowerCase().includes('oximeter')) {
-                console.log('[血氧仪] 发现设备:', device.name, device.deviceId);
-                devices.push(device);
-              }
-            });
-          });
-          
-          // 5秒后停止搜索
-          setTimeout(() => {
-            wx.stopBluetoothDevicesDiscovery({
-              success: () => {
-                console.log('[血氧仪] 停止搜索，找到设备数量:', devices.length);
-                resolve(devices);
-              },
-              fail: (err) => {
-                console.error('[血氧仪] 停止搜索失败:', err);
-                reject(err);
-              }
-            });
-          }, 5000);
-        },
-        fail: (err) => {
-          console.error('[血氧仪] 搜索失败:', err);
-          reject(err);
-        }
+  setupProtocolListeners() {
+    // 监听实时数据
+    this.protocol.on('realtimeData', (data) => {
+      console.log('[血氧仪] 收到实时数据:', JSON.stringify(data, null, 2));
+      
+      // 稳定期内不信任测量值（但记录日志）
+      if (!this.isStable) {
+        const remainingTime = Math.max(0, 5000 - (Date.now() - this.connectTime));
+        console.log(`[血氧仪] 稳定期内，忽略测量值（剩余${remainingTime}ms）`);
+        return;
+      }
+      
+      // 更新页面数据
+      if (this.onDataUpdate) {
+        console.log('[血氧仪] 调用onDataUpdate回调，数据:', {
+          spo2: data.spo2,
+          pulseRate: data.pulseRate,
+          perfusionIndex: data.perfusionIndex,
+          batteryVoltage: data.batteryVoltage
+        });
+        this.onDataUpdate({
+          spo2: data.spo2,
+          pulseRate: data.pulseRate,
+          perfusionIndex: data.perfusionIndex,
+          batteryVoltage: data.batteryVoltage,
+          leadStatus: data.leadStatus,
+          pulseSearchStatus: data.pulseSearchStatus,
+          weakPerfusionStatus: data.weakPerfusionStatus,
+          interferenceStatus: data.interferenceStatus,
+          arrestStatus: data.arrestStatus
+        });
+      } else {
+        console.warn('[血氧仪] onDataUpdate回调未设置！');
+      }
+    });
+    
+    // 监听波形数据
+    this.protocol.on('waveformData', (waveforms) => {
+      console.log('[血氧仪] 收到波形数据，数量:', waveforms.length);
+      
+      if (this.onWaveformUpdate) {
+        // 检测脉搏音
+        const hasPulseSound = waveforms.some(w => w.pulseSound);
+        
+        this.onWaveformUpdate({
+          hasPulseSound: hasPulseSound,
+          waveforms: waveforms
+        });
+      }
+    });
+    
+    // 监听设备信息
+    this.protocol.on('deviceInfo', (info) => {
+      console.log('[血氧仪] 版本信息:', info);
+      
+      wx.showToast({
+        title: `版本: ${info.versionString}`,
+        icon: 'none',
+        duration: 2000
       });
     });
   }
 
   /**
+   * 开始搜索血氧仪设备
+   * 搜索名称包含 "YM" 的蓝牙设备
+   * @returns {Promise<Array>} 找到的设备列表
+   * @example
+   * const devices = await this.oximeterManager.startBluetoothSearch();
+   * if (devices.length > 0) {
+   *   console.log('找到设备:', devices[0]);
+   * }
+   */
+  async startBluetoothSearch() {
+    try {
+      console.log('[血氧仪] 初始化蓝牙适配器...');
+      
+      // 初始化蓝牙适配器
+      await this.bluetoothManager.initAdapter();
+      
+      // 搜索设备
+      const devices = await this.bluetoothManager.searchDevices(5000);
+      
+      console.log('[血氧仪] 搜索完成，找到设备数量:', devices.length);
+      
+      return devices;
+    } catch (error) {
+      console.error('[血氧仪] 搜索异常:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 连接血氧仪设备
-   * @param {string} deviceId 设备ID
+   * @param {string} deviceId - 设备ID（从 startBluetoothSearch 获取）
+   * @returns {Promise<boolean>} 连接是否成功
+   * @example
+   * await this.oximeterManager.connectDevice(devices[0].deviceId);
    */
   async connectDevice(deviceId) {
     try {
       console.log('[血氧仪] 开始连接设备:', deviceId);
       
-      // 连接蓝牙设备
-      await wx.createBLEConnection({
-        deviceId,
-        success: () => {
-          console.log('[血氧仪] 连接成功');
-        }
-      });
+      // 连接设备
+      await this.bluetoothManager.connectDevice(deviceId);
       
-      this.deviceId = deviceId;
+      this.isConnected = true;
+      this.connectTime = Date.now();
+      this.isStable = false;
       
-      // 获取服务
-      const services = await wx.getBLEDeviceServices({ deviceId });
-      console.log('[血氧仪] 获取到服务:', services.services);
+      console.log('[血氧仪] 连接完全成功！');
+      console.log('[血氧仪] 根据协议说明：模块自检时间 < 4秒，期间不响应任何帧');
+      console.log('[血氧仪] 导联连接后需要5秒稳定期，期间测量值均为无效值');
+      console.log('[血氧仪] 进入5秒稳定期，忽略测量数据...');
       
-      // 查找需要的服务UUID（根据实际血氧仪修改）
-      const targetService = services.services.find(s => 
-        s.isPrimary || s.uuid.toLowerCase().includes('fff0')
-      );
+      // 根据协议：稳定期为5秒，期间所有测量值均为无效值
+      setTimeout(() => {
+        this.isStable = true;
+        console.log('[血氧仪] 稳定期结束（5秒），开始正常显示测量数据');
+      }, 5000);
       
-      if (!targetService) {
-        throw new Error('未找到目标服务');
-      }
-      
-      this.serviceId = targetService.uuid;
-      
-      // 获取特征值
-      const characteristics = await wx.getBLEDeviceCharacteristics({
-        deviceId: this.deviceId,
-        serviceId: this.serviceId,
-        success: (res) => {
-          console.log('[血氧仪] 获取到特征值:', res.characteristics);
-        }
-      });
-      
-      // 查找通知和写入特征值
-      for (const char of characteristics.characteristics) {
-        if (char.properties.notify || char.properties.indicate) {
-          this.notifyCharId = char.uuid;
-          
-          // 启用通知
-          wx.notifyBLECharacteristicValueChange({
-            deviceId: this.deviceId,
-            serviceId: this.serviceId,
-            characteristicId: this.notifyCharId,
-            state: true,
-            success: () => {
-              console.log('[血氧仪] 启用通知成功');
-              this.isConnected = true;
-            }
-          });
-        }
-        
-        if (char.properties.write) {
-          this.writeCharId = char.uuid;
-        }
-      }
-      
-      // 监听数据接收
-      wx.onBLECharacteristicValueChange((res) => {
-        this.handleDataReceive(res.value);
-      });
-      
-      // 发送查询命令
-      this.queryInfo();
+      // 发送查询命令作为测试（5秒后发送，避免干扰自检和稳定期）
+      setTimeout(() => {
+        console.log('[血氧仪] 🧪 测试：发送0x11查询命令唤醒设备...');
+        this.queryInfo();
+      }, 5000);
       
       return true;
     } catch (error) {
@@ -149,51 +173,44 @@ class OximeterDeviceManager {
 
   /**
    * 断开连接
+   * @example
+   * this.oximeterManager.disconnectDevice();
    */
   disconnectDevice() {
-    if (!this.deviceId || !this.isConnected) {
+    if (!this.isConnected) {
       return;
     }
     
-    wx.closeBLEConnection({
-      deviceId: this.deviceId,
-      success: () => {
-        console.log('[血氧仪] 断开连接成功');
-        this.isConnected = false;
-        this.deviceId = null;
-        this.serviceId = null;
-        this.notifyCharId = null;
-        this.writeCharId = null;
-      }
+    this.bluetoothManager.disconnect().then(() => {
+      console.log('[血氧仪] 断开连接成功');
+      this.isConnected = false;
+      this.isStable = false;
+      this.connectTime = null;
+    }).catch((err) => {
+      console.error('[血氧仪] 断开连接失败:', err);
     });
   }
 
   /**
-   * 查询设备信息
+   * 查询设备信息（设备会自动推送数据，通常不需要调用）
+   * @private
    */
   queryInfo() {
-    if (!this.deviceId || !this.writeCharId) {
-      console.error('[血氧仪] 设备未连接或无写入特征值');
+    if (!this.isConnected) {
+      console.error('[血氧仪] 设备未连接');
       return;
     }
     
     try {
       // 构建查询帧
-      const queryFrame = this.protocolManager.buildInfoQueryFrame(0);
-      const buffer = this.protocolManager.frameToArrayBuffer(queryFrame);
+      const queryFrame = this.protocol.buildInfoQueryFrame(0);
+      const buffer = this.protocol.frameToArrayBuffer(queryFrame);
       
       // 发送数据
-      wx.writeBLECharacteristicValue({
-        deviceId: this.deviceId,
-        serviceId: this.serviceId,
-        characteristicId: this.writeCharId,
-        value: buffer,
-        success: () => {
-          console.log('[血氧仪] 查询信息命令发送成功');
-        },
-        fail: (err) => {
-          console.error('[血氧仪] 发送命令失败:', err);
-        }
+      this.bluetoothManager.sendData(buffer).then(() => {
+        console.log('[血氧仪] 查询信息命令发送成功');
+      }).catch((err) => {
+        console.error('[血氧仪] 发送命令失败:', err);
       });
     } catch (error) {
       console.error('[血氧仪] 构建查询帧失败:', error);
@@ -201,124 +218,54 @@ class OximeterDeviceManager {
   }
 
   /**
-   * 处理接收到的数据
-   * @param {ArrayBuffer} value 接收到的数据
+   * 设置设备绑定状态（高级功能，一般不需要）
+   * @param {boolean} bind - 是否绑定（true=绑定, false=解锁）
+   * @private
    */
-  handleDataReceive(value) {
+  setDeviceBinding(bind) {
+    if (!this.isConnected) {
+      console.error('[血氧仪] 设备未连接');
+      return;
+    }
+    
     try {
-      // 转换为数组
-      const frameData = this.protocolManager.arrayBufferToFrame(value);
+      const bindingFrame = this.protocol.buildDeviceBindingFrame(bind ? 1 : 0);
+      const buffer = this.protocol.frameToArrayBuffer(bindingFrame);
       
-      // 验证帧格式
-      if (!this.protocolManager.validateFrame(frameData)) {
-        console.error('[血氧仪] 帧格式错误');
-        return;
-      }
-      
-      // 解析命令ID
-      const commandId = frameData[2]; // 模块ID+ACK后是命令
-      const data = frameData.slice(3, frameData.length - 1); // 去掉帧头和校验和
-      
-      console.log('[血氧仪] 接收到命令:', commandId.toString(16));
-      
-      switch (commandId) {
-        case 0x52: // 测量结果帧
-          this.parseMeasurementResult(data);
-          break;
-        
-        case 0x53: // 描记波帧
-          this.parseWaveform(data);
-          break;
-        
-        case 0x56: // 版本信息帧
-          this.parseVersionInfo(data);
-          break;
-        
-        default:
-          console.log('[血氧仪] 未知命令:', commandId);
-      }
+      this.bluetoothManager.sendData(buffer).then(() => {
+        console.log('[血氧仪] 设备绑定设置命令发送成功，状态:', bind ? '绑定' : '解锁');
+      }).catch((err) => {
+        console.error('[血氧仪] 发送绑定设置命令失败:', err);
+      });
     } catch (error) {
-      console.error('[血氧仪] 解析数据失败:', error);
+      console.error('[血氧仪] 构建绑定设置帧失败:', error);
     }
-  }
-
-  /**
-   * 解析测量结果
-   * @param {Array} data 数据部分
-   */
-  parseMeasurementResult(data) {
-    const result = this.protocolManager.parseMeasurementResultFrame(data);
-    
-    if (!result) {
-      return;
-    }
-    
-    console.log('[血氧仪] 测量结果:', result);
-    
-    // 更新页面数据
-    if (this.onDataUpdate) {
-      this.onDataUpdate({
-        spo2: result.isSpo2Valid ? result.spo2 : null,
-        pulseRate: result.isPulseRateValid ? result.pulseRate : null,
-        perfusionIndex: result.isPerfusionIndexValid ? result.perfusionIndex : null,
-        batteryVoltage: result.batteryVoltage,
-        leadStatus: result.leadStatus,
-        pulseSearchStatus: result.pulseSearchStatus
-      });
-    }
-  }
-
-  /**
-   * 解析描记波数据
-   * @param {Array} data 数据部分
-   */
-  parseWaveform(data) {
-    const waveforms = this.protocolManager.parseWaveformFrame(data);
-    
-    if (!waveforms || waveforms.length === 0) {
-      return;
-    }
-    
-    console.log('[血氧仪] 描记波数据，数量:', waveforms.length);
-    
-    // 可以在这里处理波形数据，比如绘制图表
-    waveforms.forEach((wave, index) => {
-      console.log(`[血氧仪] 波形 ${index}:`, {
-        pulseSound: wave.pulseSound,
-        waveformLength: wave.waveformData ? wave.waveformData.length : 0,
-        barGraphLength: wave.barGraphData ? wave.barGraphData.length : 0
-      });
-    });
-  }
-
-  /**
-   * 解析版本信息
-   * @param {Array} data 数据部分
-   */
-  parseVersionInfo(data) {
-    const versionInfo = this.protocolManager.parseVersionInfoFrame(data);
-    
-    if (!versionInfo) {
-      return;
-    }
-    
-    console.log('[血氧仪] 版本信息:', versionInfo);
-    
-    wx.showToast({
-      title: `版本: ${versionInfo.versionString}`,
-      icon: 'none',
-      duration: 2000
-    });
   }
 
   /**
    * 设置数据更新回调
-   * @param {Function} callback 回调函数
+   * @param {Function} callback - 回调函数，接收 { spo2, pulseRate, perfusionIndex, batteryVoltage } 等参数
+   * @example
+   * this.oximeterManager.setOnDataUpdateCallback((data) => {
+   *   this.setData({
+   *     spo2: data.spo2,
+   *     pulseRate: data.pulseRate,
+   *     perfusionIndex: data.perfusionIndex,
+   *     batteryVoltage: data.batteryVoltage
+   *   });
+   * });
    */
   setOnDataUpdateCallback(callback) {
     this.onDataUpdate = callback;
   }
+
+  /**
+   * 设置波形数据更新回调（高级功能）
+   * @param {Function} callback - 回调函数，接收波形数据
+   */
+  setOnWaveformUpdateCallback(callback) {
+    this.onWaveformUpdate = callback;
+  }
 }
 
 module.exports = OximeterDeviceManager;
-

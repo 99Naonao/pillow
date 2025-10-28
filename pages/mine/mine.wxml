@@ -167,19 +167,6 @@
     </view>
   </view>
 
-  <!-- 开发环境测试页面入口 -->
-  <view wx:if="{{showTestPages}}" class="test-pages-section">
-    <view class="test-pages-title">开发测试</view>
-    <view class="test-pages-buttons">
-      <button class="test-page-btn" bindtap="goToTestWifi">
-        <text class="test-page-btn-text">配网测试</text>
-      </button>
-      <button class="test-page-btn" bindtap="goToTestModal">
-        <text class="test-page-btn-text">弹窗测试</text>
-      </button>
-    </view>
-  </view>
-
 <!-- 协议查看器组件 -->
 <protocol-viewer 
   protocolType="{{currentProtocolType}}"

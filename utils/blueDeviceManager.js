@@ -15,7 +15,7 @@ class BlueDeviceManager {
     async searchBluetoothDevices(callback) {
         // 检查当前页面是否支持蓝牙搜索（blue页面或test-wifi页面）
         const currentRoute = this.page.route || '';
-        if (!currentRoute.includes('blue') && !currentRoute.includes('test-wifi')) {
+        if (!currentRoute.includes('blue')) {
             console.log('当前页面不支持蓝牙搜索，跳过蓝牙搜索:', currentRoute);
             if (callback) callback([]);
             return Promise.resolve([]);

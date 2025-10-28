@@ -2,7 +2,8 @@
 const DeviceManager = require('../../utils/deviceManager');
 const AuthApi = require('../../utils/authApi');
 const BluetoothManager = require('../../utils/bluetoothManager');
-const OximeterDeviceManager = require('../../utils/oximeterDeviceManager');
+// const OximeterDeviceManager = require('../../utils/oximeterDeviceManager');
+const OximeterTool = require('../../utils/Yimi/OximeterTool'); // 使用完整的Yimi工具集
 
 Page({
 
@@ -17,6 +18,7 @@ Page({
     turnOver: null,
     isLeavePillow: true,
     spo2: null, // 血氧值
+    pulseRate: null, // 脉率
     perfusionIndex: null, // 灌注度
     batteryVoltage: null, // 电池电压
     oximeterConnected: false, // 血氧仪连接状态
@@ -35,19 +37,67 @@ Page({
   /**
    * 生命周期函数--监听页面加载
    */
-  onLoad(options) {
-    this.deviceManager = new DeviceManager(this);
+  /**
+   * 设置血氧仪事件监听
+   */
+  setupOximeterListeners() {
+    if (!this.oximeterTool) return;
     
-    // 初始化血氧仪管理器
-    this.oximeterManager = new OximeterDeviceManager(this);
-    this.oximeterManager.setOnDataUpdateCallback((data) => {
+    // 避免重复绑定（检查是否已经设置过监听器）
+    if (this._oximeterListenersSetup) {
+      console.log('[home] 监听器已设置，跳过重复绑定');
+      return;
+    }
+    
+    console.log('[home] 设置血氧仪事件监听');
+    
+    // 监听实时数据
+    this._onRealtimeData = (data) => {
       console.log('[home] 血氧数据更新:', data);
       this.setData({
         spo2: data.spo2,
+        pulseRate: data.pulseRate,
         perfusionIndex: data.perfusionIndex,
         batteryVoltage: data.batteryVoltage
       });
-    });
+    };
+    this.oximeterTool.on('realtimeData', this._onRealtimeData);
+    
+    // 监听设备信息
+    this._onDeviceInfo = (info) => {
+      console.log('[home] 收到设备信息:', info);
+    };
+    this.oximeterTool.on('deviceInfo', this._onDeviceInfo);
+    
+    // 监听断开连接
+    this._onDisconnected = (data) => {
+      console.log('[home] 血氧仪已断开连接:', data);
+      this.setData({
+        oximeterConnected: false,
+        spo2: null,
+        pulseRate: null,
+        perfusionIndex: null,
+        batteryVoltage: null
+      });
+      wx.showToast({
+        title: '血氧仪已断开',
+        icon: 'none',
+        duration: 2000
+      });
+    };
+    this.oximeterTool.on('disconnected', this._onDisconnected);
+    
+    this._oximeterListenersSetup = true;
+  },
+
+  onLoad(options) {
+    this.deviceManager = new DeviceManager(this);
+    
+    // 初始化血氧仪工具 - 使用完整的OximeterTool
+    this.oximeterTool = new OximeterTool();
+    
+    // 设置事件监听
+    this.setupOximeterListeners();
     
     // 检查用户是否已登录
     if (!AuthApi.isLoggedIn()) {
@@ -84,7 +134,8 @@ Page({
    * 生命周期函数--监听页面显示
    */
   onShow() {
-    console.log('[home] onShow');    
+    console.log('[home] onShow');
+    
     const now = Date.now();
     const wasHidden = this.data._pageHidden;
     const timeSinceLastShow = now - this.data._lastPageShowTime;
@@ -267,9 +318,23 @@ Page({
     // 停止心跳监控
     this.stopDeviceHeartbeatMonitor();
     
+    // 移除血氧仪事件监听
+    if (this.oximeterTool && this._oximeterListenersSetup) {
+      if (this._onRealtimeData) {
+        this.oximeterTool.off('realtimeData', this._onRealtimeData);
+      }
+      if (this._onDeviceInfo) {
+        this.oximeterTool.off('deviceInfo', this._onDeviceInfo);
+      }
+      if (this._onDisconnected) {
+        this.oximeterTool.off('disconnected', this._onDisconnected);
+      }
+      this._oximeterListenersSetup = false;
+    }
+    
     // 断开血氧仪连接
-    if (this.oximeterManager) {
-      this.oximeterManager.disconnectDevice();
+    if (this.oximeterTool) {
+      this.oximeterTool.stop();
     }
   },
 
@@ -295,48 +360,37 @@ Page({
   },
   toBlueIndex(){
     wx.navigateTo({
-      url: '/pages/blue/blue',
-      // url: '/pages/blufi/index',
+      url: '/pages/blue/blue'
     })
   },
 
   /**
-   * 连接血氧仪
+   * 连接血氧仪 - 使用OximeterTool
    */
   async connectOximeter() {
     try {
       wx.showLoading({ title: '搜索设备中...' });
       
-      // 搜索血氧仪设备
-      const devices = await this.oximeterManager.startBluetoothSearch();
+      // 启动OximeterTool（会自动搜索和连接设备）
+      const result = await this.oximeterTool.start();
       
-      if (devices.length === 0) {
-        wx.hideLoading();
+      wx.hideLoading();
+      
+      if (result.success) {
+        this.setData({ oximeterConnected: true });
+        wx.showToast({
+          title: '连接成功',
+          icon: 'success',
+          duration: 2000
+        });
+        console.log('[home] 已连接设备:', result.device.name);
+      } else {
         wx.showModal({
-          title: '提示',
-          content: '未找到血氧仪设备，请确保设备已开启蓝牙',
+          title: '连接失败',
+          content: result.error || '无法连接血氧仪设备',
           showCancel: false
         });
-        return;
       }
-      
-      // 连接第一个找到的设备
-      const targetDevice = devices[0];
-      
-      wx.hideLoading();
-      wx.showLoading({ title: '连接中...' });
-      
-      await this.oximeterManager.connectDevice(targetDevice.deviceId);
-      
-      wx.hideLoading();
-      
-      this.setData({ oximeterConnected: true });
-      
-      wx.showToast({
-        title: '连接成功',
-        icon: 'success',
-        duration: 2000
-      });
     } catch (error) {
       wx.hideLoading();
       this.setData({ oximeterConnected: false });
@@ -351,9 +405,9 @@ Page({
   /**
    * 断开血氧仪
    */
-  disconnectOximeter() {
-    if (this.oximeterManager) {
-      this.oximeterManager.disconnectDevice();
+  async disconnectOximeter() {
+    if (this.oximeterTool) {
+      await this.oximeterTool.stop();
       this.setData({
         oximeterConnected: false,
         spo2: null,

@@ -13,9 +13,7 @@
     "pages/home/home",
     "pages/blue/blue",
     "pages/report/report",
-    "pages/mine/mine",
-    "pages/blufi/index",
-    "pages/test-wifi/test-wifi"
+    "pages/mine/mine"
   ],
   "tabBar": {
     "color": "#c8c8c8",
