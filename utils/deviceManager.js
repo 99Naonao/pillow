@@ -485,24 +485,24 @@ voiceNotifation(params){
     if (!reportDetail || !reportDetail.data) {
       return null;
     }
-  
+
     const data = reportDetail.data;
     const left = data.left || {};
     const right = data.right || {};
-  
+
     // 辅助函数：检查数据是否有效（不是全0或空数组）
     const isDataValid = (data) => {
       if (!data || data.length === 0) return false;
-      
+
       // 检查是否全为0
       const hasNonZero = data.some(value => value !== 0);
       return hasNonZero;
     };
-    
+
     // 辅助函数：检查数据是否有异常（包含异常值）
     const hasAbnormalData = (data) => {
       if (!data || data.length === 0) return false;
-      
+
       // 检查是否包含异常值（如负数、极大值等）
       const hasAbnormal = data.some(value => {
         if (typeof value === 'number') {
@@ -511,14 +511,14 @@ voiceNotifation(params){
         }
         return false;
       });
-      
+
       return hasAbnormal;
     };
-    
+
     // 辅助函数：检查睡眠报告数据是否有异常
     const hasAbnormalSleepReport = (sleepReport) => {
       if (!sleepReport || sleepReport.length === 0) return false;
-      
+
       return sleepReport.some(item => {
         // 检查value字段是否异常
         if (item.value && (item.value < 0 || item.value > 10000 || isNaN(item.value))) {
@@ -531,22 +531,22 @@ voiceNotifation(params){
         return false;
       });
     };
-    
+
     // 辅助函数：优先使用left数据，如果left无效或异常则使用right数据
     const getValue = (leftKey, rightKey) => {
       const leftValue = left[leftKey];
       const rightValue = right[rightKey];
-      
+
       // 检查left数据是否有效且无异常
       const leftValid = leftValue !== null && leftValue !== undefined && leftValue !== 0;
       const leftNormal = typeof leftValue === 'number' ? 
         (leftValue >= 0 && leftValue <= 10000 && isFinite(leftValue)) : true;
-      
+
       // 检查right数据是否有效且无异常
       const rightValid = rightValue !== null && rightValue !== undefined && rightValue !== 0;
       const rightNormal = typeof rightValue === 'number' ? 
         (rightValue >= 0 && rightValue <= 10000 && isFinite(rightValue)) : true;
-      
+
       // 如果left有有效值且无异常，使用left
       if (leftValid && leftNormal) {
         return leftValue;
@@ -558,20 +558,20 @@ voiceNotifation(params){
       // 如果都无效或异常，返回0或空字符串
       return typeof leftValue === 'string' ? '' : 0;
     };
-    
+
     // 辅助函数：获取数组数据，优先使用有效且无异常的数据
     const getArrayValue = (leftKey, rightKey) => {
       const leftValue = left[leftKey] || [];
       const rightValue = right[rightKey] || [];
-      
+
       // 检查left数据是否有效且无异常
       const leftValid = isDataValid(leftValue);
       const leftNormal = !hasAbnormalData(leftValue);
-      
+
       // 检查right数据是否有效且无异常
       const rightValid = isDataValid(rightValue);
       const rightNormal = !hasAbnormalData(rightValue);
-      
+
       // 如果left数据有效且无异常，使用left
       if (leftValid && leftNormal) {
         return leftValue;
@@ -583,23 +583,23 @@ voiceNotifation(params){
       // 如果都无效或异常，返回空数组
       return [];
     };
-    
+
     // 辅助函数：获取other_data中的数组数据，优先使用有效且无异常的数据
     const getOtherDataArray = (key) => {
       const leftOtherData = left.other_data || {};
       const rightOtherData = right.other_data || {};
-      
+
       const leftValue = leftOtherData[key] || [];
       const rightValue = rightOtherData[key] || [];
-      
+
       // 检查left数据是否有效且无异常
       const leftValid = isDataValid(leftValue);
       const leftNormal = !hasAbnormalData(leftValue);
-      
+
       // 检查right数据是否有效且无异常
       const rightValid = isDataValid(rightValue);
       const rightNormal = !hasAbnormalData(rightValue);
-      
+
       // 如果left数据有效且无异常，使用left
       if (leftValid && leftNormal) {
         return leftValue;
@@ -611,24 +611,24 @@ voiceNotifation(params){
       // 如果都无效或异常，返回空数组
       return [];
     };
-    
+
     // 辅助函数：获取字符串值
     const getStringValue = (leftKey, rightKey) => {
       return left[leftKey] || right[rightKey] || '';
     };
-    
+
     // 辅助函数：获取对象值
     const getObjectValue = (leftKey, rightKey) => {
       return left[leftKey] || right[rightKey] || {};
     };
-    
+
     // 合并other_data
     const mergedOtherData = {
       turn: getOtherDataArray('turn'),
       heartrate: getOtherDataArray('heartrate'),
       breathrate: getOtherDataArray('breathrate')
     };
-    
+
     // 确定数据来源
     const dataSource = {
       heartRate: left.heart_rate ? 'left' : (right.heart_rate ? 'right' : 'none'),
@@ -641,30 +641,63 @@ voiceNotifation(params){
         breathrate: isDataValid(left.other_data?.breathrate) ? 'left' : (isDataValid(right.other_data?.breathrate) ? 'right' : 'none')
       }
     };
-    
+
+    // 计算基于起床日期的报告日期
+    const getReportDate = () => {
+      const startSleepTime = getStringValue('start_sleep_time', 'start_sleep_time');
+      const endSleepTime = getStringValue('end_sleep_time', 'end_sleep_time');
+      
+      // 如果开始时间和结束时间都存在，判断是否跨天
+      if (startSleepTime && endSleepTime) {
+        try {
+          // 解析时间
+          const [startHour, startMinute] = startSleepTime.split(':').map(Number);
+          const [endHour, endMinute] = endSleepTime.split(':').map(Number);
+          
+          const startMinutes = startHour * 60 + startMinute;
+          const endMinutes = endHour * 60 + endMinute;
+          
+          // 如果结束时间小于开始时间，说明跨天了
+          if (endMinutes < startMinutes) {
+            // 跨天情况：使用起床日期（原日期的下一天）
+            const originalDate = new Date(data.date);
+            originalDate.setDate(originalDate.getDate() + 1);
+            return originalDate.toISOString().split('T')[0];
+          }
+        } catch (error) {
+          console.error('解析睡眠时间失败:', error);
+        }
+      }
+      
+      // 非跨天情况或解析失败，使用原日期
+      return data.date;
+    };
+
     return {
       // 基本信息
       reportId: data.report_id,
       mac: data.mac,
       date: data.date,
+      date: getReportDate(), // 使用基于起床日期的日期
+      originalDate: data.date, // 保留原始日期用于调试
       dayOfWeek: data.day_of_week,
-      
+
       // 睡眠时长数据 - 使用左右数据合并逻辑
       bedDuration: getValue('bed_duration', 'bed_duration'),
       sleepDuration: getValue('sleep_duration', 'sleep_duration'),
       deepSleepDuration: getValue('deep_sleep_duration', 'deep_sleep_duration'),
       remSleepDuration: getValue('rem_sleep_duration', 'rem_sleep_duration'),
       lightSleepDuration: getValue('light_sleep_duration', 'light_sleep_duration'),
-      
+
       // 睡眠评分
       sleepScore: getValue('sleep_score', 'sleep_score'),
       scoreEvaluate: getStringValue('score_evaluate', 'score_evaluate'),
-      
+
       // 时间信息
       startSleepTime: getStringValue('start_sleep_time', 'start_sleep_time'),
       endSleepTime: getStringValue('end_sleep_time', 'end_sleep_time'),
       sleepOnsetTime: getValue('sleep_onset_time', 'sleep_onset_time'),
-      
+
       // 生理数据
       turnCount: getValue('turn_count', 'turn_count'),
       snoreDuration: getValue('snore_duration', 'snore_duration'),
@@ -672,25 +705,25 @@ voiceNotifation(params){
       breathRate: getValue('breath_rate', 'breath_rate'),
       heartRate: getValue('heart_rate', 'heart_rate'),
       sleepAge: getValue('sleep_age', 'sleep_age'),
-      
+
       // 其他数据 - 使用合并后的数据，特別處理睡眠報告異常檢測
       sleepReport: this.getValidSleepReport(left, right),
       otherData: mergedOtherData,
-      
+
       // 睡眠评估 - 使用異常檢測
       sleepAssessmentTags: this.getValidSleepAssessmentTags(left, right),
       sleepAssessment: this.getValidSleepAssessment(left, right),
       advice: this.getValidAdvice(left, right),
       questions: getArrayValue('questions', 'questions'),
-      
+
       // 保留原始数据用于调试
       leftData: left,
       rightData: right,
       rawData: data,
-      
+
       // 添加合并状态信息
       dataSource: dataSource,
-      
+
       // 添加调试信息
       debugInfo: {
         leftOtherDataValid: {
