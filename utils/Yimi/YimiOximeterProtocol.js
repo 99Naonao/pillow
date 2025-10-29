@@ -123,7 +123,7 @@ class YimiOximeterProtocol {
   }
 
   /**
-   * 解析接收到的数据
+   * 解析接收到的数据（直接处理，不使用缓冲区）
    * @param {ArrayBuffer} data 接收到的原始数据
    */
   parseData(data) {
@@ -132,20 +132,90 @@ class YimiOximeterProtocol {
     const receivedBytes = [];
     for (let i = 0; i < data.byteLength; i++) {
       const byte = dataView.getUint8(i);
-      this.receiveBuffer.push(byte);
       receivedBytes.push(byte);
     }
     
-    // 打印接收到的原始数据
-    const hexString = receivedBytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-    console.log(`[协议] 📥📥📥 收到原始数据 (${data.byteLength}字节): ${hexString}`);
+    // const hexString = receivedBytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+    // console.log(`[协议] 收到原始数据 (${data.byteLength}字节): ${hexString}`);
     
-    // 尝试解析完整的帧
-    this.parseFrames();
+    // 直接处理这个数据包，不使用缓冲区
+    this.parseSinglePacket(receivedBytes);
   }
 
   /**
-   * 解析完整的协议帧
+   * 解析单个数据包（不使用缓冲区）
+   * @param {Array} packet 数据包字节数组
+   */
+  parseSinglePacket(packet) {
+    // console.log(`[协议] 直接解析数据包，长度: ${packet.length}`);
+    
+    // 检查最小帧长度
+    if (packet.length < 5) {
+      // console.log(`[协议] 数据包太短，跳过: ${packet.length}字节`);
+      return;
+    }
+    
+    // 检查帧头
+    if (packet[0] !== this.FRAME_HEADER) {
+      // console.log(`[协议] 帧头不匹配，期望0x${this.FRAME_HEADER.toString(16).padStart(2, '0')}，实际0x${packet[0].toString(16).padStart(2, '0')}`);
+      return;
+    }
+    
+    // 解析帧长度
+    const frameLength = packet[1];
+    const frameTotalLength = 1 + 1 + frameLength; // 帧头 + 长度字段 + 数据长度
+    
+    // console.log(`[协议] 帧长度: 0x${frameLength.toString(16).padStart(2, '0')}, 总长度: ${frameTotalLength}字节`);
+    
+    // 检查数据包长度
+    if (packet.length < frameTotalLength) {
+      // console.log(`[协议] 数据包不完整，需要${frameTotalLength}字节，实际${packet.length}字节`);
+      return;
+    }
+    
+    // 提取完整帧
+    const frame = packet.slice(0, frameTotalLength);
+    
+    // 验证校验和
+    const frameData = frame.slice(1, frame.length - 1);
+    const calculatedChecksum = this.calculateChecksum(frameData);
+    const receivedChecksum = frame[frame.length - 1];
+    
+    if (calculatedChecksum !== receivedChecksum) {
+      // console.log(`[协议] 校验和失败: 计算值=0x${calculatedChecksum.toString(16).padStart(2, '0')}, 接收值=0x${receivedChecksum.toString(16).padStart(2, '0')}`);
+      return;
+    }
+    
+    // 解析命令ID和数据
+    const moduleAndAck = frame[2];
+    const commandId = frame[3];
+    const data = frame.slice(4, frame.length - 1);
+    
+    // console.log(`[协议] 解析帧 - moduleAndAck: 0x${moduleAndAck.toString(16).padStart(2, '0')}, commandId: 0x${commandId.toString(16).padStart(2, '0')}, data长度: ${data.length}`);
+    
+    // 检查commandId是否有效
+    if (commandId === undefined || isNaN(commandId)) {
+      console.error('[协议] ❌ commandId无效:', commandId);
+      return;
+    }
+    
+    // 提取Module-ID和ACK标记
+    const moduleId = moduleAndAck & 0x3F;
+    const needAck = (moduleAndAck & 0x40) !== 0;
+    
+    // 处理帧
+    this.handleFrame(commandId, data, needAck);
+    
+    // 更新统计
+    this.stats.totalFrames++;
+    this.stats.validFrames++;
+    this.stats.lastValidTime = Date.now();
+    
+    // console.log(`[协议] 数据包解析成功`);
+  }
+
+  /**
+   * 解析完整的协议帧（保留原方法，但不再使用）
    */
   parseFrames() {
     while (this.receiveBuffer.length >= 5) {
@@ -160,12 +230,14 @@ class YimiOximeterProtocol {
 
       if (headerIndex === -1) {
         // 没有找到帧头，清空缓存
+        // console.log('[协议] 未找到帧头，清空缓存');
         this.receiveBuffer = [];
         break;
       }
 
       // 移除帧头前的数据
       if (headerIndex > 0) {
+        // console.log(`[协议] 帧头不在开头，偏移${headerIndex}字节，移除前导数据`);
         this.receiveBuffer.splice(0, headerIndex);
         this.stats.errorFrames++;
       }
@@ -178,15 +250,20 @@ class YimiOximeterProtocol {
       // 解析帧结构：[0xFF] [帧长] [Module-ID+ACK] [Command-ID] [Command-Data...] [校验和]
       const frameLength = this.receiveBuffer[1];
       
+      // 打印当前缓冲区状态以便调试
+      // const bufferHex = this.receiveBuffer.slice(0, Math.min(20, this.receiveBuffer.length))
+      //   .map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+      // console.log(`[协议] 当前缓冲区: ${bufferHex}... (共${this.receiveBuffer.length}字节)`);
+      
       // 根据协议：帧长 = Module-ID + Command-ID + Command-Data + Frame-CheckSum 的总长度
       // 总帧长 = 1(帧头) + 1(帧长字节) + frameLength
       const frameTotalLength = 1 + 1 + frameLength;
       
-      console.log(`[协议] 解析帧 - 帧长字段: 0x${frameLength.toString(16).padStart(2, '0')}, 计算总长度: ${frameTotalLength}字节`);
+      // console.log(`[协议] 解析帧 - 帧长字段: 0x${frameLength.toString(16).padStart(2, '0')}, 计算总长度: ${frameTotalLength}字节`);
       
       // 检查是否有完整的帧
       if (this.receiveBuffer.length < frameTotalLength) {
-        console.log(`[协议] 数据不足，需要${frameTotalLength}字节，实际${this.receiveBuffer.length}字节`);
+        // console.log(`[协议] 数据不足，需要${frameTotalLength}字节，实际${this.receiveBuffer.length}字节`);
         break;
       }
 
@@ -194,12 +271,15 @@ class YimiOximeterProtocol {
       const frame = this.receiveBuffer.slice(0, frameTotalLength);
 
       // 验证校验和
-      const frameData = frame.slice(2, frame.length - 1);
+      const frameData = frame.slice(1, frame.length - 1);
       const calculatedChecksum = this.calculateChecksum(frameData);
       const receivedChecksum = frame[frame.length - 1];
 
       if (calculatedChecksum !== receivedChecksum) {
-        this.receiveBuffer.splice(0, frameTotalLength);
+        // console.log(`[协议] 校验和失败: 计算值=0x${calculatedChecksum.toString(16).padStart(2, '0')}, 接收值=0x${receivedChecksum.toString(16).padStart(2, '0')}`);
+        // console.log(`[协议] 移除帧头，尝试下一个帧头`);
+        // 校验失败，只移除帧头，继续查找下一个帧头
+        this.receiveBuffer.splice(0, 1);
         this.stats.errorFrames++;
         continue;
       }
@@ -208,6 +288,16 @@ class YimiOximeterProtocol {
       const moduleAndAck = frame[2];
       const commandId = frame[3];
       const data = frame.slice(4, frame.length - 1);
+      
+      // console.log(`[协议] 解析帧 - moduleAndAck: 0x${moduleAndAck.toString(16).padStart(2, '0')}, commandId: 0x${commandId.toString(16).padStart(2, '0')}, data长度: ${data.length}`);
+      
+      // 检查commandId是否有效
+      if (commandId === undefined || isNaN(commandId)) {
+        console.error('[协议] ❌ commandId无效:', commandId);
+        this.receiveBuffer.splice(0, frameTotalLength);
+        this.stats.errorFrames++;
+        continue;
+      }
       
       // 提取Module-ID和ACK标记
       const moduleId = moduleAndAck & 0x3F;
@@ -231,6 +321,12 @@ class YimiOximeterProtocol {
    * @param {boolean} needAck - 是否需要应答
    */
   handleFrame(cmd, data, needAck) {
+    // 防御性检查：确保cmd有效
+    if (cmd === undefined || cmd === null || isNaN(cmd)) {
+      console.error('[协议] ❌ handleFrame收到无效的命令字:', cmd);
+      return;
+    }
+    
     console.log(`[协议] 收到命令: 0x${cmd.toString(16).padStart(2, '0')}, 需要应答: ${needAck}`);
 
     // 如果需要应答，发送ACK帧
@@ -253,7 +349,7 @@ class YimiOximeterProtocol {
         break;
         
       case 0x17: // 应答帧（设备对我们的应答）
-        console.log('[协议] 收到设备的ACK应答帧');
+        // console.log('[协议] 收到设备的ACK应答帧');
         this.emit('ackReceived', { frameId: data[0] });
         break;
         

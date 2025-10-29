@@ -2,6 +2,9 @@
  * 蓝牙连接管理器
  * 用于管理微信小程序与亿米蓝牙血氧仪的连接
  */
+// 引用BluFi配网库
+const blufi = require('../../utils/blufi/xBlufi');
+
 class YimiBluetoothManager {
   constructor() {
     this.deviceId = null;
@@ -15,7 +18,7 @@ class YimiBluetoothManager {
     this.protocol = null;
     
     console.log('[蓝牙] 🎯 YimiBluetoothManager 实例被创建');
-
+    
     // 蓝牙状态
     this.bluetoothState = {
       available: false,
@@ -38,8 +41,27 @@ class YimiBluetoothManager {
 
     // 事件回调
     this.callbacks = {};
+    
+    // BluFi 搜索相关变量
+    this._blufiDevices = [];
+    this._blufiSearchResolve = null;
+    this._blufiSearchResolved = false;
+    this._blufiSearchTimer = null;
 
     this.initBluetoothListener();
+
+    // 全平台统一初始化 BluFi
+    this._initBlufi();
+  }
+
+  _detectIOS() {
+    try {
+      const systemInfo = wx.getSystemInfoSync ? wx.getSystemInfoSync() : null;
+      const isIOS = systemInfo && /ios/i.test(systemInfo.system || systemInfo.platform || '');
+      return !!isIOS;
+    } catch (e) {
+      return false;
+    }
   }
 
   /**
@@ -87,31 +109,15 @@ class YimiBluetoothManager {
     const self = this;
     
     wx.onBLECharacteristicValueChange((res) => {
-      console.log('======================================');
-      console.log('[蓝牙] 🔔 收到特征值变化事件');
-      console.log('[蓝牙] 设备ID:', res.deviceId);
-      console.log('[蓝牙] 服务ID:', res.serviceId);
-      console.log('[蓝牙] 特征值ID:', res.characteristicId);
-      console.log('[蓝牙] 数据长度:', res.value ? res.value.byteLength : 0);
-      console.log('======================================');
-      
-      // 立即打印十六进制数据，不管匹配不匹配
-      if (res.value && res.value.byteLength > 0) {
-        const bytes = new Uint8Array(res.value);
-        const hexStr = Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-        console.log('[蓝牙] 🔵 原始数据 (UTF-16):', hexStr);
-      }
+      // 精简日志：仅在调试时打印原始数据
+      // if (res.value && res.value.byteLength > 0) {
+      //   const bytes = new Uint8Array(res.value);
+      //   const hexStr = Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+      //   console.log('[蓝牙] 数据:', hexStr);
+      // }
       
       // 先检查是否有设备ID和服务ID设置（说明已经连接）
       if (!self.deviceId || !self.serviceId) {
-        console.log('[蓝牙] ⚠️ 收到特征值变化事件，但设备尚未完成连接');
-        console.log('[蓝牙] ⚠️ 当前 deviceId:', self.deviceId, 'serviceId:', self.serviceId);
-        console.log('[蓝牙] ⚠️ 但还是要打印收到的数据：');
-        if (res.value && res.value.byteLength > 0) {
-          const bytes = new Uint8Array(res.value);
-          const hexStr = Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-          console.log('[蓝牙] 🔵 数据:', hexStr);
-        }
         return;
       }
       
@@ -124,22 +130,15 @@ class YimiBluetoothManager {
       const allNotifyIds = allNotifyIdsRaw.map(id => (id || '').toUpperCase());
       const incomingCharId = (res.characteristicId || '').toUpperCase();
       
-      console.log('[蓝牙] 📊 匹配检查:', {
-        '设备ID匹配': res.deviceId === self.deviceId,
-        '服务ID匹配': res.serviceId === self.serviceId,
-        '特征值是否在监听集合中': allNotifyIds.includes(incomingCharId),
-        '实际特征值': incomingCharId,
-        '监听集合': allNotifyIds
-      });
+      // 匹配检查日志已省略，避免噪声
       
       if (res.deviceId === self.deviceId &&
           res.serviceId === self.serviceId &&
           allNotifyIds.includes(incomingCharId)) {
 
-        console.log('[蓝牙] ✅✅✅ 匹配成功！处理数据');
         self.handleReceivedData(res.value);
       } else {
-        console.log('[蓝牙] ⚠️ 特征值ID不在监听集合中，忽略此数据');
+        // 非目标特征值的数据忽略
       }
     });
     
@@ -175,7 +174,104 @@ class YimiBluetoothManager {
   }
 
   /**
-   * 搜索设备
+   * 初始化 BluFi
+   */
+  _initBlufi() {
+    try {
+      // 初始化BluFi
+      blufi.initXBlufi(blufi.XMQTT_SYSTEM.WeChat);
+      console.log('[蓝牙] ✅ BluFi初始化成功');
+      
+      // 设置BluFi事件监听
+      this._setupBlufiListeners();
+    } catch (error) {
+      console.error('[蓝牙] ❌ BluFi初始化失败:', error);
+    }
+  }
+
+  /**
+   * 设置BluFi事件监听
+   */
+  _setupBlufiListeners() {
+    // 监听设备消息
+    blufi.listenDeviceMsgEvent(true, (result) => {
+      this._handleBlufiResult(result);
+    });
+  }
+
+  /**
+   * 处理BluFi结果
+   */
+  _handleBlufiResult(result) {
+    // 精简BluFi日志
+    
+    switch (result.type) {
+      case blufi.XBLUFI_TYPE.TYPE_GET_DEVICE_LISTS:
+        // 设备列表更新
+        if (result.result && this._blufiSearchResolve) {
+          const allDevices = result.data || [];
+          const filter = (this.config.deviceNameFilter || '').toUpperCase(); // YM
+          
+          // 过滤 YM 开头的设备
+          const yimiDevices = allDevices.filter(device => {
+            const name = (device.name || device.localName || '').toUpperCase();
+            const localName = (device.localName || '').toUpperCase();
+            return filter ? (name.startsWith(filter) || localName.startsWith(filter)) : true;
+          });
+          // console.log(`[蓝牙] BluFi搜索到 ${yimiDevices.length} 个 YM 设备`);
+          
+          // 处理每个设备
+          yimiDevices.forEach(device => {
+            const deviceInfo = {
+              deviceId: device.deviceId,
+              name: device.name,
+              RSSI: device.RSSI,
+              localName: device.localName,
+              advertisData: device.advertisData || null,
+              advertisServiceUUIDs: device.advertisServiceUUIDs || null
+            };
+            
+            // 检查是否已存在
+            const existingIndex = this._blufiDevices.findIndex(d => d.deviceId === device.deviceId);
+            if (existingIndex >= 0) {
+              this._blufiDevices[existingIndex] = deviceInfo;
+            } else {
+              this._blufiDevices.push(deviceInfo);
+            }
+            
+            this.emit('deviceFound', deviceInfo);
+          });
+          
+          // 如果找到设备，立即返回
+          if (this._blufiDevices.length > 0 && !this._blufiSearchResolved && this._blufiSearchResolve) {
+            console.log('[蓝牙] ✅ BluFi找到设备，立即返回');
+            this._blufiSearchResolved = true;
+            const devices = [...this._blufiDevices];
+            const resolveFn = this._blufiSearchResolve;
+            this._blufiDevices = [];
+            this._blufiSearchResolve = null;
+            if (this._blufiSearchTimer) {
+              clearTimeout(this._blufiSearchTimer);
+              this._blufiSearchTimer = null;
+            }
+            this.stopSearch();
+            resolveFn(devices);
+          }
+        }
+        break;
+        
+      case blufi.XBLUFI_TYPE.TYPE_GET_DEVICE_LISTS_START:
+        console.log('[蓝牙] BluFi开始搜索');
+        break;
+        
+      case blufi.XBLUFI_TYPE.TYPE_GET_DEVICE_LISTS_STOP:
+        console.log('[蓝牙] BluFi停止搜索');
+        break;
+    }
+  }
+
+  /**
+   * 搜索设备（使用 BluFi）
    * @param {number} timeout - 搜索超时时间（毫秒）
    * @returns {Promise}
    */
@@ -186,17 +282,32 @@ class YimiBluetoothManager {
         return;
       }
 
-      // 修复：如果上次搜索未停止，先强制停止并等待
-      if (this.bluetoothState.discovering) {
-        console.log('[蓝牙] ⚠️ 检测到上次搜索未停止，先强制停止并等待');
-        this.stopSearch();
-        // 等待一小段时间确保状态完全释放
-        setTimeout(() => {
-          this._startActualSearch(timeout, resolve, reject);
-        }, 300);
-      } else {
-        this._startActualSearch(timeout, resolve, reject);
-      }
+      console.log('[蓝牙] 🔍 使用 BluFi 搜索设备（过滤前缀: YM）');
+      
+      // 初始化搜索状态
+      this._blufiDevices = [];
+      this._blufiSearchResolve = resolve;
+      this._blufiSearchResolved = false;
+      this.bluetoothState.discovering = true;
+      
+      // 设置搜索超时
+      this._blufiSearchTimer = setTimeout(() => {
+        if (!this._blufiSearchResolved && this._blufiSearchResolve) {
+          console.log('[蓝牙] ⏰ BluFi搜索超时，返回已找到的设备');
+          this._blufiSearchResolved = true;
+          const devices = [...this._blufiDevices];
+          const resolveFn = this._blufiSearchResolve;
+          this._blufiDevices = [];
+          this._blufiSearchResolve = null;
+          this.stopSearch();
+          resolveFn(devices);
+        }
+      }, timeout);
+      
+      // 开始 BluFi 搜索
+      blufi.notifyStartDiscoverBle({
+        isStart: true
+      });
     });
   }
 
@@ -293,18 +404,30 @@ class YimiBluetoothManager {
    */
   stopSearch() {
     if (this.bluetoothState.discovering) {
-      console.log('[蓝牙] 🔄 准备停止搜索');
+      console.log('[蓝牙] 🔄 准备停止搜索（BluFi）');
+      
+      // 停止 BluFi 搜索
+      try {
+        blufi.notifyStartDiscoverBle({
+          isStart: false
+        });
+        console.log('[蓝牙] ✅ BluFi搜索已停止');
+      } catch (error) {
+        console.error('[蓝牙] ❌ 停止BluFi搜索失败:', error);
+      }
+      
+      // 停止标准蓝牙搜索（备用）
       wx.stopBluetoothDevicesDiscovery({
         success: () => {
-          console.log('[蓝牙] ✅ 停止搜索成功');
-          this.bluetoothState.discovering = false;
+          console.log('[蓝牙] ✅ 停止标准搜索成功');
         },
         fail: (err) => {
-          console.error('[蓝牙] ❌ 停止搜索失败:', err);
-          // 即使失败也重置状态，避免卡住
-          this.bluetoothState.discovering = false;
+          // 忽略错误，因为可能没有启动标准搜索
+          console.log('[蓝牙] ℹ️ 标准搜索无需停止或已停止');
         }
       });
+      
+      this.bluetoothState.discovering = false;
     } else {
       console.log('[蓝牙] ℹ️ 当前未在搜索状态，无需停止');
     }
@@ -371,22 +494,13 @@ class YimiBluetoothManager {
       wx.getBLEDeviceServices({
         deviceId: deviceId,
         success: (res) => {
-          console.log('发现服务:', res.services);
-
-          console.log('=== 所有服务详情 ===');
-          res.services.forEach((service, index) => {
-            console.log(`服务${index + 1}:`, {
-              uuid: service.uuid,
-              isPrimary: service.isPrimary
-            });
-          });
-          console.log('====================');
+          // 精简：不打印全部服务详情
 
           let targetService = null;
           
           // 1. 如果配置了特定服务UUID，先按配置查找
           if (this.config.serviceUUID) {
-            console.log('[蓝牙] 按配置的服务UUID查找:', this.config.serviceUUID);
+            // console.log('[蓝牙] 按配置的服务UUID查找:', this.config.serviceUUID);
             targetService = res.services.find(service => {
               const serviceUpper = service.uuid.toUpperCase();
               const configUpper = this.config.serviceUUID.toUpperCase();
@@ -411,7 +525,7 @@ class YimiBluetoothManager {
           
           // 2. 如果自动查找且按配置未找到，自动查找自定义服务
           if (!targetService && this.config.autoFindService) {
-            console.log('[蓝牙] 使用自动查找模式，查找自定义服务...');
+            // console.log('[蓝牙] 使用自动查找模式，查找自定义服务...');
             targetService = res.services.find(service => {
               const serviceUpper = service.uuid.toUpperCase();
               // 排除标准BLE服务（0x1800, 0x1801, 0x180A等）
@@ -424,13 +538,13 @@ class YimiBluetoothManager {
           
           // 3. 如果还是找不到，尝试所有主服务
           if (!targetService) {
-            console.log('[蓝牙] 尝试使用第一个主服务...');
+            // console.log('[蓝牙] 尝试使用第一个主服务...');
             targetService = res.services.find(service => service.isPrimary);
           }
 
           if (targetService) {
             this.serviceId = targetService.uuid;
-            console.log('✓ 找到目标服务:', this.serviceId);
+            console.log('找到目标服务');
 
             // 直接发现特征值
             this.discoverCharacteristics(deviceId, this.serviceId)
@@ -463,22 +577,7 @@ class YimiBluetoothManager {
         deviceId: deviceId,
         serviceId: serviceId,
         success: async (res) => {
-          console.log('发现特征值:', res.characteristics);
-
-          // 打印所有特征值详情，方便调试
-          console.log('=== 所有特征值详情 ===');
-          res.characteristics.forEach((char, index) => {
-            console.log(`特征值${index + 1}:`, {
-              uuid: char.uuid,
-              properties: char.properties,
-              可读: char.properties.read,
-              可写: char.properties.write,
-              无响应写入: char.properties.writeNoResponse,
-              通知: char.properties.notify,
-              指示: char.properties.indicate
-            });
-          });
-          console.log('====================');
+          // 精简：不打印全部特征值详情
 
           // 分别查找用于写入和通知的特征值（可能存在多个通知/指示特征值）
           const writeCharacteristic = res.characteristics.find(char => 
@@ -499,9 +598,7 @@ class YimiBluetoothManager {
             ? pureNotifyCharacteristics 
             : notifyCharacteristics;
           
-          console.log('[蓝牙] 找到特征值 - 写入:', writeCharacteristic ? writeCharacteristic.uuid : '无');
-          console.log('[蓝牙] 找到特征值 - 通知集合:', notifyCharacteristics.map(c => c.uuid));
-          console.log('[蓝牙] 优先使用仅 NOTIFY 特征值:', pureNotifyCharacteristics.length > 0 ? pureNotifyCharacteristics.map(c => c.uuid) : '无');
+          // console.log('[蓝牙] 找到写入/通知特征值');
           
           if (!notifyCharacteristics || notifyCharacteristics.length === 0) {
             console.error('[蓝牙] 未找到支持通知的特征值');
@@ -516,17 +613,11 @@ class YimiBluetoothManager {
           this.writeCharacteristicId = writeCharacteristic ? writeCharacteristic.uuid : this.notifyCharacteristicId;
           this.characteristicProperties = targetNotifyCharacteristics[0].properties;
           
-          console.log('[蓝牙] 使用通知特征值(首选):', this.notifyCharacteristicId);
-          if (writeCharacteristic) {
-            console.log('[蓝牙] 使用写入特征值:', this.writeCharacteristicId);
-          }
+          // console.log('[蓝牙] 使用通知特征值:', this.notifyCharacteristicId);
           
           // 启用所有通知/指示特征值
           try {
-            console.log('[蓝牙] 将为以下特征值开启通知:', this.notifyCharacteristicIds);
-            
             // 为所有包含 notify 或 indicate 的特征值都启用通知
-            console.log('[蓝牙] 🔧 为所有支持通知/指示的特征值开启通知...');
             const allNotifyIndicateCharacteristics = res.characteristics.filter(char => 
               char.properties.notify || char.properties.indicate
             );
@@ -564,29 +655,15 @@ class YimiBluetoothManager {
    */
   enableNotification(deviceId, serviceId, characteristicId) {
     return new Promise((resolve, reject) => {
-      console.log('[蓝牙] 📝 开始启用通知...');
-      console.log('[蓝牙] 启用通知参数:', {
-        deviceId: deviceId,
-        serviceId: serviceId,
-        characteristicId: characteristicId
-      });
-      
-      // 确认监听器已注册
-      console.log('[蓝牙] 📝 检查监听器状态:', YimiBluetoothManager._listenerRegistered ? '已注册' : '未注册');
-      
+      // 开启通知（精简日志）
+      console.log("开启通知:",deviceId, serviceId, characteristicId);
       wx.notifyBLECharacteristicValueChange({
         deviceId: deviceId,
         serviceId: serviceId,
         characteristicId: characteristicId,
         state: true,
         success: (res) => {
-          console.log('[蓝牙] ✅ 启用通知成功');
-          console.log('[蓝牙] ✅ wx.notifyBLECharacteristicValueChange 返回结果:', JSON.stringify(res));
-          console.log('[蓝牙] 📌 通知配置:', {
-            deviceId: deviceId,
-            serviceId: serviceId,
-            characteristicId: characteristicId
-          });
+          // console.log('[蓝牙] 启用通知成功');
           
           this.connected = true;
           
@@ -597,8 +674,7 @@ class YimiBluetoothManager {
             characteristicId: characteristicId
           });
           
-          // 备选方案：启动轮询读取（某些情况下 INDICATE 可能无法触发事件）
-          this.startPollingRead(deviceId, serviceId, characteristicId);
+          // 备选方案：如需轮询可在此处开启
           
           resolve(res);
         },
@@ -625,7 +701,7 @@ class YimiBluetoothManager {
       // 使用支持写入的特征值
       const targetCharacteristicId = this.writeCharacteristicId || this.characteristicId;
       
-      console.log('[蓝牙] 发送数据到特征值:', targetCharacteristicId);
+      // console.log('[蓝牙] 发送数据到特征值:', targetCharacteristicId);
 
       wx.writeBLECharacteristicValue({
         deviceId: this.deviceId,
@@ -633,7 +709,7 @@ class YimiBluetoothManager {
         characteristicId: targetCharacteristicId,
         value: data,
         success: (res) => {
-          console.log('数据发送成功:', res);
+          // console.log('数据发送成功');
           resolve(res);
         },
         fail: (res) => {
@@ -649,9 +725,7 @@ class YimiBluetoothManager {
    * @param {ArrayBuffer} data - 接收到的数据
    */
   handleReceivedData(data) {
-    console.log('[蓝牙] handleReceivedData 被调用，数据长度:', data.byteLength);
     if (this.protocol) {
-      console.log('[蓝牙] 调用 protocol.parseData');
       this.protocol.parseData(data);
     } else {
       console.error('[蓝牙] protocol 未设置！');
@@ -689,12 +763,7 @@ class YimiBluetoothManager {
    * 重置连接状态
    */
   resetConnection() {
-    console.log('[蓝牙] 🔄 开始重置连接状态');
-    console.log('[蓝牙] 重置前状态:', {
-      deviceId: this.deviceId,
-      serviceId: this.serviceId,
-      connected: this.connected
-    });
+    // 精简重置日志
     
     this.deviceId = null;
     this.serviceId = null;
@@ -708,7 +777,7 @@ class YimiBluetoothManager {
     // 停止轮询读取
     this.stopPollingRead();
     
-    console.log('[蓝牙] ✅ 连接状态已重置');
+    // console.log('[蓝牙] 连接状态已重置');
   }
 
   /**
@@ -911,5 +980,4 @@ class YimiBluetoothManager {
   }
 }
 
-module.exports = YimiBluetoothManager;
-module.exports = YimiBluetoothManager;
+module.exports = YimiBluetoothManager;module.exports = YimiBluetoothManager;

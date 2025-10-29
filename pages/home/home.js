@@ -53,7 +53,13 @@ Page({
     
     // 监听实时数据
     this._onRealtimeData = (data) => {
-      console.log('[home] 血氧数据更新:', data);
+      console.log('[home] 血氧数据更新:', JSON.stringify(data, null, 2));
+      console.log('[home] 字段检查:', {
+        spo2: data.spo2,
+        pulseRate: data.pulseRate,
+        perfusionIndex: data.perfusionIndex,
+        batteryVoltage: data.batteryVoltage
+      });
       this.setData({
         spo2: data.spo2,
         pulseRate: data.pulseRate,
@@ -369,6 +375,55 @@ Page({
    */
   async connectOximeter() {
     try {
+      // 检查平台：仅 Android 需要申请位置权限
+      const systemInfo = wx.getSystemInfoSync();
+      const isAndroid = systemInfo && /android/i.test(systemInfo.system || systemInfo.platform || '');
+      
+      if (isAndroid) {
+        wx.showLoading({ title: '检查权限中...' });
+        
+        // 仅 Android 检查位置权限
+        const checkLocationPromise = new Promise((resolve, reject) => {
+          wx.getSetting({
+            success: (res) => {
+              if (res.authSetting['scope.userLocation']) {
+                console.log('[home] 位置权限已授权');
+                resolve();
+              } else {
+                console.log('[home] 请求位置权限');
+                wx.authorize({
+                  scope: 'scope.userLocation',
+                  success: () => {
+                    console.log('[home] 位置权限授权成功');
+                    resolve();
+                  },
+                  fail: () => {
+                    console.log('[home] 位置权限授权失败');
+                    wx.showModal({
+                      title: '权限提示',
+                      content: '需要位置权限以使用蓝牙功能，请在设置中开启',
+                      confirmText: '去设置',
+                      cancelText: '取消',
+                      success: (modalRes) => {
+                        if (modalRes.confirm) {
+                          wx.openSetting();
+                        }
+                        reject(new Error('用户拒绝授权'));
+                      }
+                    });
+                  }
+                });
+              }
+            },
+            fail: reject
+          });
+        });
+        
+        await checkLocationPromise;
+      } else {
+        console.log('[home] iOS 平台，无需申请位置权限');
+      }
+      
       wx.showLoading({ title: '搜索设备中...' });
       
       // 启动OximeterTool（会自动搜索和连接设备）

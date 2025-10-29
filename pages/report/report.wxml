@@ -88,7 +88,7 @@
                 <view 
                   class="block-info-popup" 
                   wx:if="{{showBlockInfo && selectedBlock.stage === item.name}}" 
-                  style="left: {{selectedBlock.left}}%; top: 0;"
+                  style="{{selectedBlock.popupStyle}}; top: 0;"
                   bindtap="closeBlockInfo">
                   <view class="trend-card compact-info" catchtap="">
                     <view class="trend-header">
@@ -157,7 +157,7 @@
 
         <view class="timeline-labels">
           <view class="timeline-label offbed" wx:if="{{offbedPercent > 0}}" style="width: {{offbedPercent}}%">
-            <text class="label-text">离床</text>
+            <text class="label-text">离枕</text>
             <text class="label-duration">{{offbedDuration}}小时</text>
           </view>
           <view class="timeline-label awake" wx:if="{{awakePercent > 0}}" style="width: {{awakePercent}}%">
@@ -240,15 +240,15 @@
     </view>
 
     <!-- 前往商城 -->
-    <view class="shop-section">
+    <view class="shop-section" wx:if="{{currentReport}}">
       <view class="shop-card">
         <view class="shop-header">
           <image src="../../static/shopping.png" class="shop-icon"/>
           <text class="shop-title">健康商城</text>
         </view>
         <view class="shop-content">
-          <text class="shop-desc">发现更多健康产品，提升睡眠质量</text>
-          <button class="shop-btn" bindtap="goToShop">前往商城</button>
+          <text class="shop-desc">长按图片前往商城</text>
+          <image src="../../static/miniprogram.jpg" class="shop-image" show-menu-by-longpress="{{true}}"/>
         </view>
       </view>
     </view>

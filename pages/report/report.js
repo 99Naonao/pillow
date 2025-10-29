@@ -101,10 +101,12 @@ Page({
       calendarValue: today
     });
     
-    // 加载今天的睡眠报告，end_date 比 start_date 多一天
+    // 加载今天的睡眠报告，查询范围包含昨天到明天（确保能查到跨夜睡眠）
+    const startDate = DataProcessor.getPreviousDay(today);
     const endDate = DataProcessor.getNextDay(today);
-    this.loadSleepReports(today, endDate, wifiMac)
-    // this.loadSleepReports(today, endDate, "f4:cf:a2:80:9f:ac");
+    
+    this.loadSleepReports(startDate, endDate, wifiMac, today)
+    // this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", today);
     
     // 知道睡眠报告id以后的获取详细睡眠报告详情测试方法
     // this.testSleepReportDetail("f4:cf:a2:80:9f:ac", 41250);
@@ -129,10 +131,12 @@ Page({
       showCalendar: false
     });
     
-    // 加载选中日期的睡眠报告
+    // 加载选中日期的睡眠报告，查询范围包含前一天到明天（确保能查到跨夜睡眠）
+    const startDate = DataProcessor.getPreviousDay(selectedDate);
     const endDate = DataProcessor.getNextDay(selectedDate);
-    this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
-    // this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
+    
+    this.loadSleepReports(startDate, endDate, this.data.wifiMac, selectedDate);
+    // this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", selectedDate);
   },
 
   onDateChange(e) {
@@ -144,10 +148,12 @@ Page({
       calendarValue: selectedDate
     });
     
-    // 加载选中日期的睡眠报告
+    // 加载选中日期的睡眠报告，查询范围包含前一天到明天（确保能查到跨夜睡眠）
+    const startDate = DataProcessor.getPreviousDay(selectedDate);
     const endDate = DataProcessor.getNextDay(selectedDate);
-    this.loadSleepReports(selectedDate, endDate, this.data.wifiMac);
-    // this.loadSleepReports(selectedDate, endDate, "f4:cf:a2:80:9f:ac");
+    
+    this.loadSleepReports(startDate, endDate, this.data.wifiMac, selectedDate);
+    // this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", selectedDate);
     // 手動更新睡眠階段圖表
     setTimeout(() => {
       this.updateSleepStageChart();
@@ -157,7 +163,7 @@ Page({
   /**
    * 加载睡眠报告列表
    */
-  loadSleepReports(startDate, endDate, wifiMac) {
+  loadSleepReports(startDate, endDate, wifiMac, selectedDate = null) {
     console.log('[report] 加载睡眠报告 - WiFi MAC:', wifiMac, '开始日期:', startDate, '结束日期:', endDate);
     console.log('[report] WiFi MAC 類型:', typeof wifiMac, '長度:', wifiMac ? wifiMac.length : 0);
     
@@ -180,8 +186,10 @@ Page({
       .then(result => {
         console.log('获取到的睡眠报告:', result);
         const reports = result && result.data ? result.data : [];
-        const formattedReports = this.formatSleepReports(reports);
-        
+        // 以睡眠结束日期为准，筛选出在选中日期结束的睡眠报告
+        const filteredReports = this.filterReportsByEndDate(reports, selectedDate);
+        const formattedReports = this.formatSleepReports(filteredReports);
+        console.log('转换后的报告列表数据：',formattedReports)
         this.setData({
           sleepReports: formattedReports,
           loading: false
@@ -214,6 +222,58 @@ Page({
   },
 
   /**
+   * 根据睡眠结束日期筛选报告
+   * @param {Array} reports 原始报告数组
+   * @param {string} selectedDate 用户选择的日期 (yyyy-MM-dd)
+   * @returns {Array} 筛选后的报告数组，按时间倒序排列（最新的在前）
+   */
+  filterReportsByEndDate(reports, selectedDate) {
+    console.log('[report] filterReportsByEndDate 开始 - reports:', reports, 'selectedDate:', selectedDate);
+    
+    if (!Array.isArray(reports) || reports.length === 0) {
+      console.log('[report] 报告数组为空或无效');
+      return [];
+    }
+
+    // 如果没有选中日期，返回所有报告
+    if (!selectedDate) {
+      console.log('[report] 没有选中日期，返回所有报告');
+      return reports;
+    }
+
+    console.log('[report] 筛选报告 - 选中日期:', selectedDate, '原始报告数量:', reports.length);
+
+    const filteredReports = reports.filter(report => {
+      // 获取睡眠结束时间 (end_time字段，如 "2025-10-21 08:08")
+      const endTime = report.end_time;
+      
+      if (!endTime) {
+        console.log('[report] 报告缺少结束时间:', report);
+        return false;
+      }
+
+      // 解析结束时间并获取日期
+      const endDate = DataProcessor.parseDate(endTime);
+      const endDateStr = DataProcessor.formatDate(endDate);
+      
+      console.log('[report] 报告结束时间:', endTime, '结束日期:', endDateStr, '选中日期:', selectedDate, '是否匹配:', endDateStr === selectedDate);
+      
+      // 判断是否在选中日期结束（即起床日期）
+      return endDateStr === selectedDate;
+    });
+
+    // 按结束时间倒序排列（最新的在前）
+    filteredReports.sort((a, b) => {
+      const timeA = DataProcessor.parseDate(a.end_time);
+      const timeB = DataProcessor.parseDate(b.end_time);
+      return timeB - timeA; // 倒序
+    });
+
+    console.log('[report] 筛选结果 - 符合条件报告数量:', filteredReports.length);
+    return filteredReports;
+  },
+
+  /**
    * 清空报告数据
    */
   clearReportData() {
@@ -238,7 +298,7 @@ Page({
       // 详细数据
       heartRate: 0,
       breathRate: 0,
-      turnCount: 0,
+      turnCount: 0,  
       snoreDuration: 0,
       snoreCount: 0,
       sleepAge: 0,
@@ -274,19 +334,28 @@ Page({
   formatSleepReports(reports) {
     if (!Array.isArray(reports)) return [];
     
-    return reports.map(report => {
-      const startTime = DataProcessor.parseTimeFromDateTime(report.startSleepTime);
-      const endTime = DataProcessor.parseTimeFromDateTime(report.endSleepTime);
-      const sleepTimeDisplay = DataProcessor.formatSleepTimeDisplay(report.sleepDuration);
+    console.log('[formatSleepReports] 原始报告数量:', reports.length);
+    
+    const formattedReports = reports.map(report => {
+      // 从start_time和end_time中提取时间部分
+      const startTime = DataProcessor.parseTimeFromDateTime(report.start_time);
+      const endTime = DataProcessor.parseTimeFromDateTime(report.end_time);
+      const sleepTimeDisplay = DataProcessor.formatSleepTimeDisplay(report.sleep_duration);
+      
+      console.log('[formatSleepReports] 报告开始时间:', startTime, '结束时间:', endTime);
       
       return {
         ...report,
-        startTime: startTime,
-        endTime: endTime,
+        startTime: startTime,        // 时间部分，如 "01:43"
+        endTime: endTime,            // 时间部分，如 "08:08"
         sleepTimeDisplay: sleepTimeDisplay
       };
     });
+    
+    console.log('[formatSleepReports] 格式化后报告数量:', formattedReports.length);
+    return formattedReports;
   },
+
 
   /**
    * 选择报告
@@ -294,6 +363,7 @@ Page({
   onSelectReport(e) {
     const report = e.detail.value;
     console.log('选择的报告:', report);
+    
     
     if (report && report.id) {
       // 获取选中报告的详细信息
@@ -683,7 +753,7 @@ Page({
    */
   formatTimeFromDateTime(dateTimeStr) {
     if (!dateTimeStr) return '00:00';
-    const date = new Date(dateTimeStr);
+    const date = DataProcessor.parseDate(dateTimeStr);
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${hours}:${minutes}`;
@@ -762,7 +832,7 @@ Page({
     
     // 定義階段配置 - 按照您的要求：离床、清醒、浅睡、深睡
     const stageConfigs = [
-      { name: '离床', color: '#FF6B6B', state: 5 },      // 紅色 - 离床
+      { name: '离枕', color: '#FF6B6B', state: 5 },      // 紅色 - 离床
       { name: '清醒', color: '#FFA07A', state: 4 },      // 橙色 - 清醒
       { name: '浅睡', color: '#87CEEB', state: 3 },      // 淺藍色 - 浅睡
       { name: '深睡', color: '#4169E1', state: 1 }       // 深藍色 - 深睡
@@ -877,13 +947,35 @@ Page({
     
     console.log('找到的塊數據:', blockData);
     
+    // 计算弹出框位置，避免超出屏幕边界
+    let popupStyle = {};
+    const blockLeft = blockData ? blockData.left : 0;
+    const popupWidth = 180; // 弹出框宽度（rpx）
+    const screenWidth = 750; // 屏幕宽度（rpx）
+    
+    // 如果块位置接近右边界，调整弹出框样式
+    if (blockLeft > screenWidth - popupWidth) {
+      popupStyle = {
+        right: '10rpx',
+        left: 'auto',
+        transform: 'none'
+      };
+    } else {
+      popupStyle = {
+        left: blockLeft + 'rpx',
+        right: 'auto',
+        transform: 'translateX(-50%)'
+      };
+    }
+    
     this.setData({
       selectedBlock: {
         stage: stage,
         startTime: start,
         endTime: end,
         duration: parseInt(duration),
-        left: blockData ? blockData.left : 0
+        left: blockLeft,
+        popupStyle: popupStyle
       },
       showBlockInfo: true
     });
