@@ -468,6 +468,19 @@ class YimiBluetoothManager {
           clearTimeout(connectTimeout);
           console.log('设备连接成功:', res);
 
+          // 连接成功后尝试设置 MTU 为 512（若基础库支持）
+          // this.setBLEMTU(deviceId, 512)
+          //   .then((ok) => {
+          //     if (ok) {
+          //       console.log('[蓝牙] ✅ 已设置 MTU = 512');
+          //     } else {
+          //       console.log('[蓝牙] ℹ️ 未能设置 MTU（可能基础库不支持或设备不接受）');
+          //     }
+          //   })
+          //   .catch((e) => {
+          //     console.error('[蓝牙] ❌ 设置 MTU 失败:', e);
+          //   });
+
           // 延迟一下再获取服务，确保连接稳定
           setTimeout(() => {
             this.discoverServices(deviceId)
@@ -662,6 +675,7 @@ class YimiBluetoothManager {
         serviceId: serviceId,
         characteristicId: characteristicId,
         state: true,
+        type: "notification",
         success: (res) => {
           // console.log('[蓝牙] 启用通知成功');
           
@@ -673,9 +687,6 @@ class YimiBluetoothManager {
             serviceId: serviceId,
             characteristicId: characteristicId
           });
-          
-          // 备选方案：如需轮询可在此处开启
-          
           resolve(res);
         },
         fail: (res) => {
@@ -717,6 +728,51 @@ class YimiBluetoothManager {
           reject(res);
         }
       });
+    });
+  }
+
+  /**
+   * 设置当前连接设备的 MTU 值（若环境支持）。不支持时静默返回 false。
+   * @param {string} deviceId 可选，不传使用当前已连接的 deviceId
+   * @param {number} mtu 目标 MTU，默认 512
+   * @returns {Promise<boolean>} 成功 true；不支持或失败 false
+   */
+  setBLEMTU(deviceId, mtu = 512) {
+    return new Promise((resolve, reject) => {
+      const targetId = deviceId || this.deviceId;
+      if (!targetId) {
+        resolve(false);
+        return;
+      }
+
+      if (typeof wx.setBLEMTU === 'function') {
+        const candidates = Array.from(new Set([mtu, 512, 247, 128, 23]));
+        const tryNext = (index) => {
+          if (index >= candidates.length) {
+            resolve(false);
+            return;
+          }
+          const targetMtu = candidates[index];
+          wx.setBLEMTU({
+            deviceId: targetId,
+            mtu: targetMtu,
+            success: (res) => {
+              console.log('[蓝牙] setBLEMTU 成功:', { deviceId: targetId, mtu: targetMtu, res });
+              resolve(true);
+            },
+            fail: (err) => {
+              console.warn('[蓝牙] setBLEMTU 失败，尝试降级:', { mtu: targetMtu, err });
+              // 常见内部错误（如 1500104）时降级重试
+              setTimeout(() => tryNext(index + 1), 150);
+            }
+          });
+        };
+        tryNext(0);
+      } else {
+        // 基础库不支持设置 MTU
+        console.log('[蓝牙] setBLEMTU 不支持（基础库版本过低）');
+        resolve(false);
+      }
     });
   }
 
