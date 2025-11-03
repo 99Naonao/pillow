@@ -712,7 +712,7 @@ Page({
                     console.log('设备连接失败:', result.data);
                     
                     // 提供更详细的错误信息
-                    let errorMessage = '设备连接失败';
+                    // let errorMessage = '设备连接失败';
                     if (result.data && result.data.errorCode) {
                         const errorCode = result.data.errorCode;
                         switch (errorCode) {
@@ -730,19 +730,19 @@ Page({
                         }
                     }
                     
-                    wx.showModal({
-                        title: '连接失败',
-                        content: errorMessage + '\n\n请尝试：\n1. 确保设备已进入配网模式\n2. 检查设备是否在附近\n3. 重启设备后重试',
-                        showCancel: true,
-                        cancelText: '重试',
-                        confirmText: '确定',
-                        success: (res) => {
-                            if (res.cancel) {
-                                // 用户选择重试，重新搜索设备
-                                this.startBluetoothSearch();
-                            }
-                        }
-                    });
+                //     wx.showModal({
+                //         title: '连接失败',
+                //         content: errorMessage + '\n\n请尝试：\n1. 确保设备已进入配网模式\n2. 检查设备是否在附近\n3. 重启设备后重试',
+                //         showCancel: true,
+                //         cancelText: '重试',
+                //         confirmText: '确定',
+                //         success: (res) => {
+                //             if (res.cancel) {
+                //                 // 用户选择重试，重新搜索设备
+                //                 this.startBluetoothSearch();
+                //             }
+                //         }
+                //     });
                 }
                 break;
                 
