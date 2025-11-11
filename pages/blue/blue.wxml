@@ -114,20 +114,50 @@
     <!-- 步骤二：蓝牙连接 -->
     <view wx:if="{{currentTab==1}}">
       <view class="refresh-tip">下拉重新搜索</view>
-      <view class="search-result-title">搜索到以下{{devices.length}}个设备</view>
-      <view class="device-list">
-        <block wx:for="{{devices}}" wx:key="deviceId">
-          <view class="device-card">
-            <view class="device-card-info">
-              <view class="device-name">{{item.displayName || 'zzZMinga'}}</view>
-              <view class="device-mac">MAC: {{item.deviceId || item.uuid}}</view>
-            </view>
-            <view class="custom-switch {{item.isConnected ? 'switch-on' : 'switch-off'}}" 
-                  bindtap="onCustomSwitchTap" data-deviceId="{{item.deviceId}}">
-              <view class="switch-slider"></view>
-            </view>
+      
+      <!-- 扫描动画区域 -->
+      <view class="scanning-section">
+        <view class="scanning-animation-container">
+          <view class="radar-container">
+            <view class="radar-circle radar-circle-1"></view>
+            <view class="radar-circle radar-circle-2"></view>
+            <view class="radar-circle radar-circle-3"></view>
+            <view class="radar-circle radar-circle-4"></view>
+            <view class="radar-sweep"></view>
+            <view class="radar-center"></view>
           </view>
-        </block>
+        </view>
+        <view class="scanning-text">正在扫描</view>
+        <view class="scanning-tip">请确保设备已连接电源,且已进入配网模式</view>
+        <view class="scanning-help-link" bindtap="onHelpLinkTap">设备如何进入配网模式?</view>
+      </view>
+
+      <!-- 设备列表区域 -->
+      <view class="device-discovery-section">
+        <view class="device-section-title">发现的蓝牙设备</view>
+        <view class="device-list-container">
+          <view wx:if="{{devices.length === 0}}" class="device-search-tip">
+            正在搜索蓝牙设备...
+          </view>
+          <block wx:else>
+            <block wx:for="{{devices}}" wx:key="deviceId">
+              <view class="device-card-new">
+                <view class="device-card-info-new">
+                  <view class="device-name-new">{{item.displayName || 'zzZMinga'}}</view>
+                  <view class="device-mac-new">设备Mac: {{item.formattedMac || item.deviceId || item.uuid}}</view>
+                </view>
+                <button 
+                  class="connect-btn {{item.isConnected ? 'connect-btn-connected' : ''}}" 
+                  bindtap="onCustomSwitchTap" 
+                  data-deviceId="{{item.deviceId}}"
+                  disabled="{{item.isConnected}}"
+                >
+                  {{item.isConnected ? '已连接' : '连接'}}
+                </button>
+              </view>
+            </block>
+          </block>
+        </view>
       </view>
     </view>
 
@@ -182,6 +212,24 @@
   confirmText="已进入配网模式"
   bind:confirm="onGuideConfirm"
   bind:close="onGuideConfirm"
+  customClass="guide-modal-container"
+  confirmClass="guide-modal-button"
+></modal-dialog>
+
+<!-- 帮助链接弹窗 -->
+<modal-dialog
+  visible="{{helpModalVisible}}"
+  title="设备如何进入配网模式"
+  content="请按照以下步骤操作：\n1. 确保设备已连接电源\n2. 点击3次设备上的SOS按钮\n3. 等待设备指示灯闪烁\n4. 设备进入配网模式后即可搜索连接"
+  videoSrc="{{guideVideoSrc}}"
+  videoPoster="{{guideVideoPoster}}"
+  videoControls="{{true}}"
+  videoAutoplay="{{false}}"
+  showCancel="{{false}}"
+  showConfirm="{{true}}"
+  confirmText="我知道了"
+  bind:confirm="onHelpModalClose"
+  bind:close="onHelpModalClose"
   customClass="guide-modal-container"
   confirmClass="guide-modal-button"
 ></modal-dialog>

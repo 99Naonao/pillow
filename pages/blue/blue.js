@@ -18,7 +18,7 @@ Page({
         totalSteps: 3, // 总步骤数
         
         // 蓝牙
-        devices: [], // 搜索到的蓝牙设备
+        devices: [], // 搜索到的蓝牙设备 
         connectedDeviceId: '', // 已连接的蓝牙设备ID
         isRefreshing: false, // 下拉刷新状态
         isSearching: false, // 是否正在搜索
@@ -51,6 +51,9 @@ Page({
         guideModalVisible: false,
         guideVideoSrc: 'https://zhongshu.xinglu.shop/uploads/video/video.mp4',
         guideVideoPoster: '/static/bg.jpg',
+        
+        // 帮助链接弹窗
+        helpModalVisible: false,
 
         // 错误处理
         _isShowingWifiError: false, // 防止重复显示WiFi错误提示
@@ -721,11 +724,15 @@ Page({
                         // 格式化设备显示名称
                         const displayName = this._formatDeviceName(device);
                         
+                        // 格式化MAC地址用于显示
+                        const formattedMac = this._formatMacAddress(extractedMac || device.deviceId || device.uuid);
+                        
                         // 保存提取的MAC地址到设备对象
                         return {
                             ...device,
                             extractedMac: extractedMac,
-                            displayName: displayName
+                            displayName: displayName,
+                            formattedMac: formattedMac
                         };
                     });
                     
@@ -1143,6 +1150,41 @@ Page({
         return `zzZMinga_gx_${macSuffix}`;
     },
 
+    // 格式化MAC地址为 XX:XX:XX:XX:XX:XX 格式
+    _formatMacAddress(mac) {
+        if (!mac) return '';
+        
+        // 移除所有分隔符
+        const cleanMac = mac.replace(/[:\-\s]/g, '').toUpperCase();
+        
+        // 如果不是有效的MAC地址格式（12个十六进制字符），返回原始值
+        if (!/^[0-9A-F]{12}$/.test(cleanMac)) {
+            // 如果长度不够，尝试从末尾提取12个字符
+            if (cleanMac.length >= 12) {
+                const last12 = cleanMac.slice(-12);
+                return last12.match(/.{2}/g).join(':');
+            }
+            return mac; // 返回原始值
+        }
+        
+        // 每两个字符一组，用冒号分隔
+        return cleanMac.match(/.{2}/g).join(':');
+    },
+
+    // 处理帮助链接点击
+    onHelpLinkTap() {
+        this.setData({
+            helpModalVisible: true
+        });
+    },
+    
+    // 关闭帮助弹窗
+    onHelpModalClose() {
+        this.setData({
+            helpModalVisible: false
+        });
+    },
+
     // 初始化WiFi
     async initWifi() {
         wx.startWifi();
@@ -1309,7 +1351,7 @@ Page({
                 return;
             }
             
-            console.log('[blue] 配网超时（30秒）');
+            console.log('[blue] 配网超时（40秒）');
             wx.hideLoading();
             
             console.log('配网超时，断开蓝牙设备并返回WiFi配置步骤');
@@ -1345,7 +1387,7 @@ Page({
                 showCancel: false,
                 confirmText: '确定'
             });
-        }, 30000); // 30秒超时
+        }, 1000 * 40); // 40秒超时
             
         } catch (error) {
             console.error('connectWifi异常:', error);

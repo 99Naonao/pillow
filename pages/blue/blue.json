@@ -4,6 +4,6 @@
     "nav-bar": "/components/HeaderNavBar/headerNav",
     "modal-dialog": "/components/ModalDialog/modalDialog"
   },
-  "enablePullDownRefresh": true,
+  "enablePullDownRefresh": false,
   "backgroundTextStyle": "dark"
 }
