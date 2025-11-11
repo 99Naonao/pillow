@@ -36,7 +36,7 @@ class HealthConfig {
       
       // 緊急求助參數
       is_sos_message: false,
-      is_sos_voice: false,
+      is_sos_voice: true,
       
       // 呼吸暫停監測參數
       is_apnea_message: false,

@@ -42,6 +42,7 @@ Page({
         showWifiModal: false, // 是否显示WiFi弹窗
         wifiModalContent: '', // WiFi弹窗内容
         showPassword: false, // 是否显示密码
+        wifiConfigDisabled: false, // WiFi配置是否被禁用（设备已连接且WiFi一致时禁用）
         
         // 保存的WiFi配置（用于蓝牙连接成功后配网）
         savedWifiConfig: null, // {ssid: '', password: ''}
@@ -97,53 +98,17 @@ Page({
         this.blueDeviceManager.startBluetoothConnectionListener();
         
         if (this.data.currentTab === 0) {
-            // 第一步：蓝牙连接
-            console.log('第一步：搜索蓝牙设备');
-            
-            // 先检查蓝牙与定位授权
-            this.checkAllPermissions()
-              .then(() => {
-                  // 授权成功后，显示引导弹窗
-                  this.setData({ guideModalVisible: true });
-              })
-              .catch(() => {
-                  wx.showToast({ title: '请授权权限', icon: 'none' });
-              });
-            // 读取本地已连接设备状态
-            const device = wx.getStorageSync('connectedDevice');
-            console.log('读取本地设备信息:', device);
-            
-            // 检查本地存储的设备是否真的已连接
-            if (device && device.deviceId) {
-                this.blueDeviceManager.checkDeviceConnectionStatus(device.deviceId).then(isConnected => {
-                    if (isConnected) {
-                        this.setData({ 
-                            connectedDeviceId: device.deviceId,
-                            currentTab: 1 // 跳转到WiFi配置步骤
-                        });
-                        console.log('设备确实已连接，设置已连接设备ID:', device.deviceId);
-                        // 设备已连接，跳转到WiFi配置步骤，等待用户输入WiFi信息
-                        this.initWifiStep();
-                    } else {
-                        console.log('设备未真正连接，清除本地存储');
-                        wx.removeStorageSync('connectedDevice');
-                        this.setData({ connectedDeviceId: '' });
-                    }
-                    this.blueDeviceManager.updateDeviceConnectionStatus();
-                });
-            } else {
-                this.blueDeviceManager.updateDeviceConnectionStatus();
-            }
-            
-            // 进入页面后自动开始搜索蓝牙设备
-            if (this.data.devices.length === 0 && !this.data.isSearching) {
-                console.log('进入页面，自动开始搜索蓝牙设备');
-                this.startBluetoothSearch();
-            }
+            // 第一步：WiFi配置
+            console.log('第一步：WiFi配置步骤');
+            this.setData({ 
+              _modalShown: {} // 重置所有弹窗标记
+            });
+            this.initWifiStep();
         } else if (this.data.currentTab === 1) {
-            // 第二步：WiFi配置
-            console.log('第二步：WiFi配置步骤');
-           
+            // 第二步：蓝牙连接
+            console.log('第二步：搜索蓝牙设备');
+            // 使用统一的初始化方法
+            this._initBluetoothStep();
         }
     },
 
@@ -155,7 +120,10 @@ Page({
         this.checkAllPermissions()
             .then(() => {
                 console.log('用户确认后继续搜索蓝牙设备');
-                // 蓝牙搜索已在onShow时自动开始，这里不需要再次搜索
+                // 如果还没有开始搜索，则开始搜索
+                if (this.data.devices.length === 0 && !this.data.isSearching) {
+                    this.startBluetoothSearch();
+                }
             })
             .catch(() => {
                 wx.showToast({ title: '权限不足', icon: 'none' });
@@ -172,6 +140,16 @@ Page({
         this.isPageActive = false;
         this.wifiConfigManager.clearWifiStatusCheck();
         this.blueDeviceManager.stopBluetoothConnectionListener();
+        
+        // 停止蓝牙搜索
+        try {
+            blufi.notifyStartDiscoverBle({
+                isStart: false
+            });
+            console.log('页面卸载时已停止蓝牙搜索');
+        } catch (error) {
+            console.error('停止蓝牙搜索失败:', error);
+        }
         
         // 清除连接超时定时器
         if (this._connectionTimeout) {
@@ -195,7 +173,7 @@ Page({
     // 检测iOS平台
     _detectIOSPlatform() {
         try {
-            const systemInfo = wx.getSystemInfoSync();
+            const systemInfo = wx.getDeviceInfo();
             const platform = (systemInfo.platform || '').toLowerCase();
             console.log('系统信息:', systemInfo);
             console.log('平台:', platform);
@@ -207,7 +185,59 @@ Page({
     },
 
     // 初始化WiFi步骤
-    initWifiStep() {
+    async initWifiStep() {
+        console.log('开始初始化WiFi步骤');
+        
+        // 读取本地保存的WiFi名称（如果有保存的WiFi名称，说明之前配网成功过，需要检查）
+        const savedWifiName = wx.getStorageSync('connected_wifi_name');
+        
+        console.log('第一步检查：本地保存的WiFi名称:', savedWifiName);
+        
+        // 如果有保存的WiFi名称，检查当前连接的WiFi与本地保存的WiFi是否一致
+        if (savedWifiName) {
+            console.log('检测到保存的WiFi名称，开始检查WiFi一致性');
+            try {
+                // 获取当前连接的WiFi
+                console.log('正在获取当前连接的WiFi...');
+                const wifiInfo = await this.wifiManager.getConnectedWifi();
+                const currentWifiName = wifiInfo.wifi?.SSID;
+                
+                console.log('第一步检查：当前连接的WiFi:', currentWifiName);
+                console.log('第一步检查：本地保存的WiFi:', savedWifiName);
+                
+                // 如果当前连接的WiFi与本地保存的WiFi一致，则禁用WiFi配置
+                if (currentWifiName && savedWifiName && currentWifiName === savedWifiName) {
+                    console.log('设备已连接到相同WiFi，禁用WiFi配置');
+                    this.setData({
+                        wifiConfigDisabled: true,
+                        wifiName: currentWifiName,
+                        wifiSelected: true,
+                        showWifiList: false
+                    });
+                    return;
+                } else {
+                    // 如果检测到WiFi不一致，重置WiFi配置禁用状态
+                    console.log('设备连接的WiFi与保存的WiFi不一致，允许重新配网');
+                    this.setData({
+                        wifiConfigDisabled: false
+                    });
+                }
+            } catch (error) {
+                console.error('检查WiFi连接状态失败:', error);
+                console.error('错误详情:', JSON.stringify(error));
+                // 如果获取WiFi信息失败，重置禁用状态并继续正常流程
+                this.setData({
+                    wifiConfigDisabled: false
+                });
+            }
+        } else {
+            // 如果设备未连接，重置禁用状态
+            console.log('设备未连接，跳过WiFi一致性检查');
+            this.setData({
+                wifiConfigDisabled: false
+            });
+        }
+        
         // 使用WiFi配置管理器初始化WiFi步骤
         this.wifiConfigManager.initWifiStep();
     },
@@ -231,7 +261,19 @@ Page({
 
     // 下拉刷新
     onContentRefresh() {
-        if (this.data.currentTab === 1) {
+        if (this.data.currentTab === 0) {
+            // WiFi配置步骤：刷新WiFi列表
+            this.setData({ isRefreshing: true });
+            this.wifiConfigManager.showWifiList()
+                .then(() => {
+                    this.setData({ isRefreshing: false });
+                    console.log('WiFi列表刷新完成');
+                })
+                .catch((error) => {
+                    this.setData({ isRefreshing: false });
+                    console.error('WiFi列表刷新失败:', error);
+                });
+        } else if (this.data.currentTab === 1) {
             this.setData({ isRefreshing: true });
             this.checkAllPermissions()
                .then(() => {
@@ -371,7 +413,8 @@ Page({
             this.setData({
                 connectedDeviceId: '',
                 stepsCompleted: [false, false, false],
-                currentTab: 0
+                currentTab: 0,
+                wifiConfigDisabled: false // 重置WiFi配置禁用状态
             });
             console.log('已清除本地存储的设备信息');
         }
@@ -381,6 +424,11 @@ Page({
 
     // 选择WiFi
     selectWifi(e) {
+        // 如果WiFi配置被禁用，不允许选择
+        if (this.data.wifiConfigDisabled) {
+            return;
+        }
+        
         const { ssid } = e.currentTarget.dataset;
         console.log('选择WiFi:', ssid);
         // 使用WiFi配置管理器选择WiFi
@@ -389,6 +437,11 @@ Page({
 
     // 输入WiFi密码
     onInputPassword(e) {
+        // 如果WiFi配置被禁用，不允许输入密码
+        if (this.data.wifiConfigDisabled) {
+            return;
+        }
+        
         this.setData({ wifiPassword: e.detail.value });
     },
 
@@ -402,8 +455,19 @@ Page({
         console.log('密码显示状态已更新:', this.data.showPassword);
     },
 
-    // 下一步（从WiFi配置到配网）
+    // 下一步（从WiFi配置到蓝牙连接）
     nextStep() {
+        // 如果WiFi配置被禁用，不允许进入下一步
+        if (this.data.wifiConfigDisabled) {
+            wx.showModal({
+                title: '提示',
+                content: '设备已连接到WiFi，无需重复配网',
+                showCancel: false,
+                confirmText: '确定'
+            });
+            return;
+        }
+        
         if (!this.data.wifiName || !this.data.wifiPassword) {
             wx.showToast({ title: '请填写WiFi名称和密码', icon: 'none' });
             return;
@@ -419,36 +483,108 @@ Page({
         });
         
         // 保存WiFi配置信息
+        const wifiConfig = {
+            ssid: this.data.wifiName,
+            password: this.data.wifiPassword
+        };
+        
+        // 边界情况处理：确保WiFi配置有效
+        if (!wifiConfig.ssid || !wifiConfig.password) {
+            wx.showToast({ title: 'WiFi配置信息不完整', icon: 'none' });
+            return;
+        }
+        
         this.setData({ 
-            savedWifiConfig: {
-                ssid: this.data.wifiName,
-                password: this.data.wifiPassword
-            }
+            savedWifiConfig: wifiConfig,
+            stepsCompleted: [true, false, false], // 第一步完成
+            currentTab: 1 // 跳转到蓝牙连接步骤
         });
-
-        // 开始配网
-        this.startWifiConfig();
+        
+        // 手动触发蓝牙连接步骤的初始化逻辑
+        this._initBluetoothStep();
+    },
+    
+    // 初始化蓝牙连接步骤
+    _initBluetoothStep() {
+        console.log('初始化蓝牙连接步骤');
+        
+        // 先检查蓝牙与定位授权
+        this.checkAllPermissions()
+          .then(() => {
+              // 授权成功后，显示引导弹窗
+              this.setData({ guideModalVisible: true });
+          })
+          .catch(() => {
+              wx.showToast({ title: '请授权权限', icon: 'none' });
+          });
+        
+        // 读取本地已连接设备状态
+        const device = wx.getStorageSync('connectedDevice');
+        console.log('读取本地设备信息:', device);
+        
+        // 检查本地存储的设备是否真的已连接
+        if (device && device.deviceId) {
+            this.blueDeviceManager.checkDeviceConnectionStatus(device.deviceId).then(isConnected => {
+                if (isConnected) {
+                    this.setData({ 
+                        connectedDeviceId: device.deviceId,
+                        currentTab: 2 // 跳转到配网步骤
+                    });
+                    console.log('设备确实已连接，设置已连接设备ID:', device.deviceId);
+                    // 设备已连接，等待50ms后开始配网
+                    setTimeout(() => {
+                        this.startWifiConfig();
+                    }, 50);
+                } else {
+                    console.log('设备未真正连接，清除本地存储');
+                    wx.removeStorageSync('connectedDevice');
+                    this.setData({ connectedDeviceId: '' });
+                }
+                this.blueDeviceManager.updateDeviceConnectionStatus();
+            });
+        } else {
+            this.blueDeviceManager.updateDeviceConnectionStatus();
+        }
+        
+        // 进入蓝牙步骤后自动开始搜索蓝牙设备
+        if (this.data.devices.length === 0 && !this.data.isSearching) {
+            console.log('进入蓝牙步骤，自动开始搜索蓝牙设备');
+            this.startBluetoothSearch();
+        }
     },
 
-    // 开始配网（完全使用参考项目代码）
+    // 开始配网
     startWifiConfig() {
-        console.log('开始配网');
+        console.log('开始配网');      
+        // 优先使用保存的WiFi配置，如果没有则使用当前数据
+        const wifiConfig = this.data.savedWifiConfig || {
+            ssid: this.data.wifiName,
+            password: this.data.wifiPassword
+        };
         
         // 检查WiFi配置
-        if (!this.data.wifiName) {
+        if (!wifiConfig.ssid) {
             wx.showToast({
                 title: 'SSID不能为空',
                 icon: 'none'
             });
             return;
         }
-        if (!this.data.wifiPassword) {
+        if (!wifiConfig.password) {
             wx.showToast({
                 title: '密码不能为空',
                 icon: 'none'
             });
             return;
         }
+        
+        // 确保使用保存的WiFi配置进行配网
+        this.setData({
+            wifiName: wifiConfig.ssid,
+            wifiPassword: wifiConfig.password
+        });
+        
+        console.log('使用WiFi配置进行配网:', wifiConfig);
         
         // 使用参考项目的配网方法
         this.connectWifi();
@@ -457,6 +593,16 @@ Page({
     // 显示WiFi列表
     showWifiList() {
         console.log('用户点击更换WiFi，开始获取WiFi列表');
+        
+        // 如果WiFi配置被禁用，重置禁用状态，允许用户重新选择WiFi
+        if (this.data.wifiConfigDisabled) {
+            console.log('WiFi配置被禁用，重置状态允许重新选择WiFi');
+            this.setData({
+                wifiConfigDisabled: false,
+                wifiPassword: '' // 清空密码
+            });
+        }
+        
         // 使用WiFi配置管理器显示WiFi列表
         this.wifiConfigManager.showWifiList();
     },
@@ -489,32 +635,6 @@ Page({
             currentTab: 0
         });
     },
-
-    // 清除本地存储的设备信息（用于调试）
-    clearLocalDeviceInfo() {
-        wx.removeStorageSync('connectedDevice');
-        this.setData({
-            connectedDeviceId: '',
-            stepsCompleted: [false, false, false],
-            currentTab: 0
-        });
-        console.log('已手动清除本地存储的设备信息');
-        wx.showToast({ title: '已清除本地设备信息', icon: 'success' });
-    },
-
-    // 清除设备列表（用于调试）
-    clearDeviceList() {
-        this.setData({ devices: [] });
-        console.log('已清除设备列表');
-        wx.showToast({ title: '已清除设备列表', icon: 'success' });
-    },
-
-    // 测试WiFi状态检查（用于调试）
-    testWifiStatus() {
-        console.log('手动测试WiFi状态检查');
-        this.checkWifiStatus();
-    },
-
     // 停止配网
     stopWifiConfig() {
         // 停止蓝牙搜索（统一使用BluFi）
@@ -575,7 +695,7 @@ Page({
                     
                     console.log('搜索到的GoodSleep设备:', goodSleepDevices);
                     
-                    // 处理每个GoodSleep设备，提取MAC地址并保存（只保存第一个GoodSleep设备的MAC）
+                    // 处理每个GoodSleep设备，提取MAC地址并保存
                     let hasSavedMac = false; // 标记是否已保存MAC地址
                     
                     const processedDevices = goodSleepDevices.map((device, index) => {
@@ -590,61 +710,9 @@ Page({
                         
                         // 处理广播数据（iOS设备）
                         if (this.isIOS && device.advertisData) {
-                            if (typeof device.advertisData === 'string') {
-                                // BluFi返回的是十六进制字符串，转换为ArrayBuffer
-                                console.log('广播数据（十六进制字符串）:', device.advertisData);
-                                console.log('数据长度:', device.advertisData.length, '字符');
-                                
-                                // 将十六进制字符串转换为ArrayBuffer
-                                const arrayBuffer = BluetoothManager.hexStringToArrayBuffer(device.advertisData);
-                                
-                                if (arrayBuffer) {
-                                    const data = new Uint8Array(arrayBuffer);
-                                    const hexString = Array.from(data).map(b => '0x' + b.toString(16).toUpperCase());
-                                    console.log('广播数据（十六进制数组）:', hexString);
-                                    console.log('广播数据（字节数组）:', Array.from(data));
-                                    console.log('数据长度:', data.length, '字节');
-                                    
-                                    // 提取MAC地址
-                                    if (hexString.length >= 11) {
-                                        extractedMac = BluetoothManager.extractMacFromHexArray(hexString);
-                                        console.log('iOS设备提取的MAC地址:', extractedMac);
-                                        
-                                        // 只在还没保存MAC且成功提取到MAC时保存
-                                        if (extractedMac && !hasSavedMac) {
-                                            wx.setStorageSync('wifi_device_mac', extractedMac);
-                                            this.setData({ wifiMac: extractedMac });
-                                            console.log('iOS设备已保存GoodSleep设备的WiFi MAC地址:', extractedMac);
-                                            hasSavedMac = true; // 标记已保存，后续设备不再保存
-                                        } else if (extractedMac && hasSavedMac) {
-                                            console.log('WiFi MAC地址已保存，跳过重复保存');
-                                        }
-                                    }
-                                }
-                            } else if (device.advertisData instanceof ArrayBuffer) {
-                                // 如果是ArrayBuffer，提取MAC地址
-                                const data = new Uint8Array(device.advertisData);
-                                const hexString = Array.from(data).map(b => '0x' + b.toString(16).toUpperCase());
-                                console.log('广播数据（十六进制）:', hexString);
-                                console.log('广播数据（字节数组）:', Array.from(data));
-                                console.log('数据长度:', data.length, '字节');
-                                
-                                // 提取MAC地址
-                                if (hexString.length >= 11) {
-                                    extractedMac = BluetoothManager.extractMacFromHexArray(hexString);
-                                    console.log('iOS设备提取的MAC地址:', extractedMac);
-                                    
-                                    // 只在还没保存MAC且成功提取到MAC时保存
-                                    if (extractedMac && !hasSavedMac) {
-                                        wx.setStorageSync('wifi_device_mac', extractedMac);
-                                        this.setData({ wifiMac: extractedMac });
-                                        console.log('iOS设备已保存GoodSleep设备的WiFi MAC地址:', extractedMac);
-                                        hasSavedMac = true; // 标记已保存，后续设备不再保存
-                                    } else if (extractedMac && hasSavedMac) {
-                                        console.log('WiFi MAC地址已保存，跳过重复保存');
-                                    }
-                                }
-                            }
+                            const macResult = this._extractIOSMacAddress(device.advertisData, hasSavedMac);
+                            extractedMac = macResult.extractedMac;
+                            hasSavedMac = macResult.hasSavedMac;
                         } else {
                             console.log('广播数据: 无 或 非iOS设备');
                         }
@@ -694,25 +762,27 @@ Page({
                     
                     this.setData({
                         connectedDeviceId: result.data.deviceId,
-                        stepsCompleted: [true, true, false],
+                        stepsCompleted: [true, true, false], // 第一步和第二步完成
                         devices: updatedDevices,
-                        currentTab: 1, // 跳转到WiFi配置步骤
+                        currentTab: 2, // 跳转到配网步骤
                         sequenceCount: 0 // 重置序列号（参考项目）
                     });
                     
                     console.log('蓝牙连接成功，开始初始化设备');
                     
-                    // 立即初始化设备（参考项目）
+                    // 立即初始化设备
                     blufi.notifyInitBleEsp32({ deviceId: result.data.deviceId });
                     
-                    // 初始化WiFi步骤（参考项目）
-                    this.initWifi();
+                    // 等待50ms后开始配网（使用第一步保存的WiFi信息）
+                    setTimeout(() => {
+                        console.log('等待50ms后开始配网，使用保存的WiFi配置:', this.data.savedWifiConfig);
+                        this.startWifiConfig();
+                    }, 50);
                 } else {
                     wx.hideLoading();
                     console.log('设备连接失败:', result.data);
                     
                     // 提供更详细的错误信息
-                    // let errorMessage = '设备连接失败';
                     if (result.data && result.data.errorCode) {
                         const errorCode = result.data.errorCode;
                         switch (errorCode) {
@@ -730,19 +800,6 @@ Page({
                         }
                     }
                     
-                //     wx.showModal({
-                //         title: '连接失败',
-                //         content: errorMessage + '\n\n请尝试：\n1. 确保设备已进入配网模式\n2. 检查设备是否在附近\n3. 重启设备后重试',
-                //         showCancel: true,
-                //         cancelText: '重试',
-                //         confirmText: '确定',
-                //         success: (res) => {
-                //             if (res.cancel) {
-                //                 // 用户选择重试，重新搜索设备
-                //                 this.startBluetoothSearch();
-                //             }
-                //         }
-                //     });
                 }
                 break;
                 
@@ -750,9 +807,9 @@ Page({
                 // 配网结果
                 wx.hideLoading();
                 console.log('配网结果:', result);
-                console.log('配网结果詳情:', JSON.stringify(result));
-                console.log('當前配網狀態:', this.data.isConfiguring);
-                console.log('當前WiFi配置:', this.data.savedWifiConfig);
+                console.log('配网结果详情:', JSON.stringify(result));
+                console.log('当前配网状态:', this.data.isConfiguring);
+                console.log('当前WiFi配置:', this.data.savedWifiConfig);
                 
                 // 清除配网超时计时器
                 if (this._wifiConfigTimeout) {
@@ -762,10 +819,33 @@ Page({
                 
                 if (!result.result) {
                     // 配网失败
+                    console.log('配网失败，断开蓝牙设备并返回WiFi配置步骤');
+                    
+                    // 断开已连接的蓝牙设备
+                    if (this.data.connectedDeviceId) {
+                        try {
+                            blufi.notifyConnectBle({
+                                isStart: false,
+                                deviceId: this.data.connectedDeviceId,
+                                name: 'GoodSleep设备'
+                            });
+                            console.log('配网失败，已断开蓝牙设备:', this.data.connectedDeviceId);
+                        } catch (error) {
+                            console.error('断开蓝牙设备失败:', error);
+                        }
+                    }
+                    
+                    // 清除本地存储的设备信息
+                    wx.removeStorageSync('connectedDevice');
+                    
                     this.setData({
                         isConfiguring: false,
-                        currentTab: 1 // 回到WiFi配置步骤
+                        currentTab: 0, // 回到WiFi配置步骤
+                        connectedDeviceId: '',
+                        devices: [],
+                        stepsCompleted: [false, false, false]
                     });
+                    
                     wx.showModal({
                         title: '配网失败',
                         content: '配网失败，请重试',
@@ -785,6 +865,17 @@ Page({
                                 data: wifiMac
                             });
                             console.log('已保存WiFi MAC地址:', wifiMac);
+                        }
+                        
+                        // 保存WiFi名称到本地存储（使用用户输入的WiFi名称，而不是配网结果返回的ssid）
+                        const wifiNameToSave = this.data.savedWifiConfig?.ssid || this.data.wifiName;
+                        if (wifiNameToSave) {
+                            wx.setStorage({
+                                key: 'connected_wifi_name',
+                                data: wifiNameToSave
+                            });
+                            console.log('已保存WiFi名称:', wifiNameToSave);
+                            console.log('配网结果返回的ssid:', ssid);
                         }
                         
                         // 保存WiFi密码到本地存储
@@ -835,7 +926,7 @@ Page({
         }
     },
 
-    // UTF8编码函数（参考项目）
+    // UTF8编码函数
     encodeUtf8: function(text) {
         const code = encodeURIComponent(text);
         const bytes = [];
@@ -853,34 +944,6 @@ Page({
         return bytes;
     },
 
-    // 静态方法（已注释，保留以便参考）
-    // writeCharacteristicValue: function(data) {
-    //     console.log('[writeCharacteristicValue]:', data);
-    //     const { connectedDeviceId } = this.data;
-    //     if (!connectedDeviceId) {
-    //         console.error('没有已连接的设备ID');
-    //         return;
-    //     }
-    //
-    //     // 静态UUID（固定值）
-    //     const serviceId = "0000FFFF-0000-1000-8000-00805F9B34FB";
-    //     const characteristicId = "0000FF01-0000-1000-8000-00805F9B34FB";
-    //
-    //     // 直接使用固定UUID写入特征值
-    //     wx.writeBLECharacteristicValue({
-    //         deviceId: connectedDeviceId,
-    //         serviceId: serviceId,
-    //         characteristicId: characteristicId,
-    //         value: data,
-    //         success: (res) => {
-    //             console.log('特征值写入成功:', res);
-    //         },
-    //         fail: (res) => {
-    //             console.error('特征值写入失败:', res);
-    //         }
-    //     });
-    // },
-
     // 动态方法：自动获取UUID并写入特征值
     writeCharacteristicValue: function(data) {
         console.log('[writeCharacteristicValue]:', data);
@@ -888,82 +951,105 @@ Page({
         
         if (!connectedDeviceId) {
             console.error('没有已连接的设备ID');
+            wx.showToast({ title: '设备未连接', icon: 'none' });
             return;
         }
 
-        // 动态获取设备的所有服务（不使用固定UUID）
-        wx.getBLEDeviceServices({
-            deviceId: connectedDeviceId,
-            success: (res) => {
-                console.log('获取蓝牙服务成功，所有服务:', res.services);
-                
-                if (!res.services || res.services.length === 0) {
-                    console.error('未找到任何服务');
-                    return;
-                }
-                
-                // 使用第一个服务
-                const service = res.services[0];
-                console.log('使用服务:', service.uuid);
-                
-                // 获取该服务的所有特征值
-                wx.getBLEDeviceCharacteristics({
-                    deviceId: connectedDeviceId,
-                    serviceId: service.uuid,
-                    success: (charRes) => {
-                        console.log('获取特征值成功，所有特征值:', charRes.characteristics);
-                        
-                        if (!charRes.characteristics || charRes.characteristics.length === 0) {
-                            console.error('未找到任何特征值');
-                            return;
-                        }
-                        
-                        // 找到具有写入权限的特征值
-                        let foundCharacteristic = null;
-                        for (let i = 0; i < charRes.characteristics.length; i++) {
-                            const char = charRes.characteristics[i];
-                            console.log(`特征值 ${i}:`, char.uuid, '性质:', char.properties);
-                            
-                            // 检查是否支持写入
-                            if (char.properties.write || char.properties.writeNoResponse) {
-                                foundCharacteristic = char;
-                                console.log('找到支持写入的特征值:', char.uuid);
-                                break;
-                            }
-                        }
-                        
-                        // 如果没找到支持写入的，使用第一个
-                        if (!foundCharacteristic) {
-                            foundCharacteristic = charRes.characteristics[0];
-                            console.log('未找到支持写入的特征值，使用第一个:', foundCharacteristic.uuid);
-                        }
-                        
-                        // 使用找到的特征值UUID写入
-                        wx.writeBLECharacteristicValue({
-                            deviceId: connectedDeviceId,
-                            serviceId: service.uuid,
-                            characteristicId: foundCharacteristic.uuid,
-                            value: data,
-                            success: (writeRes) => {
-                                console.log('特征值写入成功:', writeRes);
-                            },
-                            fail: (writeErr) => {
-                                console.error('特征值写入失败:', writeErr);
-                            }
-                        });
-                    },
-                    fail: (charErr) => {
-                        console.error('获取特征值失败:', charErr);
+        try {
+            // 动态获取设备的所有服务
+            wx.getBLEDeviceServices({
+                deviceId: connectedDeviceId,
+                success: (res) => {
+                    console.log('获取蓝牙服务成功，所有服务:', res.services);
+                    
+                    if (!res.services || res.services.length === 0) {
+                        console.error('未找到任何服务');
+                        wx.showToast({ title: '未找到蓝牙服务', icon: 'none' });
+                        return;
                     }
-                });
-            },
-            fail: (res) => {
-                console.error('获取蓝牙服务失败:', res);
-            }
-        });
+                    
+                    // 使用第一个服务
+                    const service = res.services[0];
+                    console.log('使用服务:', service.uuid);
+                    
+                    // 获取该服务的所有特征值
+                    wx.getBLEDeviceCharacteristics({
+                        deviceId: connectedDeviceId,
+                        serviceId: service.uuid,
+                        success: (charRes) => {
+                            console.log('获取特征值成功，所有特征值:', charRes.characteristics);
+                            
+                            if (!charRes.characteristics || charRes.characteristics.length === 0) {
+                                console.error('未找到任何特征值');
+                                wx.showToast({ title: '未找到特征值', icon: 'none' });
+                                return;
+                            }
+                            
+                            // 找到具有写入权限的特征值
+                            let foundCharacteristic = null;
+                            for (let i = 0; i < charRes.characteristics.length; i++) {
+                                const char = charRes.characteristics[i];
+                                console.log(`特征值 ${i}:`, char.uuid, '性质:', char.properties);
+                                
+                                // 检查是否支持写入
+                                if (char.properties.write || char.properties.writeNoResponse) {
+                                    foundCharacteristic = char;
+                                    console.log('找到支持写入的特征值:', char.uuid);
+                                    break;
+                                }
+                            }
+                            
+                            // 如果没找到支持写入的，使用第一个
+                            if (!foundCharacteristic) {
+                                foundCharacteristic = charRes.characteristics[0];
+                                console.log('未找到支持写入的特征值，使用第一个:', foundCharacteristic.uuid);
+                            }
+                            
+                            // 使用找到的特征值UUID写入
+                            wx.writeBLECharacteristicValue({
+                                deviceId: connectedDeviceId,
+                                serviceId: service.uuid,
+                                characteristicId: foundCharacteristic.uuid,
+                                value: data,
+                                success: (writeRes) => {
+                                    console.log('特征值写入成功:', writeRes);
+                                },
+                                fail: (writeErr) => {
+                                    console.error('特征值写入失败:', writeErr);
+                                    wx.showToast({ 
+                                        title: '写入失败: ' + (writeErr.errMsg || '未知错误'), 
+                                        icon: 'none',
+                                        duration: 2000
+                                    });
+                                }
+                            });
+                        },
+                        fail: (charErr) => {
+                            console.error('获取特征值失败:', charErr);
+                            wx.showToast({ 
+                                title: '获取特征值失败: ' + (charErr.errMsg || '未知错误'), 
+                                icon: 'none',
+                                duration: 2000
+                            });
+                        }
+                    });
+                },
+                fail: (res) => {
+                    console.error('获取蓝牙服务失败:', res);
+                    wx.showToast({ 
+                        title: '获取服务失败: ' + (res.errMsg || '未知错误'), 
+                        icon: 'none',
+                        duration: 2000
+                    });
+                }
+            });
+        } catch (error) {
+            console.error('writeCharacteristicValue异常:', error);
+            wx.showToast({ title: '写入异常: ' + error.message, icon: 'none' });
+        }
     },
 
-    // 检查并标记弹窗是否已显示（防止重复显示）
+    // 检查并标记弹窗是否已显示
     _checkAndMarkModal(modalName) {
         if (!this.data._modalShown[modalName]) {
             this.setData({
@@ -972,6 +1058,59 @@ Page({
             return false; // 未显示过，返回false表示可以显示
         }
         return true; // 已显示过，返回true表示不显示
+    },
+
+    // 提取iOS设备MAC地址
+    _extractIOSMacAddress(advertisData, hasSavedMac) {
+        let extractedMac = null;
+        
+        if (typeof advertisData === 'string') {
+            // BluFi返回的是十六进制字符串，转换为ArrayBuffer
+            console.log('广播数据（十六进制字符串）:', advertisData);
+            console.log('数据长度:', advertisData.length, '字符');
+            
+            // 将十六进制字符串转换为ArrayBuffer
+            const arrayBuffer = BluetoothManager.hexStringToArrayBuffer(advertisData);
+            
+            if (arrayBuffer) {
+                const data = new Uint8Array(arrayBuffer);
+                const hexString = Array.from(data).map(b => '0x' + b.toString(16).toUpperCase());
+                console.log('广播数据（十六进制数组）:', hexString);
+                console.log('广播数据（字节数组）:', Array.from(data));
+                console.log('数据长度:', data.length, '字节');
+                
+                // 提取MAC地址
+                if (hexString.length >= 11) {
+                    extractedMac = BluetoothManager.extractMacFromHexArray(hexString);
+                    console.log('iOS设备提取的MAC地址:', extractedMac);
+                }
+            }
+        } else if (advertisData instanceof ArrayBuffer) {
+            // 如果是ArrayBuffer，提取MAC地址
+            const data = new Uint8Array(advertisData);
+            const hexString = Array.from(data).map(b => '0x' + b.toString(16).toUpperCase());
+            console.log('广播数据（十六进制）:', hexString);
+            console.log('广播数据（字节数组）:', Array.from(data));
+            console.log('数据长度:', data.length, '字节');
+            
+            // 提取MAC地址
+            if (hexString.length >= 11) {
+                extractedMac = BluetoothManager.extractMacFromHexArray(hexString);
+                console.log('iOS设备提取的MAC地址:', extractedMac);
+            }
+        }
+        
+        // 保存MAC地址（如果成功提取且还未保存）
+        if (extractedMac && !hasSavedMac) {
+            wx.setStorageSync('wifi_device_mac', extractedMac);
+            this.setData({ wifiMac: extractedMac });
+            console.log('iOS设备已保存GoodSleep设备的WiFi MAC地址:', extractedMac);
+            return { extractedMac, hasSavedMac: true };
+        } else if (extractedMac && hasSavedMac) {
+            console.log('WiFi MAC地址已保存，跳过重复保存');
+        }
+        
+        return { extractedMac, hasSavedMac };
     },
 
     // 格式化设备显示名称
@@ -1051,66 +1190,200 @@ Page({
     },
     // 配网方法
     connectWifi() {
-        wx.showLoading({
-            title: '正在配网',
-            mask: true
-        });
-        this.setData({ 
-            isConfiguring: true,
-            currentTab: 2 // 跳转到第三步
-        });
+        // 边界情况处理：检查设备是否还连接
+        if (!this.data.connectedDeviceId) {
+            wx.showModal({
+                title: '设备未连接',
+                content: '设备未连接，无法配网，请先连接蓝牙设备',
+                showCancel: false,
+                confirmText: '确定'
+            });
+            this.setData({ 
+                isConfiguring: false,
+                currentTab: 1 // 回到蓝牙连接步骤
+            });
+            return;
+        }
         
-        // 使用全局序列号（参考项目）
-        let ssid_payload = [0x09, 0x00, this.data.sequenceCount++];
-        let pwd_payload = [0x0D, 0x00, this.data.sequenceCount++];
-        let connect_payload = [0x0C, 0x00, 0x02, this.data.sequenceCount++];
-
-        var temp_ssid_payload = []
-        for(var i = 0; i < this.data.wifiName.length; i++){
-            var ssid_utf8 = this.encodeUtf8(this.data.wifiName[i])
-            temp_ssid_payload.push(...ssid_utf8);
+        // 边界情况处理：检查WiFi配置是否有效
+        if (!this.data.wifiName || !this.data.wifiPassword) {
+            wx.showModal({
+                title: 'WiFi配置不完整',
+                content: 'WiFi配置信息不完整，请先完成WiFi配置',
+                showCancel: false,
+                confirmText: '确定'
+            });
+            this.setData({ 
+                isConfiguring: false,
+                currentTab: 0 // 回到WiFi配置步骤
+            });
+            return;
         }
+        
+        try {
+            wx.showLoading({
+                title: '正在配网',
+                mask: true
+            });
+            this.setData({ 
+                isConfiguring: true,
+                currentTab: 2 // 跳转到第三步
+            });
+            
+            // 使用全局序列号（参考项目）
+            let ssid_payload = [0x09, 0x00, this.data.sequenceCount++];
+            let pwd_payload = [0x0D, 0x00, this.data.sequenceCount++];
+            let connect_payload = [0x0C, 0x00, 0x02, this.data.sequenceCount++];
 
-        ssid_payload.push(temp_ssid_payload.length);
-        ssid_payload.push(...temp_ssid_payload);
-        var temp_pwd_payload = []
-        for(var i = 0; i < this.data.wifiPassword.length; i++){
-            var pwd_utf8 = this.encodeUtf8(this.data.wifiPassword[i])
-            temp_pwd_payload.push(...pwd_utf8);
-        }
-        pwd_payload.push(temp_pwd_payload.length);
-        pwd_payload.push(...temp_pwd_payload);
+            let temp_ssid_payload = []
+            for(let i = 0; i < this.data.wifiName.length; i++){
+                let ssid_utf8 = this.encodeUtf8(this.data.wifiName[i])
+                temp_ssid_payload.push(...ssid_utf8);
+            }
 
-        var ssidArray = new Uint8Array(ssid_payload);
-        var passwordArray = new Uint8Array(pwd_payload);
-        var connectCMD = new Uint8Array(connect_payload);
-        console.log('发送配网信息')
-        this.writeCharacteristicValue(ssidArray.buffer)
-        this.writeCharacteristicValue(passwordArray.buffer)
-        this.writeCharacteristicValue(connectCMD.buffer)
+            ssid_payload.push(temp_ssid_payload.length);
+            ssid_payload.push(...temp_ssid_payload);
+            let temp_pwd_payload = []
+            for(let i = 0; i < this.data.wifiPassword.length; i++){
+                let pwd_utf8 = this.encodeUtf8(this.data.wifiPassword[i])
+                temp_pwd_payload.push(...pwd_utf8);
+            }
+            pwd_payload.push(temp_pwd_payload.length);
+            pwd_payload.push(...temp_pwd_payload);
 
-        // 设置20秒配网超时（参考项目）
+            let ssidArray = new Uint8Array(ssid_payload);
+            let passwordArray = new Uint8Array(pwd_payload);
+            let connectCMD = new Uint8Array(connect_payload);
+            console.log('发送配网信息')
+            
+            // 发送配网信息，添加错误处理
+            try {
+                this.writeCharacteristicValue(ssidArray.buffer);
+                this.writeCharacteristicValue(passwordArray.buffer);
+                this.writeCharacteristicValue(connectCMD.buffer);
+            } catch (writeError) {
+                console.error('发送配网信息失败:', writeError);
+                wx.hideLoading();
+                
+                console.log('发送配网信息失败，断开蓝牙设备并返回WiFi配置步骤');
+                
+                // 断开已连接的蓝牙设备
+                if (this.data.connectedDeviceId) {
+                    try {
+                        blufi.notifyConnectBle({
+                            isStart: false,
+                            deviceId: this.data.connectedDeviceId,
+                            name: 'GoodSleep设备'
+                        });
+                        console.log('发送配网信息失败，已断开蓝牙设备:', this.data.connectedDeviceId);
+                    } catch (error) {
+                        console.error('断开蓝牙设备失败:', error);
+                    }
+                }
+                
+                // 清除本地存储的设备信息
+                wx.removeStorageSync('connectedDevice');
+                
+                this.setData({ 
+                    isConfiguring: false,
+                    currentTab: 0, // 回到WiFi配置步骤
+                    connectedDeviceId: '',
+                    devices: [],
+                    stepsCompleted: [false, false, false]
+                });
+                
+                wx.showModal({
+                    title: '配网失败',
+                    content: '发送配网信息失败，请检查设备连接状态后重试',
+                    showCancel: false,
+                    confirmText: '确定'
+                });
+                return;
+            }
+
+        // 设置配网超时
         this._wifiConfigTimeout = setTimeout(() => {
-            console.log('[blue] 配网超时（20秒）');
+            // 检查配网是否已经完成
+            if (!this.data.isConfiguring) {
+                console.log('[blue] 配网超时定时器触发，但配网已完成，跳过超时处理');
+                return;
+            }
+            
+            console.log('[blue] 配网超时（30秒）');
             wx.hideLoading();
+            
+            console.log('配网超时，断开蓝牙设备并返回WiFi配置步骤');
+            
+            // 断开已连接的蓝牙设备
+            if (this.data.connectedDeviceId) {
+                try {
+                    blufi.notifyConnectBle({
+                        isStart: false,
+                        deviceId: this.data.connectedDeviceId,
+                        name: 'GoodSleep设备'
+                    });
+                    console.log('配网超时，已断开蓝牙设备:', this.data.connectedDeviceId);
+                } catch (error) {
+                    console.error('断开蓝牙设备失败:', error);
+                }
+            }
+            
+            // 清除本地存储的设备信息
+            wx.removeStorageSync('connectedDevice');
             
             this.setData({
                 isConfiguring: false,
-                currentTab: 1 //  回到WiFi配置步骤
+                currentTab: 0, // 回到WiFi配置步骤
+                connectedDeviceId: '',
+                devices: [],
+                stepsCompleted: [false, false, false]
             });
             
             wx.showModal({
                 title: '配网超时',
-                content: '配网超时，请检查WiFi密码是否正确，或设备是否在配网模式',
-                showCancel: true,
-                cancelText: '取消',
-                confirmText: '重试',
-                success: (res) => {
-                    if (res.confirm) {
-                        this.connectWifi();
-                    }
-                }
+                content: '请您检查wifi密码是否正确（可点击输入框旁边的小图标查看密码），然后重新拔插设备电源',
+                showCancel: false,
+                confirmText: '确定'
             });
-        }, 60000); // 20秒超时
+        }, 30000); // 30秒超时
+            
+        } catch (error) {
+            console.error('connectWifi异常:', error);
+            wx.hideLoading();
+            
+            console.log('connectWifi异常，断开蓝牙设备并返回WiFi配置步骤');
+            
+            // 断开已连接的蓝牙设备
+            if (this.data.connectedDeviceId) {
+                try {
+                    blufi.notifyConnectBle({
+                        isStart: false,
+                        deviceId: this.data.connectedDeviceId,
+                        name: 'GoodSleep设备'
+                    });
+                    console.log('connectWifi异常，已断开蓝牙设备:', this.data.connectedDeviceId);
+                } catch (disconnectError) {
+                    console.error('断开蓝牙设备失败:', disconnectError);
+                }
+            }
+            
+            // 清除本地存储的设备信息
+            wx.removeStorageSync('connectedDevice');
+            
+            this.setData({ 
+                isConfiguring: false,
+                currentTab: 0, // 回到WiFi配置步骤
+                connectedDeviceId: '',
+                devices: [],
+                stepsCompleted: [false, false, false]
+            });
+            
+            wx.showModal({
+                title: '配网异常',
+                content: '配网过程中发生异常: ' + error.message,
+                showCancel: false,
+                confirmText: '确定'
+            });
+        }
     }
 });

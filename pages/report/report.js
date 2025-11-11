@@ -101,12 +101,12 @@ Page({
       calendarValue: today
     });
     
-    // 加载今天的睡眠报告，查询范围包含昨天到明天（确保能查到跨夜睡眠）
+    // 加载今天的睡眠报告，查询范围包含昨天到明天
     const startDate = DataProcessor.getPreviousDay(today);
     const endDate = DataProcessor.getNextDay(today);
     
     this.loadSleepReports(startDate, endDate, wifiMac, today)
-    // this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", today);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e4:c9:9f", today);
     
     // 知道睡眠报告id以后的获取详细睡眠报告详情测试方法
     // this.testSleepReportDetail("f4:cf:a2:80:9f:ac", 41250);
@@ -131,12 +131,12 @@ Page({
       showCalendar: false
     });
     
-    // 加载选中日期的睡眠报告，查询范围包含前一天到明天（确保能查到跨夜睡眠）
+    // 加载选中日期的睡眠报告，查询范围包含前一天到明天
     const startDate = DataProcessor.getPreviousDay(selectedDate);
     const endDate = DataProcessor.getNextDay(selectedDate);
     
     this.loadSleepReports(startDate, endDate, this.data.wifiMac, selectedDate);
-    // this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", selectedDate);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e4:c9:9f", selectedDate);
   },
 
   onDateChange(e) {
@@ -148,12 +148,12 @@ Page({
       calendarValue: selectedDate
     });
     
-    // 加载选中日期的睡眠报告，查询范围包含前一天到明天（确保能查到跨夜睡眠）
+    // 加载选中日期的睡眠报告，查询范围包含前一天到明天
     const startDate = DataProcessor.getPreviousDay(selectedDate);
     const endDate = DataProcessor.getNextDay(selectedDate);
     
     this.loadSleepReports(startDate, endDate, this.data.wifiMac, selectedDate);
-    // this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", selectedDate);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e4:c9:9f", selectedDate);
     // 手動更新睡眠階段圖表
     setTimeout(() => {
       this.updateSleepStageChart();

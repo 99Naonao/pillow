@@ -146,7 +146,7 @@ page {
 
 .status-main-text {
   color: #0b2853;
-  font-size: 24rpx;
+  font-size: 32rpx;
   font-weight: bold;
   margin-bottom: 8rpx;
   line-height: 1.2;
@@ -154,7 +154,7 @@ page {
 
 .status-sub-text {
   color: #0b2853;
-  font-size: 20rpx;
+  font-size: 24rpx;
   font-weight: bold;
   line-height: 1.2;
 }
