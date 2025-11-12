@@ -69,9 +69,21 @@ class WifiConfigManager {
             console.log('WiFi启动成功，开始检查WiFi状态');
             await this.checkWifiStatus();
         } catch (error) {
-            console.error('初始化WiFi步骤失败:', error);
-            // 如果初始化失败，显示WiFi列表
-            this.showWifiList();
+          console.error('初始化WiFi步骤失败:', error);
+          // 检查是否是WiFi未打开的错误
+          const systemInfo = wx.getDeviceInfo();
+          const isIOS = systemInfo.platform === 'ios';
+          
+          if (error.errCode === 12005 || error.errCode === 12006) {
+              // Android WiFi未打开
+              this._showWifiDisabledModal('请先打开手机WiFi开关并授权位置信息');
+          } else if (isIOS && (error.errno === 1505002 || (error.errMsg && error.errMsg.includes('wifi is disabled')))) {
+              // iOS WiFi未打开
+              this._showWifiDisabledModal('请先打开手机WiFi开关');
+          } else {
+              // 其他错误，尝试显示WiFi列表
+              this.showWifiList();
+          }
         }
     }
 
@@ -121,10 +133,50 @@ class WifiConfigManager {
             }
         } catch (error) {
             console.error('检查WiFi状态失败:', error);
+            // 检查是否是WiFi未打开的错误（iOS）
+            const systemInfo = wx.getDeviceInfo();
+            const isIOS = systemInfo.platform === 'ios';
+            
+            if (isIOS && (error.errno === 1505002)) {
+                // iOS WiFi未打开，直接显示弹窗
+                console.log('iOS WiFi未打开，显示弹窗提示');
+                this._showWifiDisabledModal('请先打开手机WiFi开关');
+                return;
+            }
             // 如果检查失败，也显示WiFi列表
             this.showWifiList();
         }
     }
+
+    /**
+     * 显示WiFi未打开弹窗
+     */
+    _showWifiDisabledModal(errorMessage) {
+      // 防止重复显示错误提示
+      if (this.page.data._isShowingWifiError) {
+          return;
+      }
+      
+      this.page.setData({ _isShowingWifiError: true });
+      wx.showModal({
+          title: 'WiFi错误',
+          content: errorMessage + '\n\n请按照以下步骤操作：\n1. 打开手机设置\n2. 进入"无线局域网"\n3. 开启WiFi\n4. 点击"重试"',
+          confirmText: '重试',
+          cancelText: '取消',
+          success: (res) => {
+              this.page.setData({ _isShowingWifiError: false });
+              if (res.confirm) {
+                  // 重试检查WiFi状态
+                  setTimeout(() => {
+                      this.checkWifiStatus();
+                  }, 1000);
+              }
+          },
+          fail: () => {
+              this.page.setData({ _isShowingWifiError: false });
+          }
+      });
+  }
 
     /**
      * 显示WiFi列表
@@ -152,12 +204,17 @@ class WifiConfigManager {
             // 根据错误类型提供不同的提示和重试选项
             let errorMessage = '获取WiFi列表失败';
             let showRetry = false;
-            
+            const systemInfo = wx.getDeviceInfo();
+            const isIOS = systemInfo.platform === 'ios';
             if (error.errCode === 12005) {
                 errorMessage = 'WiFi功能被禁用，请在手机设置中开启WiFi';
                 showRetry = true;
             } else if (error.errCode === 12006) {
                 errorMessage = '请先打开手机WiFi开关并授权位置信息';
+                showRetry = true;
+            } else if (isIOS && (error.errno === 1505002 )) {
+                // iOS WiFi未打开的情况
+                errorMessage = '请先打开手机WiFi开关';
                 showRetry = true;
             }
             

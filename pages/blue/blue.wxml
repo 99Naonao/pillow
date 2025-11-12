@@ -13,47 +13,28 @@
   <!-- 步骤标题 -->
   <view wx:if="{{currentTab==0}}">
     <view class="wifi-wifi-btn-row">
-      <image src="/static/bluetooth.png" class="bluetooth-icon"/>
-        蓝牙连接
+      <image src="/static/wifi.png" class="bluetooth-icon" />
+        WiFi配置
     </view>
   </view>
   <view wx:if="{{currentTab==1}}">
     <view class="wifi-wifi-btn-row">
-      <image src="/static/wifi.png" class="bluetooth-icon" />
-        WiFi配置
+      <image src="/static/bluetooth.png" class="bluetooth-icon"/>
+        蓝牙连接
     </view>
   </view>
   <!-- 内容区 -->
   <scroll-view
     class="content-scroll"
     scroll-y="true"
-    refresher-enabled="{{currentTab == 0}}"
+    refresher-enabled="{{currentTab == 0 || currentTab == 1}}"
     refresher-triggered="{{isRefreshing}}"
     bindrefresherrefresh="onContentRefresh"
     style="height: calc(100vh - 120rpx - 60rpx - 100rpx);"
   >
-    <!-- 步骤一：蓝牙连接 -->
+    <!-- 步骤一：WiFi配置 -->
     <view wx:if="{{currentTab==0}}">
-      <view class="refresh-tip">下拉重新搜索</view>
-      <view class="search-result-title">搜索到以下{{devices.length}}个设备</view>
-      <view class="device-list">
-        <block wx:for="{{devices}}" wx:key="deviceId">
-          <view class="device-card">
-            <view class="device-card-info">
-              <view class="device-name">{{item.displayName || 'zzZMinga'}}</view>
-              <view class="device-mac">MAC: {{item.deviceId || item.uuid}}</view>
-            </view>
-            <view class="custom-switch {{item.isConnected ? 'switch-on' : 'switch-off'}}" 
-                  bindtap="onCustomSwitchTap" data-deviceId="{{item.deviceId}}">
-              <view class="switch-slider"></view>
-            </view>
-          </view>
-        </block>
-      </view>
-    </view>
-
-    <!-- 步骤二：WiFi配置 -->
-    <view wx:if="{{currentTab==1}}">
+      <view class="refresh-tip">下拉刷新WiFi</view>
       <!-- 已选择WiFi（包括手机已连接WiFi） -->
       <view wx:if="{{wifiSelected}}">
         <view class="wifi-card">
@@ -61,7 +42,7 @@
             <view class="wifi-name">{{wifiName}}</view>
             <view wx:if="{{is5GConnected}}" class="wifi-5g-badge">5G</view>
           </view>
-          <view class="wifi-password-container">
+          <view class="wifi-password-container" wx:if="{{!wifiConfigDisabled}}">
             <input
               class="wifi-password-input"
               type="text"
@@ -88,12 +69,18 @@
               class="wifi-action-btn"
               type="primary"
               bindtap="nextStep"
-              disabled="{{is5GConnected}}"
+              disabled="{{is5GConnected || wifiConfigDisabled}}"
             >下一步</button>
-            <button class="wifi-action-btn" bindtap="showWifiList">更换WiFi</button>
+            <button 
+              class="wifi-action-btn" 
+              bindtap="showWifiList"
+            >更换WiFi</button>
           </view>
           <view wx:if="{{is5GConnected}}" class="wifi-5g-tip">
             当前WiFi为5G信号，仅支持2.4G WiFi，请更换WiFi
+          </view>
+          <view wx:if="{{wifiConfigDisabled}}" class="wifi-5g-tip">
+            设备已连接到WiFi"{{wifiName}}"，无需重复配网
           </view>
         </view>
       </view>
@@ -120,6 +107,56 @@
       <view wx:else>
         <view class="wifi-loading">
           <view class="wifi-loading-text">正在检查WiFi状态...</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 步骤二：蓝牙连接 -->
+    <view wx:if="{{currentTab==1}}">
+      <view class="refresh-tip">下拉重新搜索</view>
+      
+      <!-- 扫描动画区域 -->
+      <view class="scanning-section">
+        <view class="scanning-animation-container">
+          <view class="radar-container">
+            <view class="radar-circle radar-circle-1"></view>
+            <view class="radar-circle radar-circle-2"></view>
+            <view class="radar-circle radar-circle-3"></view>
+            <view class="radar-circle radar-circle-4"></view>
+            <view class="radar-sweep"></view>
+            <view class="radar-center"></view>
+          </view>
+        </view>
+        <view class="scanning-text">正在扫描</view>
+        <view class="scanning-tip">请确保设备已连接电源,且已进入配网模式</view>
+        <view class="scanning-help-link" bindtap="onHelpLinkTap">设备如何进入配网模式?</view>
+      </view>
+
+      <!-- 设备列表区域 -->
+      <view class="device-discovery-section">
+        <view class="device-section-title">发现的蓝牙设备</view>
+        <view class="device-list-container">
+          <view wx:if="{{devices.length === 0}}" class="device-search-tip">
+            正在搜索蓝牙设备...
+          </view>
+          <block wx:else>
+            <block wx:for="{{devices}}" wx:key="deviceId">
+              <view class="device-card-new">
+                <view class="device-card-info-new">
+                  <view class="device-name-new">{{item.displayName || 'zzZMinga'}}</view>
+                  <view class="device-mac-new">设备Mac: {{item.formattedMac || item.deviceId || item.uuid}}</view>
+                </view>
+                <button 
+                  class="connect-btn {{item.isConnected ? 'connect-btn-connected' : ''}}" 
+                  bindtap="onCustomSwitchTap" 
+                  data-deviceId="{{item.deviceId}}"
+                  disabled="{{item.isConnected}}"
+                >
+                  {{item.isConnected ? '已连接' : '连接'}}
+                </button>
+              </view>
+            </block>
+          </block>
         </view>
       </view>
     </view>
@@ -175,6 +212,24 @@
   confirmText="已进入配网模式"
   bind:confirm="onGuideConfirm"
   bind:close="onGuideConfirm"
+  customClass="guide-modal-container"
+  confirmClass="guide-modal-button"
+></modal-dialog>
+
+<!-- 帮助链接弹窗 -->
+<modal-dialog
+  visible="{{helpModalVisible}}"
+  title="设备如何进入配网模式"
+  content="请按照以下步骤操作：\n1. 确保设备已连接电源\n2. 点击3次设备上的SOS按钮\n3. 等待设备指示灯闪烁\n4. 设备进入配网模式后即可搜索连接"
+  videoSrc="{{guideVideoSrc}}"
+  videoPoster="{{guideVideoPoster}}"
+  videoControls="{{true}}"
+  videoAutoplay="{{false}}"
+  showCancel="{{false}}"
+  showConfirm="{{true}}"
+  confirmText="我知道了"
+  bind:confirm="onHelpModalClose"
+  bind:close="onHelpModalClose"
   customClass="guide-modal-container"
   confirmClass="guide-modal-button"
 ></modal-dialog>

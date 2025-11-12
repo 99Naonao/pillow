@@ -151,27 +151,22 @@ Page({
     if (!serverHasPhoneNumbers && !localHasPhoneNumbers) {
       console.log('服務器和本地都沒有手機號，提示用戶先設置緊急聯繫人');
       wx.showModal({
-        title: '預警設置提醒',
-        content: '檢測到沒有設置緊急聯繫人，請先設置緊急聯繫人後再進行預警設置。',
-        confirmText: '去設置',
-        cancelText: '稍後設置',
+        title: '预警设置提醒',
+        content: '检测到沒有设置紧急联系人，请先设置紧急联系人后再进行预警设置。',
+        confirmText: '去设置',
+        cancelText: '稍后设置',
         success: (res) => {
           if (res.confirm) {
-            // 跳轉到個人中心設置緊急聯繫人
             console.log('用戶確認跳轉到緊急聯繫人設置頁面');
-            // 先跳轉到個人中心頁面
             wx.switchTab({
               url: '/pages/mine/mine'
             });
             // 延遲一點時間後再設置參數
             setTimeout(() => {
               console.log('準備打開緊急聯繫人彈窗');
-              // 這裡我們需要通過其他方式來觸發彈窗
-              // 可以通過全局事件或者直接調用方法
               getCurrentPages()[getCurrentPages().length - 1].openContactModal();
             }, 1000);
           } else {
-            // 用戶選擇稍後設置，仍然更新配置但不允許修改預警設置
             this.updateConfigFromServer(serverData);
             this.setData({
               configDisabled: true // 禁用預警設置

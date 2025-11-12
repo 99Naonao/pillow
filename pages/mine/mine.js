@@ -96,6 +96,9 @@ Page({
     const userInfo = wx.getStorageSync('userInfo');
     const token = wx.getStorageSync('token');
     
+    // 先加载告警设置
+    this.loadAlarmSettings();
+    
     if (userInfo && token) {
       // 使用API返回的用户信息，用户名显示为手机号，头像使用默认头像
       this.setData({
@@ -104,20 +107,26 @@ Page({
         userName: userInfo.account || userInfo.nickname || '用户'
       });
       
-      // 加载告警设置
-      this.loadAlarmSettings();
+      // 检查是否需要更新告警状态
+      const hasContacts = this.data.emergencyContacts && this.data.emergencyContacts.length > 0;
+      const shouldEnableAlarm = hasContacts;
       
-      // 如果用户已登录且有设置紧急联系人，自动开启告警功能
-      if (this.data.emergencyContacts && this.data.emergencyContacts.length > 0) {
-        console.log('用户已登录且有紧急联系人设置，自动开启告警功能');
-        this.setData({ alarmEnabled: true });
-        this.saveAlarmSettings();
-        // 启动呼吸监测
+      // 只在状态需要改变时才更新并保存
+      if (this.data.alarmEnabled !== shouldEnableAlarm) {
+        if (shouldEnableAlarm) {
+          console.log('用户已登录且有紧急联系人设置，自动开启告警功能');
+          this.setData({ alarmEnabled: true });
+          this.saveAlarmSettings();
+          // 启动呼吸监测
+          this.startBreathMonitor();
+        } else {
+          console.log('用户已登录但未设置紧急联系人，自动关闭告警功能');
+          this.setData({ alarmEnabled: false });
+          this.saveAlarmSettings();
+        }
+      } else if (shouldEnableAlarm) {
+        // 状态不需要改变，但如果告警已启用，确保监测已启动
         this.startBreathMonitor();
-      } else {
-        console.log('用户已登录但未设置紧急联系人，保持告警功能关闭');
-        this.setData({ alarmEnabled: false });
-        this.saveAlarmSettings();
       }
     } else {
       this.setData({
@@ -125,9 +134,6 @@ Page({
         avatarUrl: '',
         userName: ''
       });
-      
-      // 加载告警设置
-      this.loadAlarmSettings();
       
       // 如果告警已启用但用户未登录，自动关闭告警
       if (this.data.alarmEnabled) {
@@ -213,13 +219,69 @@ Page({
       const config = new HealthConfig(configData);
       
       // 更新phone_list
-      config.phoneList = [...this.data.emergencyContacts];
+      const newPhoneList = [...this.data.emergencyContacts];
+      const oldPhoneList = config.phoneList || [];
+      
+      // 检查phone_list是否真的发生了变化
+      const phoneListChanged = JSON.stringify(newPhoneList.sort()) !== JSON.stringify(oldPhoneList.sort());
+      
+      // 更新phone_list
+      config.phoneList = newPhoneList;
+      
+      // 获取更新后的配置
+      const newConfig = config.getAllConfig();
+      
+      // 检查配置是否真的发生了变化（比较关键字段）
+      const oldConfigStr = JSON.stringify({
+        phone_list: oldPhoneList,
+        is_hr_message: configData.is_hr_message,
+        is_hr_voice: configData.is_hr_voice,
+        hr_too_fast: configData.hr_too_fast,
+        hr_too_slow: configData.hr_too_slow,
+        is_br_message: configData.is_br_message,
+        is_br_voice: configData.is_br_voice,
+        br_too_fast: configData.br_too_fast,
+        br_too_slow: configData.br_too_slow,
+        is_outbed_message: configData.is_outbed_message,
+        is_outbed_voice: configData.is_outbed_voice,
+        outbed_exceed: configData.outbed_exceed,
+        outbed_start_time: configData.outbed_start_time,
+        outbed_end_time: configData.outbed_end_time,
+        is_sos_message: configData.is_sos_message,
+        is_sos_voice: configData.is_sos_voice,
+        is_apnea_message: configData.is_apnea_message,
+        is_apnea_voice: configData.is_apnea_voice
+      });
+      
+      const newConfigStr = JSON.stringify({
+        phone_list: newPhoneList,
+        is_hr_message: newConfig.is_hr_message,
+        is_hr_voice: newConfig.is_hr_voice,
+        hr_too_fast: newConfig.hr_too_fast,
+        hr_too_slow: newConfig.hr_too_slow,
+        is_br_message: newConfig.is_br_message,
+        is_br_voice: newConfig.is_br_voice,
+        br_too_fast: newConfig.br_too_fast,
+        br_too_slow: newConfig.br_too_slow,
+        is_outbed_message: newConfig.is_outbed_message,
+        is_outbed_voice: newConfig.is_outbed_voice,
+        outbed_exceed: newConfig.outbed_exceed,
+        outbed_start_time: newConfig.outbed_start_time,
+        outbed_end_time: newConfig.outbed_end_time,
+        is_sos_message: newConfig.is_sos_message,
+        is_sos_voice: newConfig.is_sos_voice,
+        is_apnea_message: newConfig.is_apnea_message,
+        is_apnea_voice: newConfig.is_apnea_voice
+      });
+      
+      const configChanged = oldConfigStr !== newConfigStr;
       
       // 保存更新后的配置
-      wx.setStorageSync('healthConfig', config.getAllConfig());
+      wx.setStorageSync('healthConfig', newConfig);
       
-      // 调用API设置设备预警
-      if (this.deviceManager) {
+      // 只在配置真正发生变化时才调用API
+      if (configChanged && this.deviceManager) {
+        console.log('检测到配置变化，调用API设置设备预警');
         this.deviceManager.setDeviceWarningSetting(config)
           .then(res => {
             console.log('设备预警设置成功:', res);
@@ -227,6 +289,8 @@ Page({
           .catch(err => {
             console.error('设备预警设置失败:', err);
           });
+      } else {
+        console.log('配置未发生变化，跳过API调用');
       }
     } catch (error) {
       console.error('同步到HealthConfig失败:', error);

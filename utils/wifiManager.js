@@ -185,6 +185,17 @@ class WifiManager {
             };
         } catch (error) {
             console.error('检查WiFi状态失败:', error);
+                        
+            // iOS WiFi未打开时，抛出错误让上层处理
+            const systemInfo = wx.getDeviceInfo();
+            const isIOS = systemInfo.platform === 'ios';
+            
+            if (isIOS && (error.errno === 1505002)) {
+                // iOS WiFi未打开，抛出错误
+                throw error;
+            }
+            
+            // 其他情况返回未连接状态
             return {
                 isConnected: false,
                 wifiName: '',

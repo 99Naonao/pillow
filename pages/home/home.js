@@ -376,7 +376,7 @@ Page({
   async connectOximeter() {
     try {
       // 检查平台：仅 Android 需要申请位置权限
-      const systemInfo = wx.getSystemInfoSync();
+      const systemInfo = wx.getDeviceInfo();
       const isAndroid = systemInfo && /android/i.test(systemInfo.system || systemInfo.platform || '');
       
       if (isAndroid) {
@@ -580,14 +580,26 @@ Page({
   /**
    * 更新设备状态显示
    * @param {boolean} isConnected 设备是否连接
-   * @param {string} deviceName 设备名称
+   * @param {string} statusName 设备名称
+   * @param {string} statusId 状态Id
    */
-  updateDeviceStatusDisplay(isConnected, deviceName = '') {
+  updateDeviceStatusDisplay(isConnected, statusName = '', statusId = null) {
     let statusText = '';
     let subText = '';
     let statusClass = '';
     
-    if (isConnected) {
+    if (isConnected && statuName) {
+      let displayStatusName = statusName;
+      if(statusId === 3){
+        displayStatusName = "离枕";
+      }
+      if(statusId === 1){
+        displayStatusName = "在枕";
+      }
+      statusText = '设备' + displayStatusName;
+      subText = 'zzzMinga';
+      statusClass = 'connected';
+    }else if(isConnected){
       statusText = '设备已连接';
       subText = 'zzzMinga';
       statusClass = 'connected';
@@ -599,7 +611,7 @@ Page({
     
     console.log('[home] 准备更新设备状态显示，setData前:', {
       isConnected,
-      deviceName,
+      statusName,
       statusText,
       subText,
       statusClass,
@@ -619,7 +631,7 @@ Page({
     
     console.log('[home] 设备状态显示更新完成，setData后:', {
       isConnected,
-      deviceName,
+      statusName,
       statusText,
       subText,
       statusClass,
@@ -657,7 +669,9 @@ Page({
       });
       
       if (heartbeatResult.success && heartbeatResult.isOnline) {
-        console.log('[home] 心跳检测验证成功，设备在线，状态:', heartbeatResult.status.name);
+        const statusName = heartbeatResult.status?.name || '';
+        const statusId = heartbeatResult.status?.id;
+        console.log('[home] 心跳检测验证成功，设备在线，状态:', statusName, '状态ID:', statusId);
         
         // 更新设备在线状态
         this.updateDeviceOnlineStatus(true);
@@ -669,7 +683,7 @@ Page({
         });
         
         // 更新设备状态显示
-        this.updateDeviceStatusDisplay(true, 'zzZMinga');
+        this.updateDeviceStatusDisplay(true, statusName,statusId);
         
         // 根据页面状态选择数据刷新方式
         if (wasHidden) {
@@ -682,6 +696,8 @@ Page({
         
         console.log('[home] 设备连接状态验证完成，设备在线');
       } else {
+        const statusName = heartbeatResult.status?.name || '离线';
+        const statusId = heartbeatResult.status?.id;
         console.log('[home] 心跳检测失败或设备离线:', heartbeatResult.error || '设备离线');
         
         // 更新设备离线状态
@@ -701,7 +717,7 @@ Page({
         });
         
         // 更新设备状态显示
-        this.updateDeviceStatusDisplay(false, '');
+        this.updateDeviceStatusDisplay(false, statusName,statusId);
         
         // 停止实时数据定时器和心跳监控
         this.deviceManager.clearRealtimeTimer();
@@ -741,7 +757,9 @@ Page({
       const heartbeatResult = await this.deviceManager.deviceHeartbeat(wifiMac);
       
       if (heartbeatResult.success && heartbeatResult.isOnline) {
-        console.log('[home] 心跳检测成功，设备在线，状态:', heartbeatResult.status.name);
+        const statusName = heartbeatResult.status?.name || '';
+        const statusId = heartbeatResult.status?.id;
+        console.log('[home] 心跳检测成功，设备在线，状态:', statusName, '状态ID:', statusId);
         
         // 更新设备在线状态
         this.updateDeviceOnlineStatus(true);
@@ -752,6 +770,8 @@ Page({
           deviceName: 'zzZMinga'
         });
         
+        this.updateDeviceStatusDisplay(true, statusName, statusId);
+
         // 获取设备实时数据
         this.deviceManager.getDeviceRealtimeData(wifiMac);
         this.deviceManager.startRealtimeTimer(wifiMac);
@@ -761,6 +781,8 @@ Page({
         
         console.log('[home] 设备连接状态确认完成，设备在线');
       } else {
+        const statusName = heartbeatResult.status?.name || '离线';
+        const statusId = heartbeatResult.status?.id;
         console.log('[home] 心跳检测失败或设备离线:', heartbeatResult.error || '设备离线');
         
         // 更新设备离线状态
@@ -779,6 +801,8 @@ Page({
           batteryVoltage: null
         });
         
+        // 更新设备状态显示
+        this.updateDeviceStatusDisplay(false, statusName, statusId);
         // 停止实时数据定时器
         this.deviceManager.clearRealtimeTimer();
         
@@ -845,9 +869,10 @@ Page({
             this.deviceManager.startRealtimeTimer(wifiMac);
           }
         }
-        
         // 更新设备状态显示
-        this.updateDeviceStatusDisplay(true, 'zzZMinga');
+        const statusName = result.status?.name || '';
+        const statusId = result.status?.id;
+        this.updateDeviceStatusDisplay(true, statusName, statusId);
         
       } else {
         // 设备离线或检测失败，更新离线状态
@@ -867,7 +892,9 @@ Page({
         });
         
         // 更新设备状态显示
-        this.updateDeviceStatusDisplay(false, '');
+        const offlineStatusName = result.status?.name || '离线';
+        const offlineStatusId = result.status?.id;
+        this.updateDeviceStatusDisplay(false, offlineStatusName, offlineStatusId);
         
         // 停止实时数据定时器
         this.deviceManager.clearRealtimeTimer();
