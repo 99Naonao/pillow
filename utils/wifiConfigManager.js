@@ -70,8 +70,21 @@ class WifiConfigManager {
             await this.checkWifiStatus();
         } catch (error) {
             console.error('初始化WiFi步骤失败:', error);
-            // 如果初始化失败，显示WiFi列表
-            this.showWifiList();
+            
+            // 检查是否是WiFi未打开的错误
+            const systemInfo = wx.getDeviceInfo();
+            const isIOS = systemInfo.platform === 'ios';
+            
+            if (error.errCode === 12005 || error.errCode === 12006) {
+                // Android WiFi未打开
+                this._showWifiDisabledModal('请先打开手机WiFi开关并授权位置信息');
+            } else if (isIOS && (error.errno === 1505002 || (error.errMsg && error.errMsg.includes('wifi is disabled')))) {
+                // iOS WiFi未打开
+                this._showWifiDisabledModal('请先打开手机WiFi开关');
+            } else {
+                // 其他错误，尝试显示WiFi列表
+                this.showWifiList();
+            }
         }
     }
 
@@ -121,9 +134,51 @@ class WifiConfigManager {
             }
         } catch (error) {
             console.error('检查WiFi状态失败:', error);
-            // 如果检查失败，也显示WiFi列表
+            
+            // 检查是否是WiFi未打开的错误（iOS）
+            const systemInfo = wx.getDeviceInfo();
+            const isIOS = systemInfo.platform === 'ios';
+            
+            if (isIOS && (error.errno === 1505002)) {
+                // iOS WiFi未打开，直接显示弹窗
+                console.log('iOS WiFi未打开，显示弹窗提示');
+                this._showWifiDisabledModal('请先打开手机WiFi开关');
+                return;
+            }
+            
+            // 其他错误，尝试显示WiFi列表
             this.showWifiList();
         }
+    }
+    
+    /**
+     * 显示WiFi未打开弹窗
+     */
+    _showWifiDisabledModal(errorMessage) {
+        // 防止重复显示错误提示
+        if (this.page.data._isShowingWifiError) {
+            return;
+        }
+        
+        this.page.setData({ _isShowingWifiError: true });
+        wx.showModal({
+            title: 'WiFi错误',
+            content: errorMessage + '\n\n请按照以下步骤操作：\n1. 打开手机设置\n2. 进入"无线局域网"\n3. 开启WiFi\n4. 点击"重试"',
+            confirmText: '重试',
+            cancelText: '取消',
+            success: (res) => {
+                this.page.setData({ _isShowingWifiError: false });
+                if (res.confirm) {
+                    // 重试检查WiFi状态
+                    setTimeout(() => {
+                        this.checkWifiStatus();
+                    }, 1000);
+                }
+            },
+            fail: () => {
+                this.page.setData({ _isShowingWifiError: false });
+            }
+        });
     }
 
     /**
@@ -153,11 +208,19 @@ class WifiConfigManager {
             let errorMessage = '获取WiFi列表失败';
             let showRetry = false;
             
+            // iOS WiFi未打开时的错误码是 1505002，错误信息包含 "wifi is disabled"
+            const systemInfo = wx.getDeviceInfo();
+            const isIOS = systemInfo.platform === 'ios';
+            
             if (error.errCode === 12005) {
                 errorMessage = 'WiFi功能被禁用，请在手机设置中开启WiFi';
                 showRetry = true;
             } else if (error.errCode === 12006) {
                 errorMessage = '请先打开手机WiFi开关并授权位置信息';
+                showRetry = true;
+            } else if (isIOS && (error.errno === 1505002 )) {
+                // iOS WiFi未打开的情况
+                errorMessage = '请先打开手机WiFi开关';
                 showRetry = true;
             }
             
@@ -193,14 +256,50 @@ class WifiConfigManager {
     selectWifi(ssid) {
         console.log('选择WiFi:', ssid);
         
-        // 重置WiFi相关状态，确保输入框可用
+        // 检查选择的WiFi是否与本地保存的WiFi一致
+        const savedWifiName = wx.getStorageSync('connected_wifi_name');
+        const isSameWifi = savedWifiName && ssid === savedWifiName;
+        
+        console.log('选择WiFi检查 - 选择的WiFi:', ssid);
+        console.log('选择WiFi检查 - 本地保存的WiFi:', savedWifiName);
+        console.log('选择WiFi检查 - 是否相同:', isSameWifi);
+        
+        // 重置WiFi相关状态
         this.page.setData({
             wifiName: ssid,
             wifiSelected: true,
             showWifiList: false,
             is5GConnected: false, // 重置5G状态，让输入框可用
-            wifiPassword: '' // 清空密码
+            wifiPassword: '', // 清空密码
+            wifiConfigDisabled: isSameWifi // 如果选择的WiFi与保存的WiFi一致，则禁用配置
         });
+        
+        if (isSameWifi) {
+            console.log('选择的WiFi与保存的WiFi一致，禁用WiFi配置');
+            // 提示用户选择的WiFi与已保存的WiFi相同，无需重复配网
+            wx.showModal({
+                title: '提示',
+                content: `已配置过同样WiFi，WiFi名称是"${ssid}"，如需重新配置相同WiFi请点击重新配网`,
+                showCancel: true,
+                cancelText: '我知道了',
+                confirmText: '重新配网',
+                success: (res) => {
+                    if (res.confirm) {
+                        // 用户点击"重新配网"，取消禁用状态，允许重新配网
+                        console.log('用户选择重新配网，取消WiFi配置禁用状态');
+                        this.page.setData({
+                            wifiConfigDisabled: false,
+                            wifiPassword: '' // 清空密码，让用户重新输入
+                        });
+                    } else if (res.cancel) {
+                        // 用户点击"我知道了"，保持禁用状态
+                        console.log('用户选择我知道了，保持WiFi配置禁用状态');
+                    }
+                }
+            });
+        } else {
+            console.log('选择的WiFi与保存的WiFi不一致，允许重新配网');
+        }
     }
 
     /**

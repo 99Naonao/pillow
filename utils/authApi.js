@@ -167,6 +167,92 @@ class AuthApi {
   }
 
   /**
+   * 微信手机号一键授权登录
+   * @param {Object} params
+   * @param {string} params.wxCode 微信登录凭证code
+   * @param {string} params.phoneCode 微信手机号授权返回的code
+   * @param {string} [params.encryptedData] 旧版能力额外返回的密文
+   * @param {string} [params.iv] 旧版能力额外返回的偏移量
+   * @param {string} version 版本号（可选）
+   * @returns {Promise} 请求结果
+   */
+  static loginWithWeChatPhone(params, version = '1') {
+    const payload = {
+      wx_code: params.wxCode,
+      phone_code: params.phoneCode,
+      encryptedData: params.encryptedData,
+      iv: params.iv,
+      terminal: '7'
+    };
+
+    // 记录请求参数（不记录敏感信息）
+    console.log('微信手机号登录请求参数:', {
+      hasWxCode: !!payload.wx_code,
+      hasPhoneCode: !!payload.phone_code,
+      hasEncryptedData: !!payload.encryptedData,
+      hasIv: !!payload.iv,
+      wxCodeLength: payload.wx_code ? payload.wx_code.length : 0,
+      phoneCodeLength: payload.phone_code ? payload.phone_code.length : 0
+    });
+
+    return new Promise((resolve, reject) => {
+      // 设置请求超时
+      const timeoutTimer = setTimeout(() => {
+        reject(new Error('请求超时，请检查网络后重试'));
+      }, 15000); // 15秒超时
+
+      wx.request({
+        url: `${BASE_URL}/shopapi/UserEquipment/equipmentWechatPhoneLogin`,
+        method: 'POST',
+        header: {
+          'content-type': 'application/json',
+          'version': version,
+          'terminal': '7'
+        },
+        data: payload,
+        timeout: 15000, // 设置请求超时时间
+        success: (res) => {
+          clearTimeout(timeoutTimer);
+          console.log('微信手机号授权登录响应:', {
+            statusCode: res.statusCode,
+            code: res.data?.code,
+            msg: res.data?.msg
+          });
+          
+          // 检查HTTP状态码
+          if (res.statusCode !== 200) {
+            reject(new Error(`请求失败，状态码: ${res.statusCode}`));
+            return;
+          }
+          
+          resolve(res.data);
+        },
+        fail: (error) => {
+          clearTimeout(timeoutTimer);
+          console.error('微信手机号授权登录请求失败:', {
+            errMsg: error.errMsg,
+            error: error
+          });
+          
+          // 根据错误类型提供更详细的错误信息
+          let errorMessage = '授权登录失败，请重试';
+          if (error.errMsg) {
+            if (error.errMsg.includes('timeout')) {
+              errorMessage = '请求超时，请检查网络后重试';
+            } else if (error.errMsg.includes('fail')) {
+              errorMessage = '网络请求失败，请检查网络连接';
+            } else {
+              errorMessage = error.errMsg;
+            }
+          }
+          
+          reject(new Error(errorMessage));
+        }
+      });
+    });
+  }
+
+  /**
    * 保存用户信息到本地
    * @param {Object} userInfo 用户信息
    */

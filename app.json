@@ -5,7 +5,10 @@
       "pages": [
         "login/login",
         "register/register",
-        "ring/ring"
+        "ring/ring",
+		"welcome/welcome",
+        "device_list/device_list",
+        "account_list/account_list"
       ]
     }
   ],

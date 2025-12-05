@@ -1,0 +1,70 @@
+<!--page_subject/device_list/device_list.wxml-->
+<view class="device-page">
+  <nav-bar title="设备列表"
+           bgColor="#0b2853"
+           titleColor="#fff"
+           bind:onBack="onBack" />
+
+  <view class="page-body">
+    <view class="toolbar">
+      <text class="timestamp" wx:if="{{lastUpdated}}">最近更新：{{lastUpdated}}</text>
+      <button class="refresh-btn" size="mini" bindtap="onRefreshTap" loading="{{isLoading}}">刷新</button>
+    </view>
+
+    <view class="state-card" wx:if="{{isLoading}}">
+      <text>加载中...</text>
+    </view>
+
+    <view class="state-card error" wx:elif="{{hasError}}">
+      <text>加载设备失败，请稍后重试</text>
+      <button class="retry-btn" bindtap="loadDevices">重新加载</button>
+    </view>
+
+    <view class="state-card" wx:elif="{{devices.length === 0}}">
+      <text>暂无关联设备</text>
+      <text class="state-subtext">请前往设备配网页连接新的设备</text>
+    </view>
+
+    <view class="device-list" wx:else>
+      <block wx:for="{{devices}}" wx:key="mac">
+        <view class="device-card" bindtap="copyMac" data-mac="{{item.device_id}}">
+          <view class="device-content">
+            <view class="device-info">
+              <view class="device-mac">设备MAC值:{{item.device_id}}</view>
+              <view class="device-label">{{index === 0 ? '最近使用' : '已关联'}}</view>
+            </view>
+            <view class="device-actions">
+              <button
+                class="switch-btn"
+                size="mini"
+                catchtap="onSwitchDeviceTap"
+                data-mac="{{item.device_id}}"
+                loading="{{switchingDeviceMac === item.device_id}}"
+                disabled="{{switchingDeviceMac && switchingDeviceMac !== item.device_id}}"
+              >
+                切换
+              </button>
+              <button
+                class="unbind-btn"
+                size="mini"
+                catchtap="onUnbindDeviceTap"
+                data-id="{{item.id || item.user_equipment_id || item.device_id}}"
+                loading="{{unbindingDeviceId === (item.id || item.user_equipment_id || item.device_id)}}"
+                disabled="{{unbindingDeviceId && unbindingDeviceId !== (item.id || item.user_equipment_id || item.device_id)}}"
+              >
+                解绑
+              </button>
+            </view>
+          </view>
+        </view>
+      </block>
+      <!-- <text class="state-subtext tips">提示：点击卡片可复制MAC地址</text> -->
+	  <text class="state-subtext tips">提示：点击卡片可切换设备</text>
+    </view>
+    <view class="load-more" wx:if="{{devices.length > 0 && (isLoadingMore || !hasMore)}}">
+      <text wx:if="{{isLoadingMore}}">加载中...</text>
+      <text wx:elif="{{!hasMore}}">没有更多设备了</text>
+    </view>
+  </view>
+</view>
+

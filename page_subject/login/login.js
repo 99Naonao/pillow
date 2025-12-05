@@ -17,6 +17,7 @@ Page({
     canLogin: false,
     countdown: 0,
     timer: null,
+    wechatPhoneLoginLoading: false,
     // 协议查看相关
     showProtocolViewer: false,
     currentProtocolType: 'user'
@@ -409,21 +410,7 @@ Page({
         wx.hideLoading();
         
         if (res.code === 1) {
-          // 登录成功，保存用户信息
-          AuthApi.saveUserInfo(res.data);
-          
-          wx.showToast({
-            title: '登录成功',
-            icon: 'success',
-            duration: 2000
-          });
-
-          // 延迟跳转到mine页面
-          setTimeout(() => {
-            wx.switchTab({
-              url: '/pages/mine/mine'
-            });
-          }, 2000);
+          this.handleLoginSuccess(res.data);
         } else {
           // 登录失败
           wx.showModal({
@@ -444,6 +431,129 @@ Page({
         });
         console.error('登录失败:', error);
       });
+  },
+
+  // 微信手机号授权登录
+  onWeChatPhoneAuthorize(event) {
+    if (this.data.wechatPhoneLoginLoading) {
+      return;
+    }
+
+    if (!this.data.agreedToTerms) {
+      wx.showModal({
+        title: '提示',
+        content: '请先阅读并同意相关协议',
+        showCancel: false,
+        confirmText: '知道了'
+      });
+      return;
+    }
+
+    const { errMsg, encryptedData, iv, code: phoneCode } = event.detail || {};
+
+    if (errMsg !== 'getPhoneNumber:ok') {
+      wx.showToast({
+        title: '已取消授权',
+        icon: 'none'
+      });
+      return;
+    }
+
+    if (!phoneCode) {
+      wx.showToast({
+        title: '获取手机号失败，请稍后重试',
+        icon: 'none'
+      });
+      return;
+    }
+
+    this.setData({
+      wechatPhoneLoginLoading: true
+    });
+
+    this.getWxLoginCode()
+      .then(wxCode => {
+        return AuthApi.loginWithWeChatPhone({
+          wxCode,
+          phoneCode,
+          encryptedData,
+          iv
+        });
+      })
+      .then(res => {
+        if (res.code === 1) {
+          this.handleLoginSuccess(res.data);
+          if (res.data && res.data.account) {
+            this.setData({
+              phone: res.data.account
+            });
+          }
+        } else {
+          wx.showModal({
+            title: '提示',
+            content: res.msg || '授权登录失败，请重试',
+            showCancel: false
+          });
+        }
+      })
+      .catch(error => {
+        console.error('微信手机号授权登录失败:', error);
+        wx.showModal({
+          title: '提示',
+          content: '授权登录失败，请检查网络后重试',
+          showCancel: false
+        });
+      })
+      .finally(() => {
+        this.setData({
+          wechatPhoneLoginLoading: false
+        });
+      });
+  },
+
+  // 获取微信登录凭证
+  getWxLoginCode() {
+    return new Promise((resolve, reject) => {
+      wx.login({
+        timeout: 8000,
+        success: (loginRes) => {
+          if (loginRes.code) {
+            resolve(loginRes.code);
+          } else {
+            reject(new Error('未获取到微信登录凭证'));
+          }
+        },
+        fail: (err) => {
+          reject(err);
+        }
+      });
+    });
+  },
+
+  // 统一处理登录成功逻辑
+  handleLoginSuccess(userInfo) {
+    if (!userInfo) {
+      wx.showModal({
+        title: '提示',
+        content: '登录数据异常，请重试',
+        showCancel: false
+      });
+      return;
+    }
+
+    AuthApi.saveUserInfo(userInfo);
+
+    wx.showToast({
+      title: '登录成功',
+      icon: 'success',
+      duration: 1500
+    });
+
+    setTimeout(() => {
+      wx.switchTab({
+        url: '/pages/mine/mine'
+      });
+    }, 1500);
   },
 
   /**

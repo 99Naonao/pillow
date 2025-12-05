@@ -11,8 +11,15 @@
         <text class="card-title">心率</text>
       </view>
       <view class="card-value">
-        {{deviceConnected ? (heartRate !== null ? heartRate + ' 次/分' : '.. 次/分') : '.. 次/分'}}
+        {{deviceConnected ? (heartRate !== null && heartRate !== 0 ? heartRate + ' 次/分' : (heartRate === 0 ? '-- 次/分' : '.. 次/分')) : '.. 次/分'}}
       </view>
+      <ec-canvas 
+        id="heartRateChart"
+        canvas-id="heartRateChart"
+        ec="{{ heartRateEc }}"
+        class="waveform-canvas"
+        wx:if="{{deviceConnected}}"
+      ></ec-canvas>
     </view>
     <!-- 呼吸 -->
     <view class="card">
@@ -21,8 +28,15 @@
         <text class="card-title">呼吸</text>
       </view>
       <view class="card-value">
-        {{deviceConnected ? (breathRate !== null ? breathRate + ' 次/分' : '.. 次/分') : '.. 次/分'}}
+        {{deviceConnected ? (breathRate !== null && breathRate !== 0 ? breathRate + ' 次/分' : (breathRate === 0 ? '-- 次/分' : '.. 次/分')) : '.. 次/分'}}
       </view>
+      <ec-canvas 
+        id="respiratoryChart"
+        canvas-id="respiratoryChart"
+        ec="{{ respiratoryEc }}"
+        class="waveform-canvas"
+        wx:if="{{deviceConnected}}"
+      ></ec-canvas>
     </view>
    <!-- 体动状态 -->
    <view class="card">

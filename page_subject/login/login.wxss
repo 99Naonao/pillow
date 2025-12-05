@@ -276,6 +276,96 @@
   box-shadow: 0 4rpx 15rpx rgba(74, 144, 226, 0.3);
 }
 
+/* 快捷登录区域 */
+.quick-login-section {
+  margin-top: 20rpx;
+  padding: 30rpx 24rpx 10rpx;
+  background: rgba(23, 92, 119, 0.6);
+  border-radius: 24rpx;
+  box-shadow: 0 12rpx 30rpx rgba(0, 0, 0, 0.25);
+}
+
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.divider-line {
+  flex: 1;
+  height: 2rpx;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.divider-text {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 4rpx;
+}
+
+.wx-auth-btn {
+  width: 100%;
+  height: 96rpx;
+  border-radius: 48rpx;
+  border: none;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10rpx 24rpx rgba(34, 197, 94, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-top: 10rpx;
+}
+
+.wx-auth-btn::after {
+  border: none;
+}
+
+.wx-auth-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 6rpx 16rpx rgba(34, 197, 94, 0.3);
+}
+
+.wx-auth-btn[disabled] {
+  opacity: 0.7;
+  box-shadow: none;
+}
+
+.wx-auth-btn__content {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.wx-auth-btn__icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #ffffff;
+  border: 2rpx solid rgba(255, 255, 255, 0.4);
+}
+
+.wx-auth-btn__text {
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.quick-login-tip {
+  display: block;
+  margin-top: 18rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 /* 底部鏈接 */
 .bottom-links {
   display: flex;

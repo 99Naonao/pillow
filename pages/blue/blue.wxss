@@ -2,6 +2,10 @@
   min-height: 100vh;
   background: #0b2853;
   /* background: linear-gradient(135deg, #1B2845 0%, #274472 100%); */
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .progress-container {
@@ -34,6 +38,250 @@
 
 .device-list {
   margin: 0 32rpx;
+}
+
+/* 扫描动画区域 */
+.scanning-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 32rpx 40rpx 32rpx;
+}
+
+.scanning-animation-container {
+  width: 400rpx;
+  height: 400rpx;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40rpx;
+}
+
+.radar-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 多层圆形光环 */
+.radar-circle {
+  position: absolute;
+  border: 2rpx solid rgba(160, 90, 255, 0.2); /* 基础淡紫色边框 */
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  /* 光环发光效果 */
+  box-shadow: 0 0 10rpx rgba(160, 90, 255, 0.3);
+}
+
+/* 内层光环 */
+.radar-circle-1 {
+  width: 160rpx;
+  height: 160rpx;
+  border-color: rgba(27, 199, 237, 0.6);
+  box-shadow: 0 0 10rpx rgba(27,199,237,0.4);
+}
+/* 中层光环 */
+.radar-circle-2 {
+  width: 240rpx;
+  height: 240rpx;
+  border-color: rgba(51, 140, 220, 0.5);
+  box-shadow: 0 0 10rpx rgba(38,170,220,0.3);
+}
+/* 外层光环 */
+.radar-circle-3 {
+  width: 320rpx;
+  height: 320rpx;
+  border-color: rgba(51, 140, 200, 0.4);
+  box-shadow: 0 0 10rpx rgba(51,140,200,0.2);
+}
+/* 最外层光环 */
+.radar-circle-4 {
+  width: 400rpx;
+  height: 400rpx;
+  border-color: rgba(90, 142, 255, 0.3);
+  box-shadow: 0 0 15rpx rgba(90, 142, 255, 0.2);
+}
+
+/* 中心圆点*/
+.radar-center {
+  position: absolute;
+  width: 100rpx;
+  height: 100rpx;
+  background: rgba(27,199,237,0.8); 
+  /* background: #175c77; */
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  /* 中心发光，连接扇形 */
+  box-shadow: 0 0 40rpx rgba(90, 142, 255, 0.5);
+}
+
+.radar-sweep {
+  position: absolute;
+  width: 100rpx; 
+  height: 200rpx; 
+  left: 50%;
+  top: 50%;
+  transform-origin: center bottom; 
+  z-index: 1;
+  
+  clip-path: polygon(
+    50% 100%, 
+    10% 0%,  
+    90% 0%    
+  );
+  
+  /* 2. 渐变强化左腰（直线），保持整体对称感 */
+  background: linear-gradient(
+    to right, 
+    rgba(30, 118, 153, 0.9) 0%, /* 左腰直线（颜色最浓） */
+    rgba(38, 96, 153, 0.7) 50%, /* 三角形中心过渡 */
+    rgba(51, 102, 153, 0.5) 100% /* 右腰自然淡化（不突出线条） */
+  );
+  animation: radar-sweep 5s linear infinite;
+  transform: translate(-50%, -100%); 
+}
+
+/* 旋转动画（确保转动时形状不变形） */
+@keyframes radar-sweep {
+  0% { transform: translate(-50%, -100%) rotate(0deg); }
+  100% { transform: translate(-50%, -100%) rotate(360deg); }
+}
+
+
+/* 旋转动画 */
+@keyframes radar-sweep {
+  0% { transform: translate(-50%, -100%) rotate(0deg); }
+  100% { transform: translate(-50%, -100%) rotate(360deg); }
+}
+
+.scanning-text {
+  color: #fff;
+  font-size: 32rpx;
+  text-align: center;
+  margin-bottom: 24rpx;
+  font-weight: 500;
+}
+
+.scanning-tip {
+  color: #fff;
+  font-size: 26rpx;
+  text-align: center;
+  margin-bottom: 16rpx;
+  opacity: 0.9;
+  padding: 0 32rpx;
+  line-height: 1.6;
+}
+
+.scanning-help-link {
+  color: #369aeb;
+  font-size: 26rpx;
+  text-align: center;
+  text-decoration: underline;
+  margin-top: 8rpx;
+}
+
+/* 设备发现区域 */
+.device-discovery-section {
+  background: rgba(11, 40, 83, 0.5);
+  border-radius: 32rpx 32rpx 0 0;
+  margin: 40rpx 0 0 0;
+  padding: 32rpx 32rpx 40rpx 32rpx;
+  min-height: 400rpx;
+}
+
+.device-section-title {
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 500;
+  margin-bottom: 32rpx;
+  padding-left: 8rpx;
+}
+
+.device-list-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.device-search-tip {
+  color: #fff;
+  font-size: 28rpx;
+  text-align: center;
+  padding: 60rpx 0;
+  opacity: 0.8;
+}
+
+/* 新设备卡片样式 */
+.device-card-new {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(23, 92, 119, 0.6);
+  border-radius: 20rpx;
+  padding: 32rpx 24rpx;
+  margin-bottom: 24rpx;
+  border: 1rpx solid rgba(139, 92, 246, 0.3);
+}
+
+.device-card-info-new {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-right: 24rpx;
+}
+
+.device-name-new {
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 500;
+  margin-bottom: 12rpx;
+}
+
+.device-mac-new {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 26rpx;
+}
+
+.connect-btn {
+  background: #24C9ED;
+  color: #fff;
+  border: none;
+  border-radius: 16rpx;
+  padding: 0;
+  font-size: 28rpx;
+  min-width: 120rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow: 0 2rpx 8rpx rgba(36,201,237,0.3);
+}
+
+.connect-btn::after {
+  border: none;
+}
+
+.connect-btn-connected {
+  background: rgba(36,201,237, 0.5);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.connect-btn[disabled] {
+  background: rgba(36,201,237, 0.5);
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 1;
 }
 
 .device-item {

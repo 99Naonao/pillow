@@ -8,7 +8,7 @@ class HealthConfig {
   constructor(config = {}) {
     // 獲取 WiFi MAC 地址
     const wifiMac = CommonUtil.getSavedWifiMac() || "";
-    
+    console.log('本地读取到的wifiMAC:',wifiMac)
     // 默認配置
     this._config = {
       // 通用配置
@@ -36,7 +36,7 @@ class HealthConfig {
       
       // 緊急求助參數
       is_sos_message: false,
-      is_sos_voice: false,
+      is_sos_voice: true,
       
       // 呼吸暫停監測參數
       is_apnea_message: false,
@@ -46,8 +46,15 @@ class HealthConfig {
       phone_list: []
     };  
     
-    // 合併傳入的配置
-    Object.assign(this._config, config);
+    const configToMerge = { ...config };
+    if ((!configToMerge.mac || configToMerge.mac === "") && wifiMac) {
+      delete configToMerge.mac;  
+    }
+    Object.assign(this._config, configToMerge);
+    
+    if ((!this._config.mac || this._config.mac === "") && wifiMac) {
+      this._config.mac = wifiMac;
+    }
   }
 
   // 通用 getter 和 setter
@@ -89,7 +96,7 @@ class HealthConfig {
   reset() {
     // 获取 WiFi MAC 地址
     const wifiMac = CommonUtil.getSavedWifiMac() || "";
-    
+    console.log('health reset wifiMac ：',wifiMac)
     this._config = {
       key: "1f3e1d08bac85daf08eca14e72cde665",
       mac: wifiMac,

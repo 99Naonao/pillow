@@ -1,6 +1,7 @@
 {
   "navigationStyle": "custom",
   "usingComponents": {
-    "nav-bar": "/components/HeaderNavBar/headerNav"
+    "nav-bar": "/components/HeaderNavBar/headerNav",
+    "ec-canvas": "/components/ec-canvas/ec-canvas"
   }
 }
