@@ -157,7 +157,8 @@ Page({
 		const endDate = DataProcessor.getNextDay(today);
 
 		this.loadSleepReports(startDate, endDate, wifiMac, today)
-		// this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", today);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e4:c9:9f", today);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e5:3a:13", today);
 
 		// 知道睡眠报告id以后的获取详细睡眠报告详情测试方法
 		// this.testSleepReportDetail("f4:cf:a2:80:9f:ac", 41250);
@@ -191,7 +192,8 @@ Page({
 		const endDate = DataProcessor.getNextDay(selectedDate);
 
 		this.loadSleepReports(startDate, endDate, this.data.wifiMac, selectedDate);
-		// this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", selectedDate);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e4:c9:9f", selectedDate);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e5:3a:13", today);
 	},
 
 	onDateChange(e) {
@@ -209,7 +211,8 @@ Page({
 		const endDate = DataProcessor.getNextDay(selectedDate);
 
 		this.loadSleepReports(startDate, endDate, this.data.wifiMac, selectedDate);
-		// this.loadSleepReports(startDate, endDate, "f4:cf:a2:80:9f:ac", selectedDate);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e4:c9:9f", selectedDate);
+    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e5:3a:13", today);
 		// 手動更新睡眠階段圖表
 		setTimeout(() => {
 			this.updateSleepStageChart();

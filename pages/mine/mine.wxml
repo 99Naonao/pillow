@@ -83,6 +83,7 @@
 		      </view>
 		      <image class="mine-arrow" src="../../static/right.png"/>
 		    </view>
+        
 		    <view class="mine-func-row glass-row" bindtap="goRingSet">
 		      <view class="mine-func-left">
 		        <image class="mine-func-icon" src="../../static/ring_set.png"/>
@@ -92,6 +93,17 @@
 		      </view>
 		      <image class="mine-arrow" src="../../static/right.png"/>
 		    </view>
+
+        <view class="mine-func-row glass-row" bindtap="openResetPasswordModal">
+			  <view class="mine-func-left">
+			    <image class="mine-func-icon" src="../../static/mima.png"/>
+			    <view class="mine-func-text">
+			      <text class="mine-func-label">重置密码</text>
+			    </view>
+			  </view>
+			  <image class="mine-arrow" src="../../static/right.png"/>
+			</view>
+
 		    <!-- 协议相关卡片 - 可展开 -->
 		    <view class="protocol-card glass-row">
 		      <view class="protocol-main-row" bindtap="toggleProtocolExpanded">
@@ -132,7 +144,7 @@
 		    </view>
 		  </view>
 		
-		  <!-- 退出登录按钮 - 放置在页面底部 -->
+		  <!-- 退出登录按钮 - 放置在功能区卡片下方 -->
 		  <view wx:if="{{isLogin}}" class="logout-container">
 		    <button class="mine-logout-btn" bindtap="logout">退出登录</button>
 		  </view>
@@ -206,9 +218,6 @@
 		          </view>
 		        </view>
 		      </view>
-			  <view class="new-avatar-modal-btns" style="margin-top: 20rpx;">
-			    <button class="new-avatar-modal-btn reset-password" bindtap="openResetPasswordModal">重置密码</button>
-			  </view>
 		      <view class="new-avatar-modal-btns">
 		        <button class="new-avatar-modal-btn cancel" bindtap="closeNewAvatarModal">取消</button>
 		        <button class="new-avatar-modal-btn confirm" bindtap="saveNewUserInfo">确定</button>
@@ -272,19 +281,6 @@
 	</view>
   
  </view>
-
-  <!-- 开发环境测试页面入口 -->
-<!--  <view wx:if="{{showTestPages}}" class="test-pages-section glass-card">
-    <view class="test-pages-title">开发测试</view>
-    <view class="test-pages-buttons">
-      <button class="test-page-btn" bindtap="goToTestWifi">
-        <text class="test-page-btn-text">配网测试</text>
-      </button>
-      <button class="test-page-btn" bindtap="goToTestModal">
-        <text class="test-page-btn-text">弹窗测试</text>
-      </button>
-    </view>
-  </view> -->
 
 <!-- 协议查看器组件 -->
 <protocol-viewer 

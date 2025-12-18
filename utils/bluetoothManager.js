@@ -434,7 +434,39 @@ class BluetoothManager {
 	        }
 	      });
 	    });
-	}
+  }
+  
+  	/**
+	 * 设备命名
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} user_equipment_id ID
+	 * @param {string} name 命名
+	 * @returns {string} WiFi MAC地址，失败返回 空字符串
+	 */
+	static ChangeName(user_equipment_id,name) {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `${BASE_URL}/shopapi/UserEquipment/changeName`,
+        method: 'POST',
+    header: {
+      'version': '3.1.1',
+      "token": getLatestToken()
+    },
+        data: {
+          user_equipment_id: user_equipment_id,
+      name:name
+        },
+        success: (res) => {
+          console.log('成功:', res);
+          resolve(res.data);
+        },
+        fail: (error) => {
+          console.error('失败:', error);
+          reject(error);
+        }
+      });
+    });
+}
 	
 	/**
 	 * 设备解绑

@@ -277,6 +277,35 @@ class DeviceManager {
       });
   }
 
+  /**
+   * 获取设备预警信息
+   * @param {string} mac 设备MAC地址
+   * @param {number} index 页码，默认1
+   * @param {number} size 每页数量，默认20
+   * @returns {Promise} 获取结果
+   */
+  getDeviceWarningInfo(mac, index = 1, size = 20) {
+    const method = 'GetDeviceWarningInfo';
+    const dataObj = {
+      key: "1f3e1d08bac85daf08eca14e72cde665",
+      mac: mac,
+      index: index,
+      size: size
+    };
+    
+    console.log('[deviceManager] 获取设备预警信息请求数据：', JSON.stringify(dataObj));
+    
+    return soapRequest(method, dataObj, 'POST')
+      .then(res => {
+        console.log('[deviceManager] 获取设备预警信息成功：', res);
+        return res;
+      })
+      .catch(err => {
+        console.error('[deviceManager] 获取设备预警信息失败：', err);
+        throw err;
+      });
+  }
+
 /**
  * 设置设备的预警信息
  * @param {*} healthConfig 
@@ -408,7 +437,7 @@ voiceNotifation(params){
     console.log('设备mac信息:',mac)
     const method = 'GetDeviceRealtimeData';
     const dataObj = { key, mac, timestamp: 1, waveform: true };
-    soapRequest(method, dataObj, 'POST')
+    return soapRequest(method, dataObj, 'POST')
       .then(result => {
         if (result && result.ret === 0 && result.data && result.data.length > 0) {
           // 獲取最新的一條數據（數組的最後一個元素）
@@ -577,6 +606,14 @@ voiceNotifation(params){
                 }
               }
             }
+            
+            // 更新折线图（使用历史数据数组）
+            console.log('[deviceManager] 准备更新折线图（使用历史数据数组）');
+            if (typeof this.page.updateWaveformCharts === 'function') {
+              this.page.updateWaveformCharts(heartRateWave, respiratoryWave);
+            } else {
+              console.warn('[deviceManager] updateWaveformCharts 方法不存在');
+            }
           });
         } else {
           this.page.setData({
@@ -657,7 +694,8 @@ voiceNotifation(params){
       };
   
       // 辅助函数：优先使用left数据，如果left无效或异常则使用right数据
-      const getValue = (leftKey, rightKey) => {
+      // 对于独立的生理数据字段（如心率、呼吸率、体动），即使整体数据异常，只要字段本身有效就使用
+      const getValue = (leftKey, rightKey, allowAbnormalData = false) => {
         const leftValue = left[leftKey];
         const rightValue = right[rightKey];
   
@@ -668,18 +706,19 @@ voiceNotifation(params){
         const leftValid = leftValue !== null && leftValue !== undefined && leftValue !== 0;
         const leftNormal = typeof leftValue === 'number' ? 
           (leftValue >= 0 && leftValue <= 10000 && isFinite(leftValue)) : true;
-        const leftCanUse = leftValid && leftNormal && !leftDataAbnormal;
+        // 如果允许异常数据，只要字段本身有效就使用；否则需要整体数据无异常
+        const leftCanUse = leftValid && leftNormal && (allowAbnormalData || !leftDataAbnormal);
   
         const rightValid = rightValue !== null && rightValue !== undefined && rightValue !== 0;
         const rightNormal = typeof rightValue === 'number' ? 
           (rightValue >= 0 && rightValue <= 10000 && isFinite(rightValue)) : true;
-        const rightCanUse = rightValid && rightNormal && !rightDataAbnormal;
+        const rightCanUse = rightValid && rightNormal && (allowAbnormalData || !rightDataAbnormal);
   
-        // 如果left有有效值且无异常，使用left
+        // 如果left有有效值且（允许异常数据 或 无异常），使用left
         if (leftCanUse) {
           return leftValue;
         }
-        // 如果right有有效值且无异常使用right
+        // 如果right有有效值且（允许异常数据 或 无异常），使用right
         if (rightCanUse) {
           return rightValue;
         }
@@ -715,33 +754,46 @@ voiceNotifation(params){
       };
   
       // 辅助函数：获取other_data中的数组数据，优先使用有效且无异常的数据
+      // 即使整体数据异常，只要数组数据本身有效就使用（因为折线图数据独立于综合评分）
       const getOtherDataArray = (key) => {
         const leftOtherData = left.other_data || {};
         const rightOtherData = right.other_data || {};
-  
+
         const leftValue = leftOtherData[key] || [];
         const rightValue = rightOtherData[key] || [];
-  
+
         // 检查数据是否异常
         const leftDataAbnormal = this.isReportDataAbnormal(left);
         const rightDataAbnormal = this.isReportDataAbnormal(right);
-  
+
         const leftValid = isDataValid(leftValue);
         const leftNormal = !hasAbnormalData(leftValue);
+        // 优先使用无异常的数据，如果都异常但数据有效，也使用
         const leftCanUse = leftValid && leftNormal && !leftDataAbnormal;
-  
+        const leftCanUseEvenAbnormal = leftValid && leftNormal && leftDataAbnormal;
+
         const rightValid = isDataValid(rightValue);
         const rightNormal = !hasAbnormalData(rightValue);
         const rightCanUse = rightValid && rightNormal && !rightDataAbnormal;
-  
+        const rightCanUseEvenAbnormal = rightValid && rightNormal && rightDataAbnormal;
+
+        // 优先使用无异常的数据
         if (leftCanUse) {
           return leftValue;
         }
-  
         if (rightCanUse) {
           return rightValue;
         }
-        // 如果都无效或异常，返回空数组
+        
+        // 如果都异常但数据有效，也使用（因为折线图数据独立于综合评分）
+        if (leftCanUseEvenAbnormal) {
+          return leftValue;
+        }
+        if (rightCanUseEvenAbnormal) {
+          return rightValue;
+        }
+        
+        // 如果都无效，返回空数组
         return [];
       };
   
@@ -929,13 +981,13 @@ voiceNotifation(params){
         endSleepTime: getStringValue('end_sleep_time', 'end_sleep_time'),
         sleepOnsetTime: getValue('sleep_onset_time', 'sleep_onset_time'),
   
-        // 生理数据
-        turnCount: getValue('turn_count', 'turn_count'),
-        snoreDuration: getValue('snore_duration', 'snore_duration'),
-        snoreCount: getValue('snore_count', 'snore_count'),
-        breathRate: getValue('breath_rate', 'breath_rate'),
-        heartRate: getValue('heart_rate', 'heart_rate'),
-        sleepAge: getValue('sleep_age', 'sleep_age'),
+        // 生理数据 - 即使整体数据异常，只要字段本身有效就使用
+        turnCount: getValue('turn_count', 'turn_count', true),
+        snoreDuration: getValue('snore_duration', 'snore_duration', true),
+        snoreCount: getValue('snore_count', 'snore_count', true),
+        breathRate: getValue('breath_rate', 'breath_rate', true),
+        heartRate: getValue('heart_rate', 'heart_rate', true),
+        sleepAge: getValue('sleep_age', 'sleep_age', true),
   
         // 其他数据 - 使用合并后的数据，特別處理睡眠報告異常檢測
         sleepReport: this.getValidSleepReport(left, right),
@@ -978,6 +1030,7 @@ voiceNotifation(params){
     
   /**
    * 获取有效的睡眠报告数据，剔除异常数据
+   * 即使整体数据异常，只要睡眠报告数组本身有效就使用（因为睡眠阶段数据独立于综合评分）
    * @param {Object} left left数据
    * @param {Object} right right数据
    * @returns {Array} 有效的睡眠报告数据
@@ -988,33 +1041,49 @@ voiceNotifation(params){
     
     // 检查left数据是否有效且无异常
     const leftValid = leftSleepReport.length > 0;
-    const leftNormal = !this.hasAbnormalSleepReport(leftSleepReport) && !this.isReportDataAbnormal(left);
+    const leftReportNormal = !this.hasAbnormalSleepReport(leftSleepReport);
+    const leftDataAbnormal = this.isReportDataAbnormal(left);
+    const leftNormal = leftReportNormal && !leftDataAbnormal;
     
     // 检查right数据是否有效且无异常
     const rightValid = rightSleepReport.length > 0;
-    const rightNormal = !this.hasAbnormalSleepReport(rightSleepReport) && !this.isReportDataAbnormal(right);
+    const rightReportNormal = !this.hasAbnormalSleepReport(rightSleepReport);
+    const rightDataAbnormal = this.isReportDataAbnormal(right);
+    const rightNormal = rightReportNormal && !rightDataAbnormal;
     
     console.log('睡眠报告数据检查:', {
       leftValid,
       leftNormal,
+      leftReportNormal,
+      leftDataAbnormal,
       leftLength: leftSleepReport.length,
-      leftAbnormal: this.isReportDataAbnormal(left),
       rightValid,
       rightNormal,
-      rightLength: rightSleepReport.length,
-      rightAbnormal: this.isReportDataAbnormal(right)
+      rightReportNormal,
+      rightDataAbnormal,
+      rightLength: rightSleepReport.length
     });
     
-    // 如果left数据有效且无异常，使用left
+    // 优先使用无异常的数据
     if (leftValid && leftNormal) {
-      console.log('使用left睡眠报告数据');
+      console.log('使用left睡眠报告数据（无异常）');
       return leftSleepReport;
     }
-    // 如果right数据有效且无异常，使用right
     if (rightValid && rightNormal) {
-      console.log('使用right睡眠报告数据');
+      console.log('使用right睡眠报告数据（无异常）');
       return rightSleepReport;
     }
+    
+    // 如果都异常但睡眠报告数组本身有效，也使用（因为睡眠阶段数据独立于综合评分）
+    if (leftValid && leftReportNormal && leftDataAbnormal) {
+      console.log('使用left睡眠报告数据（整体异常但报告数据有效）');
+      return leftSleepReport;
+    }
+    if (rightValid && rightReportNormal && rightDataAbnormal) {
+      console.log('使用right睡眠报告数据（整体异常但报告数据有效）');
+      return rightSleepReport;
+    }
+    
     // 如果都无效或异常，返回空数组
     console.log('睡眠报告数据无效或异常，返回空数组');
     return [];
@@ -1197,6 +1266,7 @@ voiceNotifation(params){
 
   /**
    * 获取有效的建议数据，当一边出现异常时使用正常一边的数据
+   * 如果两边都异常，仍然显示建议（因为异常时的建议通常更有价值）
    * @param {Object} left left数据
    * @param {Object} right right数据
    * @returns {Array|string} 有效的建议数据
@@ -1260,8 +1330,25 @@ voiceNotifation(params){
       console.log('right有异常，使用left建议数据');
       return leftAdvice;
     }
-    // 如果都无效或异常，返回空数组或空字符串
-    console.log('建议数据无效或异常，返回空值');
+    
+    // 如果两边都异常，但建议数据存在且有效，仍然显示建议
+    // 因为异常时的建议通常更有价值（如"检查设备连接"等）
+    if (leftValid && leftHasAbnormal && rightValid && rightHasAbnormal) {
+      // 两边都有建议且都异常，优先使用left，如果left为空则使用right
+      console.log('两边都异常，但建议数据存在，使用left建议数据');
+      return leftAdvice;
+    }
+    if (leftValid && leftHasAbnormal) {
+      console.log('left异常但有建议数据，显示left建议');
+      return leftAdvice;
+    }
+    if (rightValid && rightHasAbnormal) {
+      console.log('right异常但有建议数据，显示right建议');
+      return rightAdvice;
+    }
+    
+    // 如果都无效，返回空数组或空字符串
+    console.log('建议数据无效，返回空值');
     return Array.isArray(leftAdvice) ? [] : '';
   }
 
@@ -1414,4 +1501,5 @@ voiceNotifation(params){
   }
 }
 
+module.exports = DeviceManager; 
 module.exports = DeviceManager; 

@@ -113,6 +113,7 @@ Page({
     this.setData({ addSubmitting: true });
     try {
       const response = await BluetoothManager.AddFastUser(account, password);
+      console.log('添加关联账号返回消息：',JSON.stringify(response))
       wx.showToast({
         title: response?.msg || '添加成功',
         icon: 'success'

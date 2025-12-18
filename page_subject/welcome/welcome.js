@@ -151,32 +151,17 @@ Page({
           });
           this.handleLoginSuccess(res.data);
         } else {
-          // 如果是解密失败且未达到重试次数，尝试重试
+          // 登录失败，重置loading并显示错误信息
           const errorMsg = res.msg || '授权登录失败';
-          const isDecryptError = errorMsg.includes('解密') || errorMsg.includes('手机号') || errorMsg.includes('失败');
-          
-          if (isDecryptError && retryCount < 2) {
-            console.log(`解密失败，准备重试 (${retryCount + 1}/2)`);
-            wx.showToast({
-              title: '正在重试...',
-              icon: 'loading',
-              duration: 1000
-            });
-            
-            // 延迟后重试，重新获取微信登录码（保持loading状态）
-            setTimeout(() => {
-              this.onWeChatPhoneAuthorize(event, retryCount + 1);
-            }, 1000);
-            return;
-          }
-
-          // 达到重试次数或非解密错误，重置loading并显示错误信息
+ 
+          // 如果登录失败，需要用户重新授权
           this.setData({
             wechatPhoneLoginLoading: false
           });
+           
           wx.showModal({
             title: '提示',
-            content: errorMsg || '授权登录失败，请重试',
+            content: '授权登录失败，请重新授权',
             showCancel: false,
             confirmText: '确定'
           });
@@ -185,19 +170,41 @@ Page({
       .catch(error => {
         console.error('微信手机号授权登录失败:', error);
         
-        // 如果是网络错误且未达到重试次数，尝试重试
-        const isNetworkError = !error.response || error.errMsg?.includes('timeout') || error.errMsg?.includes('fail');
+        // 检查是否是网络错误（可以重试的情况）
+        const isNetworkError = error.message?.includes('timeout') || 
+                               error.message?.includes('超时') ||
+                               error.message?.includes('网络') ||
+                               error.errMsg?.includes('timeout') ||
+                               error.errMsg?.includes('fail');
         
-        if (isNetworkError && retryCount < 2) {
-          console.log(`网络错误，准备重试 (${retryCount + 1}/2)`);
+        // 只有网络错误且未达到重试次数时才重试
+        // 注意：重试时仍然使用相同的 phoneCode，因为微信手机号授权是一次性的
+        // 如果重试仍然失败，说明可能是网络问题，但最多只重试1次
+        if (isNetworkError && retryCount < 1) {
+          console.log(`网络错误，准备重试 (${retryCount + 1}/1)`);
           wx.showToast({
             title: '网络异常，正在重试...',
             icon: 'loading',
-            duration: 1000
+            duration: 1500
           });
           
+          // 延迟后重试，重新获取微信登录码（phoneCode保持不变，因为是一次性的）
           setTimeout(() => {
-            this.onWeChatPhoneAuthorize(event, retryCount + 1);
+            // 验证 event 是否仍然有效
+            if (event && event.detail && event.detail.code) {
+              this.onWeChatPhoneAuthorize(event, retryCount + 1);
+            } else {
+              // event 无效，重置loading并提示用户重新授权
+              this.setData({
+                wechatPhoneLoginLoading: false
+              });
+              wx.showModal({
+                title: '提示',
+                content: '授权已过期，请重新授权',
+                showCancel: false,
+                confirmText: '确定'
+              });
+            }
           }, 1500);
           return;
         }
@@ -206,9 +213,11 @@ Page({
         this.setData({
           wechatPhoneLoginLoading: false
         });
+        
+        const errorMessage = error.message || error.errMsg || '授权登录失败，请检查网络后重试';
         wx.showModal({
           title: '提示',
-          content: error.message || '授权登录失败，请检查网络后重试',
+          content: '授权登录失败，请重新授权',
           showCancel: false,
           confirmText: '确定'
         });

@@ -12,10 +12,18 @@ Page({
     hasMore: true,
     isLoadingMore: false,
     switchingDeviceMac: null,
-    unbindingDeviceId: null
+    unbindingDeviceId: null,
+    currentDeviceMac: null,
+    namingDeviceId: null,
+    showNameModal: false,
+    nameModalDeviceId: null,
+    nameModalDeviceName: '',
+    nameInputValue: ''
   },
 
   onLoad() {
+    // 获取当前设备MAC
+    this._updateCurrentDeviceMac();
     this.loadDevices();
   },
 
@@ -62,6 +70,8 @@ Page({
 	  
       const nextDevices = append ? [...this.data.devices, ...response.data.lists] : response.data.lists;
 	console.log("nextDevices",nextDevices)
+      // 更新当前设备MAC
+      this._updateCurrentDeviceMac();
       this.setData({
         devices: nextDevices,
         pageNo: nextPage,
@@ -134,6 +144,8 @@ Page({
     try {
       const storageKey = CommonUtil.STORAGE_KEY || 'wifi_device_mac';
       wx.setStorageSync(storageKey, mac);
+      // 更新当前设备MAC
+      this.setData({ currentDeviceMac: mac });
       wx.showToast({
         title: '切换成功',
         icon: 'success'
@@ -312,6 +324,128 @@ Page({
     }
     const pad = (num) => num.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  },
+
+  // 更新当前设备MAC
+  _updateCurrentDeviceMac() {
+    const currentMac = CommonUtil.getSavedWifiMac();
+    this.setData({ currentDeviceMac: currentMac });
+  },
+
+  // 阻止事件冒泡
+  stopPropagation() {
+    // 空函数，用于阻止事件冒泡
+  },
+
+  // 设备命名
+  onNameDeviceTap(event) {
+    const { id, name } = event.currentTarget.dataset || {};
+    if (!id) {
+      wx.showToast({
+        title: '设备信息不完整',
+        icon: 'none'
+      });
+      return;
+    }
+    if (this.data.namingDeviceId === id) {
+      return;
+    }
+
+    // 显示命名弹窗
+    this.setData({
+      showNameModal: true,
+      nameModalDeviceId: id,
+      nameModalDeviceName: name || '',
+      nameInputValue: name || ''
+    });
+  },
+
+  // 关闭命名弹窗
+  onCloseNameModal() {
+    this.setData({
+      showNameModal: false,
+      nameModalDeviceId: null,
+      nameModalDeviceName: '',
+      nameInputValue: ''
+    });
+  },
+
+  // 命名输入框变化
+  onNameInputChange(e) {
+    this.setData({
+      nameInputValue: e.detail.value
+    });
+  },
+
+  // 确认设备命名
+  async onConfirmNameDevice() {
+    const { nameModalDeviceId, nameInputValue, nameModalDeviceName } = this.data;
+    
+    if (!nameModalDeviceId) {
+      return;
+    }
+
+    const deviceName = (nameInputValue || '').trim();
+    if (!deviceName) {
+      wx.showToast({
+        title: '设备名称不能为空',
+        icon: 'none'
+      });
+      return;
+    }
+
+    this.setData({ 
+      namingDeviceId: nameModalDeviceId,
+      showNameModal: false
+    });
+    
+    wx.showLoading({
+      title: nameModalDeviceName ? '修改中...' : '命名中...',
+      mask: true
+    });
+
+    try {
+      const result = await BluetoothManager.ChangeName(nameModalDeviceId, deviceName);
+      console.log('设备命名响应:', result);
+      
+      wx.hideLoading();
+      
+      // 检查响应结果
+      if (result.ret === 0 || result.code === 1 || result.code === '1' || result.code === 0) {
+        wx.showToast({
+          title: nameModalDeviceName ? '修改成功' : '命名成功',
+          icon: 'success'
+        });
+        
+        // 刷新设备列表
+        setTimeout(() => {
+          this.loadDevices(false);
+        }, 500);
+      } else {
+        wx.showModal({
+          title: '提示',
+          content: result.msg || result.message || (nameModalDeviceName ? '修改失败，请重试' : '命名失败，请重试'),
+          showCancel: false,
+          confirmText: '确定'
+        });
+      }
+    } catch (error) {
+      console.error('设备命名失败:', error);
+      wx.hideLoading();
+      wx.showModal({
+        title: '提示',
+        content: error.message || (nameModalDeviceName ? '修改失败，请检查网络后重试' : '命名失败，请检查网络后重试'),
+        showCancel: false,
+        confirmText: '确定'
+      });
+    } finally {
+      this.setData({ 
+        namingDeviceId: null,
+        nameModalDeviceId: null,
+        nameModalDeviceName: '',
+        nameInputValue: ''
+      });
+    }
   },
 
   // 解除绑定设备

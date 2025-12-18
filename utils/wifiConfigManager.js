@@ -135,6 +135,31 @@ class WifiConfigManager {
         } catch (error) {
             console.error('检查WiFi状态失败:', error);
             
+            // 处理权限错误（错误代码 12012 或 errno 1505004）
+            if (error.errCode === 12012 || error.errno === 1505004 || error.type === 'permission' || error.type === 'system_permission') {
+                console.log('WiFi权限错误，显示权限提示');
+                wx.showModal({
+                    title: '权限提醒',
+                    content: '需要开启微信App的位置权限才能使用WiFi功能。\n\n请按以下步骤操作：\n1. 打开手机系统设置\n2. 找到"微信"应用\n3. 开启"位置信息"权限\n4. 返回小程序重试',
+                    confirmText: '知道了',
+                    cancelText: '取消',
+                    showCancel: true,
+                    success: (modalRes) => {
+                        if (modalRes.confirm) {
+                            wx.openSetting({
+                                success: () => {
+                                    // 用户从设置返回后，重试检查WiFi状态
+                                    setTimeout(() => {
+                                        this.checkWifiStatus();
+                                    }, 500);
+                                }
+                            });
+                        }
+                    }
+                });
+                return;
+            }
+            
             // 检查是否是WiFi未打开的错误（iOS）
             const systemInfo = wx.getDeviceInfo();
             const isIOS = systemInfo.platform === 'ios';

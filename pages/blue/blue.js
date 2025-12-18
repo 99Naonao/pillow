@@ -130,21 +130,13 @@ Page({
       guideModalVisible: false
     });
 
-    // 用户点击"已进入配网模式"后，再次检查权限
-    this.checkAllPermissions()
-      .then(() => {
-        console.log('用户确认后继续搜索蓝牙设备');
-        // 如果还没有开始搜索，则开始搜索
-        if (this.data.devices.length === 0 && !this.data.isSearching) {
-          this.startBluetoothSearch();
-        }
-      })
-      .catch(() => {
-        wx.showToast({
-          title: '权限不足',
-          icon: 'none'
-        });
-      });
+    // 用户点击"已进入配网模式"后，直接开始搜索蓝牙设备
+    // 注意：权限已经在_initBluetoothStep()中检查过了，这里不需要再次检查
+    console.log('用户确认后继续搜索蓝牙设备');
+    // 如果还没有开始搜索，则开始搜索
+    if (this.data.devices.length === 0 && !this.data.isSearching) {
+      this.startBluetoothSearch();
+    }
   },
 
   onHide() {
@@ -222,14 +214,40 @@ Page({
         console.log('第一步检查：当前连接的WiFi:', currentWifiName);
         console.log('第一步检查：本地保存的WiFi:', savedWifiName);
 
-        // 如果当前连接的WiFi与本地保存的WiFi一致，则禁用WiFi配置
+        // 如果当前连接的WiFi与本地保存的WiFi一致，询问用户是否要重新配网
         if (currentWifiName && savedWifiName && currentWifiName === savedWifiName) {
-          console.log('设备已连接到相同WiFi，禁用WiFi配置');
+          console.log('设备已连接到相同WiFi，询问用户是否重新配网');
+          // 先设置WiFi信息，但不禁用配置
           this.setData({
-            wifiConfigDisabled: true,
             wifiName: currentWifiName,
             wifiSelected: true,
             showWifiList: false
+          });
+          
+          // 弹出询问弹窗
+          wx.showModal({
+            title: '提示',
+            content: `设备已连接到WiFi"${currentWifiName}"，是否要重新配网？`,
+            cancelText: '不需要',
+            confirmText: '重新配网',
+            success: (res) => {
+              if (res.confirm) {
+                // 用户选择重新配网，允许配置
+                console.log('用户选择重新配网，允许WiFi配置');
+                this.setData({
+                  wifiConfigDisabled: false,
+                  wifiPassword: '' // 清空密码，让用户重新输入
+                });
+                // 继续初始化WiFi步骤
+                this.wifiConfigManager.initWifiStep();
+              } else {
+                // 用户选择不需要，禁用配置
+                console.log('用户选择不需要重新配网，禁用WiFi配置');
+                this.setData({
+                  wifiConfigDisabled: true
+                });
+              }
+            }
           });
           return;
         } else {
@@ -663,6 +681,43 @@ Page({
       });
     }
 
+    // iOS设备无法获取WiFi列表
+    if (this.isIOS) {
+      // 如果当前连接的是5G WiFi，跳转到系统设置页面
+      if (this.data.is5GConnected) {
+        console.log('iOS设备连接5G WiFi，跳转到系统设置页面');
+        // 直接跳转到系统设置页面
+        wx.openAppAuthorizeSetting({
+          success: () => {
+            console.log('已跳转到系统设置页面');
+          },
+          fail: (err) => {
+            console.error('跳转系统设置失败:', err);
+            // 如果跳转失败，显示提示
+            wx.showModal({
+              title: '更换WiFi',
+              content: '当前连接的是5G WiFi，仅支持2.4G WiFi。\n\n请前往系统设置更换为2.4G WiFi后返回小程序。',
+              confirmText: '知道了',
+              showCancel: false
+            });
+          }
+        });
+        return;
+      }
+      
+      // 非5G WiFi情况，清空当前WiFi信息，让用户重新输入
+      console.log('iOS设备无法显示WiFi列表，清空当前WiFi信息，允许用户重新输入');
+      this.setData({
+        wifiName: '',
+        wifiSelected: false,
+        wifiPassword: '',
+        showWifiList: false
+      });
+      // 重新初始化WiFi步骤，让用户可以重新输入WiFi名称
+      this.initWifiStep();
+      return;
+    }
+
     // 使用WiFi配置管理器显示WiFi列表
     this.wifiConfigManager.showWifiList();
   },
@@ -777,6 +832,7 @@ Page({
             if (this.isIOS && device.advertisData) {
               const macResult = this._extractIOSMacAddress(device.advertisData, hasSavedMac);
               extractedMac = macResult.extractedMac;
+              // BluetoothManager.calculateWifiMacRegister(extractedMac)
               hasSavedMac = macResult.hasSavedMac;
             } else {
               console.log('广播数据: 无 或 非iOS设备');
@@ -926,18 +982,38 @@ Page({
           // 配网成功
           if (result.data.progress == 100) {
             const ssid = result.data.ssid;
-            // 根据蓝牙设备MAC地址计算WiFi MAC地址
-            const wifiMac = BluetoothManager.calculateWifiMac(this.data.connectedDeviceId);
+            
+            // iOS设备：使用已提取的wifiMac；Android设备：根据蓝牙设备MAC地址计算WiFi MAC地址
+            let wifiMac = '';
+            if (this.isIOS) {
+              // iOS设备使用已提取的MAC地址（在搜索设备时通过_extractIOSMacAddress提取）
+              wifiMac = this.data.wifiMac || '';
+              console.log('[iOS配网成功] 使用已提取的WiFi MAC:', wifiMac);
+            } else {
+              // Android设备根据蓝牙设备MAC地址计算WiFi MAC地址
+              wifiMac = BluetoothManager.calculateWifiMac(this.data.connectedDeviceId);
+              console.log('[Android配网成功] 计算WiFi MAC:', wifiMac);
+            }
 
-            console.log('配网成功，计算WiFi MAC:', wifiMac);
-            // 保存WiFi MAC地址到本地存储
+            // 保存WiFi MAC地址到本地存储并注册设备
             if (wifiMac) {
               wx.setStorage({
                 key: 'wifi_device_mac',
                 data: wifiMac
               });
+              
+              // 注册设备
               BluetoothManager.calculateWifiMacRegister(wifiMac)
+                .then(() => {
+                  console.log('设备注册成功:', wifiMac);
+                })
+                .catch((err) => {
+                  console.error('设备注册失败:', err);
+                });
+              
               console.log('已保存WiFi MAC地址:', wifiMac);
+            } else {
+              console.warn('配网成功但未找到WiFi MAC地址，无法注册设备');
             }
 
             // 保存WiFi名称到本地存储（使用用户输入的WiFi名称，而不是配网结果返回的ssid）
@@ -1312,7 +1388,14 @@ Page({
         is5GConnected: is5G // 设置5G状态
       })
     } catch (res) {
-      console.log(res);
+      console.log('初始化WiFi失败:', res);
+      
+      // 处理权限错误
+      if (res.errCode === 12012 || res.errno === 1505004 || res.type === 'permission') {
+        console.log('WiFi权限错误，已在getConnectedWifi中处理');
+        // 权限错误已在getConnectedWifi中处理，这里只设置状态
+      }
+      
       this.setData({
         wifiName: null,
       })

@@ -30,9 +30,11 @@
         <view class="device-card" bindtap="copyMac" data-mac="{{item.device_id}}">
           <view class="device-content">
             <view class="device-info">
+				      <view class="device-mac" wx:if="{{item.name}}">设备名称:{{item.name}}</view>
               <view class="device-mac">设备MAC值:{{item.device_id}}</view>
               <view class="device-label">{{index === 0 ? '最近使用' : '已关联'}}</view>
             </view>
+            
             <view class="device-actions">
               <button
                 class="switch-btn"
@@ -40,9 +42,20 @@
                 catchtap="onSwitchDeviceTap"
                 data-mac="{{item.device_id}}"
                 loading="{{switchingDeviceMac === item.device_id}}"
-                disabled="{{switchingDeviceMac && switchingDeviceMac !== item.device_id}}"
+                disabled="{{switchingDeviceMac && switchingDeviceMac !== item.device_id || currentDeviceMac === item.device_id}}"
               >
-                切换
+                {{currentDeviceMac === item.device_id ? '当前设备' : '切换'}}
+              </button>
+              <button
+                class="name-btn"
+                size="mini"
+                catchtap="onNameDeviceTap"
+                data-id="{{item.id || item.user_equipment_id || item.device_id}}"
+                data-name="{{item.name || ''}}"
+                loading="{{namingDeviceId === (item.id || item.user_equipment_id || item.device_id)}}"
+                disabled="{{namingDeviceId && namingDeviceId !== (item.id || item.user_equipment_id || item.device_id)}}"
+              >
+                {{item.name ? '修名' : '命名'}}
               </button>
               <button
                 class="unbind-btn"
@@ -64,6 +77,30 @@
     <view class="load-more" wx:if="{{devices.length > 0 && (isLoadingMore || !hasMore)}}">
       <text wx:if="{{isLoadingMore}}">加载中...</text>
       <text wx:elif="{{!hasMore}}">没有更多设备了</text>
+    </view>
+  </view>
+
+  <!-- 设备命名弹窗 -->
+  <view class="name-modal-mask" wx:if="{{showNameModal}}" bindtap="onCloseNameModal">
+    <view class="name-modal" catchtap="stopPropagation">
+      <view class="name-modal-header">
+        <text class="name-modal-title">{{nameModalDeviceName ? '修改设备名称' : '设备命名'}}</text>
+        <text class="name-modal-close" bindtap="onCloseNameModal">×</text>
+      </view>
+      <view class="name-modal-content">
+        <input
+          class="name-modal-input"
+          placeholder="请输入设备名称"
+          value="{{nameInputValue}}"
+          bindinput="onNameInputChange"
+          maxlength="20"
+          confirm-type="done"
+        />
+      </view>
+      <view class="name-modal-btns">
+        <button class="name-modal-btn cancel" bindtap="onCloseNameModal">取消</button>
+        <button class="name-modal-btn confirm" bindtap="onConfirmNameDevice">确定</button>
+      </view>
     </view>
   </view>
 </view>

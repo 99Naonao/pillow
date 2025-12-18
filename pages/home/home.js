@@ -24,7 +24,16 @@ Page({
     // 设备状态显示相关
     deviceStatusText: '设备离线',
     deviceSubText: '点击连接>',
-    deviceStatusClass: 'offline'
+    deviceStatusClass: 'offline',
+    // 折线图配置
+    heartRateEc: null,
+    respiratoryEc: null,
+    // 折线图实例引用
+    _heartRateChart: null,
+    _respiratoryChart: null,
+    // 历史数据数组（用于折线图）
+    heartRateHistory: [],
+    breathRateHistory: []
   },
 
   /**
@@ -469,10 +478,14 @@ Page({
         this.updateDeviceOnlineStatus(true);
         
         // 设备在线，确保连接状态正确
+        console.log('[home] 设置设备连接状态为true，准备初始化折线图');
         this.setData({
           deviceConnected: true,
           deviceName: 'zzZMinga'
         });
+        
+        // 初始化折线图
+        this.initCharts();
         
         // 更新设备状态显示（使用接口返回的状态名称和状态ID）
         this.updateDeviceStatusDisplay(true, statusName, statusId);
@@ -554,10 +567,14 @@ Page({
         this.updateDeviceOnlineStatus(true);
         
         // 设备在线，设置连接状态
+        console.log('[home] 设置设备连接状态为true，准备初始化折线图');
         this.setData({
           deviceConnected: true,
           deviceName: 'zzZMinga'
         });
+        
+        // 初始化折线图
+        this.initCharts();
         
         // 更新设备状态显示
         this.updateDeviceStatusDisplay(true, statusName, statusId);
@@ -639,10 +656,14 @@ Page({
         
         if (wasOffline) {
           console.log('[home] 心跳检测显示设备从离线回到在线，更新连接状态');
+          console.log('[home] 准备初始化折线图');
           this.setData({
             deviceConnected: true,
             deviceName: 'zzZMinga'
           });
+          
+          // 初始化折线图
+          this.initCharts();
           
           // 设备从离线回到在线，重新启动数据获取
           console.log('[home] 设备从离线回到在线，重新启动数据获取');
@@ -708,10 +729,14 @@ Page({
     }
     
     // 设置设备为已连接状态
+    console.log('[home] 设置设备连接状态为true，准备初始化折线图');
     this.setData({
       deviceConnected: true,
       deviceName: 'zzZMinga'
     });
+    
+    // 初始化折线图
+    this.initCharts();
     
     // 开始获取设备实时数据
     if (this.deviceManager) {
@@ -721,6 +746,353 @@ Page({
     } else {
       console.error('[home] deviceManager未初始化');
     }
+  },
+
+  /**
+   * 初始化折线图
+   */
+  initCharts() {
+    console.log('[home] ========== 开始初始化折线图 ==========');
+    console.log('[home] deviceConnected状态:', this.data.deviceConnected);
+    
+    if (!this.data.deviceConnected) {
+      console.log('[home] 设备未连接，跳过折线图初始化');
+      return;
+    }
+    
+    // 创建简单的波形图配置
+    const createWaveformConfig = (color = '#00ffff') => {
+      return {
+        onInit: (canvas, width, height, dpr) => {
+          console.log('[home] 折线图onInit被调用，canvas:', canvas, 'width:', width, 'height:', height);
+          
+          if (!canvas) {
+            console.warn('[home] Canvas为空，无法初始化折线图');
+            return null;
+          }
+          
+          try {
+            const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+            canvas.setChart(chart);
+            
+            // 保存chart实例引用
+            if (color === '#ff0064') {
+              this._heartRateChart = chart;
+              console.log('[home] 心率折线图实例已保存');
+            } else {
+              this._respiratoryChart = chart;
+              console.log('[home] 呼吸折线图实例已保存');
+            }
+            
+            const option = {
+              backgroundColor: 'transparent',
+              grid: {
+                left: 40,
+                right: 5,
+                top: 5,
+                bottom: 5,
+                containLabel: false
+              },
+              xAxis: {
+                type: 'category',
+                data: [],
+                show: false,
+                boundaryGap: false
+              },
+              yAxis: {
+                type: 'value',
+                show: true,
+                scale: false,
+                min: color === '#ff0064' ? 0 : 0, // 心率或呼吸率都从0开始
+                max: color === '#ff0064' ? 100 : 40, // 心率最大100，呼吸率最大40
+                interval: color === '#ff0064' ? 25 : 10, // 心率间隔25，呼吸率间隔10
+                axisLine: {
+                  show: false
+                },
+                axisTick: {
+                  show: false
+                },
+                splitLine: {
+                  show: true,
+                  lineStyle: {
+                    color: 'rgba(255, 255, 255, 0.1)',
+                    type: 'dashed'
+                  }
+                },
+                axisLabel: {
+                  show: true,
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  fontSize: 10,
+                  formatter: function(value) {
+                    return Math.round(value);
+                  },
+                  showMinLabel: true,
+                  showMaxLabel: true
+                }
+              },
+              series: [{
+                type: 'line',
+                data: [],
+                smooth: true,
+                symbol: 'none',
+                lineStyle: {
+                  color: color,
+                  width: 2
+                },
+                areaStyle: {
+                  color: {
+                    type: 'linear',
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [{
+                      offset: 0,
+                      color: color + '80'
+                    }, {
+                      offset: 1,
+                      color: color + '00'
+                    }]
+                  }
+                }
+              }]
+            };
+            
+            chart.setOption(option);
+            console.log('[home] 折线图配置设置完成，初始数据为空数组');
+            return chart;
+          } catch (error) {
+            console.error('[home] 初始化折线图失败:', error);
+            return null;
+          }
+        }
+      };
+    };
+    
+    console.log('[home] 准备设置heartRateEc和respiratoryEc');
+    this.setData({
+      heartRateEc: createWaveformConfig('#ff0064'),
+      respiratoryEc: createWaveformConfig('#00ffff')
+    }, () => {
+      console.log('[home] 折线图配置已设置到data中');
+      console.log('[home] heartRateEc:', this.data.heartRateEc ? '已设置' : '未设置');
+      console.log('[home] respiratoryEc:', this.data.respiratoryEc ? '已设置' : '未设置');
+    });
+    
+    console.log('[home] ========== 折线图初始化完成 ==========');
+  },
+
+  /**
+   * 心率折线图初始化回调
+   */
+  onHeartRateChartInit(e) {
+    console.log('[home] ========== 心率折线图初始化回调 ==========');
+    console.log('[home] 心率折线图init事件:', e);
+    console.log('[home] deviceConnected:', this.data.deviceConnected);
+    console.log('[home] heartRateEc:', this.data.heartRateEc);
+  },
+
+  /**
+   * 呼吸折线图初始化回调
+   */
+  onRespiratoryChartInit(e) {
+    console.log('[home] ========== 呼吸折线图初始化回调 ==========');
+    console.log('[home] 呼吸折线图init事件:', e);
+    console.log('[home] deviceConnected:', this.data.deviceConnected);
+    console.log('[home] respiratoryEc:', this.data.respiratoryEc);
+  },
+
+  /**
+   * 添加心率到历史数组
+   */
+  addToHeartRateHistory(value) {
+    console.log('[home] 添加心率到历史数组:', value);
+    if (!this.data.heartRateHistory) {
+      this.data.heartRateHistory = [];
+    }
+    this.data.heartRateHistory.push(value);
+    // 限制数组长度，保留最近的数据点（例如最近50个点）
+    const maxLength = 50;
+    if (this.data.heartRateHistory.length > maxLength) {
+      this.data.heartRateHistory = this.data.heartRateHistory.slice(-maxLength);
+    }
+    console.log('[home] 心率历史数组长度:', this.data.heartRateHistory.length);
+    // 更新折线图
+    this.updateHeartRateChart();
+  },
+
+  /**
+   * 添加呼吸率到历史数组
+   */
+  addToBreathRateHistory(value) {
+    console.log('[home] 添加呼吸率到历史数组:', value);
+    if (!this.data.breathRateHistory) {
+      this.data.breathRateHistory = [];
+    }
+    this.data.breathRateHistory.push(value);
+    // 限制数组长度，保留最近的数据点（例如最近50个点）
+    const maxLength = 50;
+    if (this.data.breathRateHistory.length > maxLength) {
+      this.data.breathRateHistory = this.data.breathRateHistory.slice(-maxLength);
+    }
+    console.log('[home] 呼吸率历史数组长度:', this.data.breathRateHistory.length);
+    // 更新折线图
+    this.updateRespiratoryChart();
+  },
+
+  /**
+   * 更新心率折线图
+   */
+  updateHeartRateChart() {
+    if (!this._heartRateChart) {
+      console.log('[home] 心率折线图实例不存在，跳过更新');
+      return;
+    }
+    
+    const history = this.data.heartRateHistory || [];
+    if (history.length === 0) {
+      console.log('[home] 心率历史数据为空，跳过更新');
+      return;
+    }
+    
+    try {
+      const xData = history.map((_, index) => index);
+      const minValue = Math.min(...history);
+      const maxValue = Math.max(...history);
+      const padding = (maxValue - minValue) * 0.2 || 10; // 20%的padding，最小10
+      
+      // 动态计算Y轴范围
+      let yMax = 100;
+      let interval = 25;
+      
+      if (maxValue > 100) {
+        // 如果数据超过100，动态调整范围
+        // 计算合适的最大值（向上取整到25的倍数）
+        yMax = Math.ceil(maxValue / 25) * 25;
+        // 如果最大值很大，增加间隔
+        if (yMax > 200) {
+          interval = 50;
+          yMax = Math.ceil(maxValue / 50) * 50;
+        } else if (yMax > 150) {
+          interval = 25;
+        }
+        console.log('[home] 心率数据超出100，动态调整Y轴范围到:', yMax, '间隔:', interval);
+      }
+      
+      console.log('[home] 更新心率折线图，数据点数量:', history.length, '范围:', minValue, '-', maxValue, 'Y轴范围: 0 -', yMax);
+      this._heartRateChart.setOption({
+        xAxis: {
+          data: xData,
+          boundaryGap: false
+        },
+        yAxis: {
+          min: 0,
+          max: yMax,
+          interval: interval,
+          axisLabel: {
+            show: true,
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontSize: 10,
+            formatter: function(value) {
+              return Math.round(value);
+            },
+            showMinLabel: true,
+            showMaxLabel: true
+          }
+        },
+        series: [{
+          data: history
+        }]
+      });
+      console.log('[home] 心率折线图数据更新成功');
+    } catch (error) {
+      console.error('[home] 更新心率折线图失败:', error);
+    }
+  },
+
+  /**
+   * 更新呼吸折线图
+   */
+  updateRespiratoryChart() {
+    if (!this._respiratoryChart) {
+      console.log('[home] 呼吸折线图实例不存在，跳过更新');
+      return;
+    }
+    
+    const history = this.data.breathRateHistory || [];
+    if (history.length === 0) {
+      console.log('[home] 呼吸率历史数据为空，跳过更新');
+      return;
+    }
+    
+    try {
+      const xData = history.map((_, index) => index);
+      const minValue = Math.min(...history);
+      const maxValue = Math.max(...history);
+      const padding = (maxValue - minValue) * 0.2 || 2; // 20%的padding，最小2
+      
+      // 动态计算Y轴范围
+      let yMax = 40;
+      let interval = 10;
+      
+      if (maxValue > 40) {
+        // 如果数据超过40，动态调整范围
+        // 计算合适的最大值（向上取整到10的倍数）
+        yMax = Math.ceil(maxValue / 10) * 10;
+        // 如果最大值很大，增加间隔
+        if (yMax > 80) {
+          interval = 20;
+          yMax = Math.ceil(maxValue / 20) * 20;
+        } else if (yMax > 60) {
+          interval = 15;
+          yMax = Math.ceil(maxValue / 15) * 15;
+        }
+        console.log('[home] 呼吸率数据超出40，动态调整Y轴范围到:', yMax, '间隔:', interval);
+      }
+      
+      console.log('[home] 更新呼吸折线图，数据点数量:', history.length, '范围:', minValue, '-', maxValue, 'Y轴范围: 0 -', yMax);
+      this._respiratoryChart.setOption({
+        xAxis: {
+          data: xData,
+          boundaryGap: false
+        },
+        yAxis: {
+          min: 0,
+          max: yMax,
+          interval: interval,
+          axisLabel: {
+            show: true,
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontSize: 10,
+            formatter: function(value) {
+              return Math.round(value);
+            },
+            showMinLabel: true,
+            showMaxLabel: true
+          }
+        },
+        series: [{
+          data: history
+        }]
+      });
+      console.log('[home] 呼吸折线图数据更新成功');
+    } catch (error) {
+      console.error('[home] 更新呼吸折线图失败:', error);
+    }
+  },
+
+  /**
+   * 更新折线图数据（兼容旧方法，使用历史数据）
+   */
+  updateWaveformCharts(heartRateWave, respiratoryWave) {
+    console.log('[home] ========== updateWaveformCharts被调用 ==========');
+    console.log('[home] 注意：现在使用历史数据数组来更新折线图');
+    console.log('[home] 心率历史数组长度:', this.data.heartRateHistory ? this.data.heartRateHistory.length : 0);
+    console.log('[home] 呼吸率历史数组长度:', this.data.breathRateHistory ? this.data.breathRateHistory.length : 0);
+    
+    // 使用历史数据更新折线图
+    this.updateHeartRateChart();
+    this.updateRespiratoryChart();
   },
 
   /**

@@ -32,7 +32,7 @@
 .login-buttons-container {
   display: flex;
   flex-direction: column;
-  gap: 40rpx;
+  gap: 20rpx;
 }
 
 /* 賬號登錄按鈕 */
@@ -70,25 +70,6 @@
   box-shadow: 0 12rpx 30rpx rgba(0, 0, 0, 0.25);
 }
 
-.section-divider {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-  margin-bottom: 20rpx;
-}
-
-.divider-line {
-  flex: 1;
-  height: 2rpx;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.divider-text {
-  font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.9);
-  letter-spacing: 4rpx;
-}
-
 .wx-auth-btn {
   width: 100%;
   height: 96rpx;
@@ -101,7 +82,7 @@
   justify-content: center;
   box-shadow: 0 10rpx 24rpx rgba(34, 197, 94, 0.35);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  margin-top: 10rpx;
+  /* margin-top: 10rpx; */
 }
 
 .wx-auth-btn::after {
@@ -143,6 +124,9 @@
   font-weight: 500;
 }
 
+
+
+
 .quick-login-tip {
   display: block;
   margin-top: 18rpx;
@@ -151,11 +135,20 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+.login-note {
+  text-align: center;
+}
+
+.login-note__text {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .agreement-container {
   display: flex;
   align-items: center;
   gap: 8rpx;
-  margin-top: 20rpx;
+  margin-top: 0;
   flex-wrap: nowrap;
   white-space: nowrap;
   overflow: hidden;

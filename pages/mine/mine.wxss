@@ -1,7 +1,13 @@
 /* pages/mine/mine.wxss */
+page {
+  background: #06142b;
+  height: 100%;
+}
+
 .mine-bg {
   background: radial-gradient(circle at top right, rgba(74, 111, 255, 0.35), transparent 50%), linear-gradient(180deg, #061a3a 0%, #0b2853 50%, #06142b 100%);
   min-height: 100vh;
+  height: 100%;
   /* padding: 0 24rpx 120rpx; */
   box-sizing: border-box;
 }
@@ -147,15 +153,11 @@
 }
 
 .logout-container {
-  position: fixed;
-  bottom: 140rpx;
-  left: 0;
-  right: 0;
+  margin: 32rpx 0 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 24rpx;
-  z-index: 100;
+  padding: 0;
 }
 
 .mine-logout-btn {
