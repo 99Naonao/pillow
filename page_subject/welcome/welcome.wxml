@@ -1,0 +1,55 @@
+<!--page_subject/welcome/welcome.wxml-->
+<view class="welcome-container">
+  <!-- 頂部導航欄 -->
+  <nav-bar title="欢迎" bgColor="#0b2853" titleColor="#fff" bind:onBack="onBack"></nav-bar>
+
+  <!-- 主要內容區域 -->
+  <view class="main-content">
+    <!-- 應用Logo -->
+    <view class="logo-container">
+      <image class="logo" src="/static/logo.png" mode="aspectFit"></image>
+    </view>
+
+    <!-- 登录按钮区域 -->
+    <view class="login-buttons-container">
+      <!-- <button class="account-login-btn" bindtap="goToAccountLogin">
+        账号登录
+      </button> -->
+
+        <button class="wx-auth-btn" 
+                open-type="getPhoneNumber"
+                bindgetphonenumber="onWeChatPhoneAuthorize"
+                loading="{{wechatPhoneLoginLoading}}"
+                disabled="{{wechatPhoneLoginLoading}}">
+          <view class="wx-auth-btn__content">
+            <!-- <view class="wx-auth-btn__icon">微</view> -->
+            <text class="wx-auth-btn__text">手机号快捷登录</text>
+          </view>
+        </button>
+
+      <!-- 登录备注 -->
+      <view class="login-note">
+        <text class="login-note__text">一键登录默认密码为：a123456</text>
+      </view>
+
+      <!-- 协议勾选 -->
+      <view class="agreement-container">
+        <checkbox class="agreement-checkbox"
+                  checked="{{agreedToTerms}}"
+                  bindtap="toggleAgreement"></checkbox>
+        <text class="agreement-text">已阅读并同意</text>
+        <text class="link-text" bindtap="viewUserAgreement">《用户协议》</text>
+        <text class="agreement-text">和</text>
+        <text class="link-text" bindtap="viewPrivacyPolicy">《隐私协议》</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 协议查看器组件 -->
+<protocol-viewer 
+  protocolType="{{currentProtocolType}}"
+  visible="{{showProtocolViewer}}"
+  bind:close="onCloseProtocolViewer"
+/>
+

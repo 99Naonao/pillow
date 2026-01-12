@@ -92,6 +92,28 @@
               disabled="{{!canLogin}}">
         登录
       </button>
+
+      <!-- 微信手机号快捷登录 -->
+   <!--   <view class="quick-login-section">
+        <view class="section-divider">
+          <view class="divider-line"></view>
+          <text class="divider-text">快捷登录</text>
+          <view class="divider-line"></view>
+        </view>
+
+        <button class="wx-auth-btn" 
+                open-type="getPhoneNumber"
+                bindgetphonenumber="onWeChatPhoneAuthorize"
+                loading="{{wechatPhoneLoginLoading}}"
+                disabled="{{wechatPhoneLoginLoading}}">
+          <view class="wx-auth-btn__content">
+            <view class="wx-auth-btn__icon">微</view>
+            <text class="wx-auth-btn__text">微信手机号一键授权登录</text>
+          </view>
+        </button>
+
+        <text class="quick-login-tip">授权后将直接使用微信绑定手机号完成登录</text>
+      </view> -->
     </view>
 
     <!-- 底部鏈接 -->

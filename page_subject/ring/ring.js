@@ -157,7 +157,9 @@ Page({
         cancelText: '稍后设置',
         success: (res) => {
           if (res.confirm) {
+            // 跳轉到個人中心設置緊急聯繫人
             console.log('用戶確認跳轉到緊急聯繫人設置頁面');
+            // 先跳轉到個人中心頁面
             wx.switchTab({
               url: '/pages/mine/mine'
             });
@@ -167,6 +169,7 @@ Page({
               getCurrentPages()[getCurrentPages().length - 1].openContactModal();
             }, 1000);
           } else {
+            // 用戶選擇稍後設置，仍然更新配置但不允許修改預警設置
             this.updateConfigFromServer(serverData);
             this.setData({
               configDisabled: true // 禁用預警設置

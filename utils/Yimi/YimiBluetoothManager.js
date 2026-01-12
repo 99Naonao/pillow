@@ -468,19 +468,6 @@ class YimiBluetoothManager {
           clearTimeout(connectTimeout);
           console.log('设备连接成功:', res);
 
-          // 连接成功后尝试设置 MTU 为 512（若基础库支持）
-          // this.setBLEMTU(deviceId, 512)
-          //   .then((ok) => {
-          //     if (ok) {
-          //       console.log('[蓝牙] ✅ 已设置 MTU = 512');
-          //     } else {
-          //       console.log('[蓝牙] ℹ️ 未能设置 MTU（可能基础库不支持或设备不接受）');
-          //     }
-          //   })
-          //   .catch((e) => {
-          //     console.error('[蓝牙] ❌ 设置 MTU 失败:', e);
-          //   });
-
           // 延迟一下再获取服务，确保连接稳定
           setTimeout(() => {
             this.discoverServices(deviceId)

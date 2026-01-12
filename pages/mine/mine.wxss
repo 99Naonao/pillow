@@ -1,19 +1,100 @@
 /* pages/mine/mine.wxss */
+page {
+  background: #06142b;
+  height: 100%;
+}
+
 .mine-bg {
-  background: #0b2853;
+  background: radial-gradient(circle at top right, rgba(74, 111, 255, 0.35), transparent 50%), linear-gradient(180deg, #061a3a 0%, #0b2853 50%, #06142b 100%);
   min-height: 100vh;
-  padding: 0 0 40rpx 0;
+  height: 100%;
+  /* padding: 0 24rpx 120rpx; */
+  box-sizing: border-box;
+}
+
+.mine-bgg {
+  padding: 0 24rpx 120rpx;
+}
+
+
+.mine-bg.no-logout {
+  padding-bottom: 60rpx;
+}
+
+.glass-card {
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30rpx 60rpx rgba(3, 9, 20, 0.4);
+  backdrop-filter: blur(20rpx);
+}
+
+.glass-row {
+  background: rgba(9, 31, 60, 0.6);
+  border: 1rpx solid rgba(255, 255, 255, 0.05);
+  border-radius: 24rpx;
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.05);
+}
+
+.mine-hero {
+  margin: 32rpx 0 0;
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.hero-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.hero-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 1rpx;
+}
+
+.hero-subtitle {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.hero-pill-group {
+  display: flex;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.hero-pill {
+  padding: 18rpx 24rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  min-width: 200rpx;
+}
+
+.pill-label {
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pill-value {
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: 600;
 }
 
 .mine-card {
-  border-radius: 24rpx;
   display: flex;
   flex-direction: column;
-  padding: 0;
-  margin: 32rpx 24rpx 0 24rpx;
-  box-shadow: 0 4rpx 24rpx rgba(0,0,0,0.08);
-  min-height: 120rpx;
-  background: #cfb679;
+  padding: 24rpx 32rpx;
+  margin: 24rpx 0 0;
+  min-height: 140rpx;
 }
 
 .mine-avatar {
@@ -28,10 +109,8 @@
 .user-profile-container {
   display: flex;
   align-items: center;
-  justify-content: center;
   width: 100%;
-  height: 100rpx;
-  padding: 12rpx 0;
+  gap: 24rpx;
 }
 
 .avatar-section {
@@ -68,26 +147,21 @@
 }
 
 .user-id {
-  font-size: 32rpx;
-  color: #0b2853;
-  font-weight: bold;
-  text-align: left;
+  font-size: 34rpx;
+  color: #fff;
+  font-weight: 600;
 }
 
 .logout-container {
-  position: fixed;
-  bottom: 140rpx;
-  left: 0;
-  right: 0;
+  margin: 32rpx 0 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 24rpx;
-  z-index: 100;
+  padding: 0;
 }
 
 .mine-logout-btn {
-  background: #175c77;
+  background: linear-gradient(135deg, #1a73ff, #5cf1ff);
   color: #fff;
   border-radius: 36rpx;
   font-size: 24rpx;
@@ -102,15 +176,14 @@
 }
 
 .mine-logout-btn:active {
-  background: #175c77;
-  border-color: #fff;
+  background: linear-gradient(135deg, #1762ff, #48d7ff);
 }
 
 .mine-func-card {
-  margin: 32rpx 24rpx 0 24rpx;
+  margin: 32rpx 0 0;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 20rpx;
 }
 
 .mine-func-row {
@@ -118,10 +191,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 24rpx;
-  margin-bottom: 20rpx;
-  background: #175c77;
-  border-radius: 20rpx;
   min-height: 80rpx;
+  color: #fff;
 }
 
 .mine-func-left {
@@ -143,13 +214,12 @@
 
 .mine-func-label {
   font-size: 28rpx;
-  color: #fff;
   font-weight: bold;
 }
 
 .mine-func-desc {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .mine-switch {
@@ -163,16 +233,16 @@
 }
 
 .not-login-content {
-  width: 93%;
+  width: 100%;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  border: 2rpx solid #0b2853;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 20rpx;
-  padding: 24rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.1);
+  padding: 24rpx 32rpx;
+  border: 1rpx dashed rgba(255, 255, 255, 0.2);
+  box-sizing: border-box;
 }
 
 
@@ -184,13 +254,13 @@
 }
 
 .not-login-title {
-  color: #0b2853;
+  color: #fff;
   font-size: 28rpx;
   font-weight: bold;
 }
 
 .not-login-tip {
-  color: #666;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 24rpx;
   font-weight: normal;
 }
@@ -799,9 +869,6 @@
 
 /* 协议卡片样式 */
 .protocol-card {
-  background: #175c77;
-  border-radius: 20rpx;
-  margin-bottom: 20rpx;
   overflow: hidden;
   transition: all 0.3s ease;
 }
@@ -829,7 +896,7 @@
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .protocol-options.show {
@@ -846,7 +913,7 @@
 }
 
 .protocol-option:active {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .protocol-option-left {
@@ -875,17 +942,15 @@
 
 /* 开发环境测试页面样式 */
 .test-pages-section {
-  margin: 32rpx 24rpx 0 24rpx;
-  background: #fff;
-  border-radius: 24rpx;
+  margin: 32rpx 0 0;
   padding: 32rpx;
-  box-shadow: 0 4rpx 24rpx rgba(0,0,0,0.08);
+  color: #fff;
 }
 
 .test-pages-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #333;
+  color: #fff;
   margin-bottom: 24rpx;
   text-align: center;
 }
@@ -897,7 +962,7 @@
 }
 
 .test-page-btn {
-  background: #0b2853;
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
   border: none;
   border-radius: 16rpx;
@@ -929,4 +994,177 @@
   to {
     transform: translateY(0);
   }
+}
+
+/* 重置密码弹窗样式 */
+.reset-password-modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.reset-password-modal {
+  background: #fff;
+  border-radius: 20rpx;
+  width: 600rpx;
+  max-width: 90vw;
+  padding: 0;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.reset-password-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 40rpx 40rpx 20rpx 40rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.reset-password-modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  flex: 1;
+  text-align: center;
+}
+
+.reset-password-modal-close {
+  font-size: 40rpx;
+  color: #999;
+  padding: 10rpx;
+  line-height: 1;
+}
+
+.reset-password-content {
+  padding: 40rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.reset-password-section {
+  margin-bottom: 32rpx;
+  width: 100%;
+}
+
+.reset-password-section:last-child {
+  margin-bottom: 0;
+}
+
+.reset-password-label {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+.reset-password-input {
+  width: 100%;
+  height: 80rpx;
+  border: 2rpx solid #e0e0e0;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333;
+  background: #f8f8f8;
+  box-sizing: border-box;
+}
+
+.reset-password-input:focus {
+  border-color: #1976d2;
+  background: #fff;
+}
+
+.reset-password-code-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.reset-password-code-wrapper .code-input {
+  flex: 1;
+}
+
+.reset-password-code-btn {
+  width: 180rpx;
+  height: 80rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  font-weight: bold;
+  border: none;
+  background: #1976d2;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.reset-password-code-btn.disabled {
+  background: #ccc;
+  color: #999;
+}
+
+.reset-password-code-btn:active:not(.disabled) {
+  background: #1565c0;
+}
+
+.reset-password-modal-btns {
+  display: flex;
+  gap: 24rpx;
+  padding: 20rpx 40rpx 40rpx 40rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.reset-password-modal-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.reset-password-modal-btn.cancel {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.reset-password-modal-btn.confirm {
+  background: #1976d2;
+  color: #fff;
+}
+
+.reset-password-modal-btn.cancel:active {
+  background: #e0e0e0;
+}
+
+.reset-password-modal-btn.confirm:active {
+  background: #1565c0;
+}
+
+.new-avatar-modal-btn.reset-password {
+  background: #ff9800;
+  color: #fff;
+  width: 100%;
+}
+
+.new-avatar-modal-btn.reset-password:active {
+  background: #f57c00;
 }

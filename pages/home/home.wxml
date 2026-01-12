@@ -2,57 +2,90 @@
 <!-- <nav-bar title="智能观心枕" showNavBtn="{{false}}"  bgColor="#0b2853" titleColor="#fff"/> -->
 <view class="container">
   <!-- <view class="top-space"></view> -->
-  <image src="../../static/bg.jpg" class="pillow-img"/>
+  <image src="../../static/bg_home.jpg" class="pillow-img"/>
   <view class="card-grid">
+    <!-- 血氧悬浮气泡 -->
+    <view class="spo2-bubble">
+      <view class="spo2-bubble-inner"  wx:if="{{oximeterConnected}}">
+        <view class="spo2-icon-wrapper">
+          <image src="../../static/oximeter.png" class="spo2-icon"/>
+        </view>
+        <view class="spo2-value-wrapper">
+          <view class="spo2-label">血氧</view>
+          <view class="spo2-value">
+            {{spo2 !== null && spo2 !== undefined ? spo2 : '--'}}
+            <text class="spo2-unit">%</text>
+          </view>
+          <view class="spo2-pr-label">脉率</view>
+          <view class="spo2-pr-value">
+            {{pulseRate !== null && pulseRate !== undefined ? pulseRate : '--'}}
+            <text class="spo2-unit-small">bpm</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <!-- 血氧连接按钮 -->
+    <view class="spo2-connect-btn" wx:if="{{!oximeterConnected}}" bind:tap="connectOximeter">
+      <text class="spo2-connect-text">点击连接血氧仪</text>
+    </view>
+    <!-- 设备连接状态按钮 -->
+    <view class="device-status-btn" bind:tap="toBlueIndex">
+      <image src="../../static/link_home.png" class="device-status-icon"/>
+      <view class="device-status-content">
+        <text class="device-status-text">{{deviceStatusText}}</text>
+        <text class="device-status-sub-text" wx:if="{{deviceSubText}}">{{deviceSubText}}</text>
+      </view>
+    </view>
+    
     <!-- 心率 --> 
     <view class="card">
       <view class="card-header">
-        <image src="../../static/heart_rate.png" class="card-icon"/>
         <text class="card-title">心率</text>
+        <image src="../../static/heart.png" class="card-icon"/>
+      </view>
+      <ec-canvas 
+        id="heartRateChart"
+        canvas-id="heartRateChart"
+        ec="{{ heartRateEc }}"
+        class="waveform-canvas"
+        wx:if="{{deviceConnected && heartRateEc}}"
+        bind:init="onHeartRateChartInit"
+      ></ec-canvas>
+      <!-- 调试信息 -->
+      <view wx:if="{{deviceConnected && !heartRateEc}}" style="position: absolute; bottom: 70rpx; left: 10rpx; right: 10rpx; height: 80rpx; color: rgba(255,255,255,0.5); font-size: 20rpx; display: flex; align-items: center; justify-content: center;">
+        <text>心率折线图未初始化 (deviceConnected: {{deviceConnected}}, heartRateEc: {{heartRateEc ? '有' : '无'}})</text>
       </view>
       <view class="card-value">
-        {{deviceConnected ? (heartRate !== null ? heartRate + ' 次/分' : '.. 次/分') : '.. 次/分'}}
+        {{deviceConnected ? (heartRate !== null && heartRate !== 0 ? heartRate + ' 次/分' : (heartRate === 0 ? '-- 次/分' : '.. 次/分')) : '.. 次/分'}}
       </view>
     </view>
     <!-- 呼吸 -->
     <view class="card">
       <view class="card-header">
-        <image src="../../static/breath.png" class="card-icon"/>
         <text class="card-title">呼吸</text>
+        <image src="../../static/breath_rate2.png" class="card-icon"/>
+      </view>
+      <ec-canvas 
+        id="respiratoryChart"
+        canvas-id="respiratoryChart"
+        ec="{{ respiratoryEc }}"
+        class="waveform-canvas"
+        wx:if="{{deviceConnected && respiratoryEc}}"
+        bind:init="onRespiratoryChartInit"
+      ></ec-canvas>
+      <!-- 调试信息 -->
+      <view wx:if="{{deviceConnected && !respiratoryEc}}" style="position: absolute; bottom: 70rpx; left: 10rpx; right: 10rpx; height: 80rpx; color: rgba(255,255,255,0.5); font-size: 20rpx; display: flex; align-items: center; justify-content: center;">
+        <text>呼吸折线图未初始化 (deviceConnected: {{deviceConnected}}, respiratoryEc: {{respiratoryEc ? '有' : '无'}})</text>
       </view>
       <view class="card-value">
-        {{deviceConnected ? (breathRate !== null ? breathRate + ' 次/分' : '.. 次/分') : '.. 次/分'}}
-      </view>
-      <!-- 血氧悬浮气泡 -->
-      <view class="spo2-bubble">
-        <view class="spo2-bubble-inner"  wx:if="{{oximeterConnected}}">
-          <view class="spo2-icon-wrapper">
-            <image src="../../static/oximeter.png" class="spo2-icon"/>
-          </view>
-          <view class="spo2-value-wrapper">
-            <view class="spo2-label">血氧</view>
-            <view class="spo2-value">
-              {{spo2 !== null && spo2 !== undefined ? spo2 : '--'}}
-              <text class="spo2-unit">%</text>
-            </view>
-            <view class="spo2-pr-label">脉率</view>
-            <view class="spo2-pr-value">
-              {{pulseRate !== null && pulseRate !== undefined ? pulseRate : '--'}}
-              <text class="spo2-unit-small">bpm</text>
-            </view>
-          </view>
-        </view>
-      </view>
-      <!-- 血氧连接按钮 -->
-      <view class="spo2-connect-btn" wx:if="{{!oximeterConnected}}" bind:tap="connectOximeter">
-        <text class="spo2-connect-text">点击连接血氧仪</text>
+        {{deviceConnected ? (breathRate !== null && breathRate !== 0 ? breathRate + ' 次/分' : (breathRate === 0 ? '-- 次/分' : '.. 次/分')) : '.. 次/分'}}
       </view>
     </view>
    <!-- 体动状态 -->
    <view class="card">
      <view class="card-header">
-       <image src="../../static/turn_over.png" class="card-icon"/>
        <text class="card-title">体动</text>
+       <image src="../../static/turn.png" class="card-icon"/>
      </view>
      <view class="card-value">
        {{deviceConnected ? (turnOver === 1 ? '有' : (turnOver === 0 ? '无' : '..')) : '..'}}
@@ -61,18 +94,11 @@
     <!-- 离枕状态 -->
     <view class="card">
       <view class="card-header">
-        <image src="../../static/exit.png" class="card-icon"/>
-        <text class="card-title">离枕状态</text>
+        <text class="card-title">离枕</text>
+        <image src="../../static/leave_pillow2.png" class="card-icon"/>
       </view>
       <view class="card-value">
         {{deviceConnected ? (isLeavePillow !== null ? (isLeavePillow ? '离枕' : '在枕') : '..') : '..'}}
-      </view>
-    </view>
-    <!-- 设备状态指示器 -->
-    <view class="device-status-overlay" bind:tap="toBlueIndex">
-      <view class="status-circle {{deviceStatusClass}}">
-        <text class="status-main-text">{{deviceStatusText}}</text>
-        <text class="status-sub-text">{{deviceSubText}}</text>
       </view>
     </view>
   </view>

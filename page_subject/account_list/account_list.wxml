@@ -1,0 +1,128 @@
+<view class="account-page">
+  <nav-bar
+    title="账号列表"
+    bgColor="#0b2853"
+    titleColor="#fff"
+    bind:onBack="onBack"
+  />
+  <button class="add-account-btn" bindtap="onAddTap" hover-class="none">添加账号</button>
+
+  <view class="page-body">
+    <view class="toolbar">
+      <text class="timestamp" wx:if="{{lastUpdated}}">最近更新：{{lastUpdated}}</text>
+      <button class="refresh-btn" size="mini" bindtap="onRefreshTap" loading="{{isLoading}}">刷新</button>
+    </view>
+
+    <view class="state-card" wx:if="{{isLoading}}">
+      <text>加载中...</text>
+    </view>
+
+    <view class="state-card error" wx:elif="{{hasError}}">
+      <text>加载账号失败，请稍后重试</text>
+      <button class="retry-btn" bindtap="loadAccounts">重新加载</button>
+    </view>
+
+    <view class="state-card" wx:elif="{{accounts.length === 0}}">
+      <text>暂无关联账号</text>
+      <text class="state-subtext">请登录或在设置中添加家庭成员账号</text>
+    </view>
+
+    <view class="account-list" wx:else>
+      <block wx:for="{{accounts}}" wx:key="id" wx:for-index="index">
+        <view class="account-card" bindtap="copyAccount" data-account="{{item.account}}">
+          <view class="account-header">
+            <image
+              class="account-avatar"
+              mode="aspectFill"
+              src="{{item.avatar || item.avatarUrl || item.photo || '/static/default_avatar.png'}}"
+              lazy-load="{{true}}"
+            />
+            <view>
+				<view class="account-main">
+					<text class="account-name">{{item.nickname || item.account || '成员'}}</text>
+					<text class="account-status {{item.status === '已启用' ? 'active' : 'inactive'}}">{{item.status || '已启用'}}</text>
+				</view>
+			  <view class="account-meta">
+			  	<text class="account-id">账号:{{item.account}}</text>
+			  </view>
+              <!-- <text class="account-role {{item.isOwner ? 'owner' : ''}}">{{item.role || (item.isOwner ? '主账号' : '成员')}}</text> -->
+            </view>
+         
+          </view>
+		  <view class="account-actions">
+		    <button
+		      class="switch-btn"
+		      size="mini"
+		      catchtap="onSwitchAccountTap"
+		      data-mobile="{{item.mobile || item.account}}"
+		      data-password="{{item.password}}"
+		      data-account-id="{{'' + (item.id || index)}}"
+		      loading="{{switchingAccountId === ('' + (item.id || index))}}"
+		      disabled="{{switchingAccountId && switchingAccountId !== ('' + (item.id || index))}}"
+		    >
+		      切换
+		    </button>
+		    <button
+		      class="unbind-btn"
+		      size="mini"
+		      catchtap="onUnbindAccountTap"
+		      data-id="{{item.id || item.account_id || item.account}}"
+		      loading="{{unbindingAccountId === (item.id || item.account_id || item.account)}}"
+		      disabled="{{unbindingAccountId && unbindingAccountId !== (item.id || item.account_id || item.account)}}"
+		    >
+		      解绑
+		    </button>
+		  </view>
+         <!-- <view class="account-meta">
+            <text class="account-id">账号情况:{{item.account || '未提供账号'}}</text>
+            <text class="account-status {{item.status === '已启用' ? 'active' : 'inactive'}}">{{item.status || '已启用'}}</text>
+          </view> -->
+          <view class="account-extra" wx:if="{{item.mobile || item.remark}}">
+            <text class="account-mobile" wx:if="{{item.mobile}}">手机号：{{item.mobile}}</text>
+            <text class="account-remark" wx:if="{{item.remark}}">{{item.remark}}</text>
+          </view>
+        </view>
+      </block>
+      <!-- <text class="state-subtext tips">提示：点击卡片可复制账号</text> -->
+    </view>
+  </view>
+
+  <view class="add-modal" wx:if="{{showAddModal}}">
+    <view class="modal-mask" bindtap="onAddModalClose"></view>
+    <view class="modal-container">
+      <view class="modal-header">
+        <text>添加快捷账号</text>
+        <text class="modal-close" bindtap="onAddModalClose">×</text>
+      </view>
+      <view class="modal-body">
+        <view class="modal-field">
+          <text class="modal-label">账号</text>
+          <input
+            class="modal-input"
+            placeholder="请输入账号/手机号"
+            value="{{addForm.account}}"
+            data-field="account"
+            bindinput="onAddInputChange"
+            confirm-type="next"
+          />
+        </view>
+        <view class="modal-field">
+          <text class="modal-label">密码</text>
+          <input
+            class="modal-input"
+            placeholder="请输入密码"
+            value="{{addForm.password}}"
+            data-field="password"
+            bindinput="onAddInputChange"
+            password="{{true}}"
+            confirm-type="done"
+          />
+        </view>
+      </view>
+      <view class="modal-actions">
+        <button class="modal-btn ghost" bindtap="onAddModalClose" disabled="{{addSubmitting}}">取消</button>
+        <button class="modal-btn solid" bindtap="onConfirmAdd" loading="{{addSubmitting}}" disabled="{{addSubmitting}}">确认</button>
+      </view>
+    </view>
+  </view>
+</view>

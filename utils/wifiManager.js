@@ -1,3 +1,5 @@
+const { checkWifiAuth } = require('./permissionUtil');
+
 /**
  * WiFi管理工具类
  */
@@ -33,15 +35,53 @@ class WifiManager {
     }
 
     /**
-     * 获取已连接的WiFi
+     * 获取已连接的WiFi（需要位置权限）
      */
-    getConnectedWifi() {
-        return new Promise((resolve, reject) => {
-            wx.getConnectedWifi({
-                success: resolve,
-                fail: reject
+    async getConnectedWifi() {
+        try {
+            // 先检查并请求位置权限
+            await checkWifiAuth();
+            
+            // 权限已授权，获取WiFi信息
+            return new Promise((resolve, reject) => {
+                wx.getConnectedWifi({
+                    success: resolve,
+                    fail: (error) => {
+                        // 处理权限错误
+                        if (error.errCode === 12012 || error.errno === 1505004 || error.type === 'system_permission') {
+                            console.error('获取WiFi信息需要位置权限:', error);
+                            // 权限被拒绝，提示用户去系统设置开启微信App的位置权限
+                            wx.showModal({
+                                title: '权限提醒',
+                                content: '需要开启微信App的位置权限才能使用WiFi功能。\n\n请按以下步骤操作：\n1. 打开手机系统设置\n2. 找到"微信"应用\n3. 开启"位置信息"权限\n4. 返回小程序重试',
+                                confirmText: '知道了',
+                                cancelText: '取消',
+                                showCancel: true,
+                                success: (modalRes) => {
+                                    if (modalRes.confirm) {
+                                        // 打开小程序设置页面，用户可以手动去系统设置
+                                        wx.openSetting({
+                                            success: () => {
+                                                console.log('用户进入设置页面');
+                                            }
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                        reject(error);
+                    }
+                });
             });
-        });
+        } catch (permissionError) {
+            // 权限请求失败，直接拒绝
+            console.error('WiFi权限请求失败:', permissionError);
+            return Promise.reject({
+                errCode: 12012,
+                errno: 1505004,
+                errMsg: 'getConnectedWifi:fail:may be not obtain GPS Permission'
+            });
+        }
     }
 
     /**
@@ -185,7 +225,18 @@ class WifiManager {
             };
         } catch (error) {
             console.error('检查WiFi状态失败:', error);
-                        
+            
+            // 处理权限错误（错误代码 12012 或 errno 1505004）
+            if (error.errCode === 12012 || error.errno === 1505004) {
+                console.error('WiFi权限错误，需要位置权限');
+                // 抛出权限错误，让上层处理
+                throw {
+                    ...error,
+                    type: 'permission',
+                    message: '需要位置权限才能获取WiFi信息'
+                };
+            }
+            
             // iOS WiFi未打开时，抛出错误让上层处理
             const systemInfo = wx.getDeviceInfo();
             const isIOS = systemInfo.platform === 'ios';

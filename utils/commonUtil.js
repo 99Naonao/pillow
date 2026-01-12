@@ -2,6 +2,7 @@
  * MAC地址工具类 - 提供MAC地址转换和验证功能
  */
 const STORAGE_KEY = 'wifi_device_mac';
+const STORAGE_LIST_KEY = 'associated_device_macs';
 class CommonUtil {
 
   /**
@@ -18,6 +19,7 @@ class CommonUtil {
         wx.setStorageSync(STORAGE_KEY,wifiMac);
         console.log('已将wifi mac保存在本地，保存的mac:',wifiMac);
         console.log('WiFi MAC转换成功:', wifiMac);
+        this._appendAssociatedMac(wifiMac);
       } catch (error) {
         console.error('保存mac失败',error)
       }
@@ -52,6 +54,43 @@ class CommonUtil {
       console.log('已清除保存的WiFi MAC');
     } catch (error) {
       console.error('清除WiFi MAC失败:', error);
+    }
+  }
+
+  /**
+   * 获取所有已关联的设备MAC列表（去重）
+   * @returns {string[]} 设备MAC列表
+   */
+  static getAssociatedDeviceMacs() {
+    try {
+      const list = wx.getStorageSync(STORAGE_LIST_KEY) || [];
+      const current = this.getSavedWifiMac();
+      const macSet = new Set(Array.isArray(list) ? list : []);
+      if (current) {
+        macSet.add(current);
+      }
+      return Array.from(macSet);
+    } catch (error) {
+      console.error('读取关联设备列表失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 将新的MAC写入关联列表
+   * @param {string} mac
+   */
+  static _appendAssociatedMac(mac) {
+    try {
+      if (!mac) return;
+      const list = wx.getStorageSync(STORAGE_LIST_KEY) || [];
+      if (Array.isArray(list) && list.includes(mac)) {
+        return;
+      }
+      const nextList = Array.isArray(list) ? [...list, mac] : [mac];
+      wx.setStorageSync(STORAGE_LIST_KEY, nextList);
+    } catch (error) {
+      console.error('追加关联设备MAC失败:', error);
     }
   }
 
@@ -291,5 +330,7 @@ class CommonUtil {
     };
   }
 }
+
+CommonUtil.STORAGE_KEY = STORAGE_KEY;
 
 module.exports = CommonUtil;

@@ -1,5 +1,6 @@
 const key = '1f3e1d08bac85daf08eca14e72cde665';
-
+const BASE_URL = 'https://zhongshu.xinglu.shop';
+const { getLatestToken } = require('./tokenHelper.js');
 /**
  * 通用SOAP请求
  * @param {string} method SOAP方法名
@@ -29,6 +30,7 @@ function soapRequest(method, dataObj, httpMethod = 'POST') {
   return new Promise((resolve, reject) => {
     wx.request({
       url: 'https://bed.qssmart.cn/CustomerAPIService.asmx',
+	  // url:`${BASE_URL}/shopapi/UserEquipment/getSleepReportsByDateRange`,
       method: httpMethod,
       data: postXml,
       header: {
@@ -86,6 +88,7 @@ class DeviceManager {
   constructor(page) {
     this.page = page; // 传入页面实例
     this._realtimeTimer = null;
+    this._deviceStatusId = null; // 保存设备状态ID，用于判断是否离床
   }
 
   /**
@@ -131,6 +134,10 @@ class DeviceManager {
       if (result.ret === 0 && result.data) {
         const deviceStatus = result.data.status;
         const isOnline = deviceStatus.id !== 4; // 4表示离线状态
+        const isLeaveBed = deviceStatus.id === 3; // 3表示离床状态
+        
+        // 保存设备状态ID，供实时数据获取时使用
+        this._deviceStatusId = deviceStatus.id;
         
         // 计算设备最后更新时间距离现在的时间差（毫秒）
         const lastUpdateTime = new Date(deviceStatus.since).getTime();
@@ -146,6 +153,7 @@ class DeviceManager {
           statusId: deviceStatus.id,
           statusIdType: typeof deviceStatus.id,
           isOnline: isOnline,
+          isLeaveBed:isLeaveBed,
           lastUpdate: deviceStatus.since,
           timeSinceLastUpdate: timeSinceLastUpdate,
           isOfflineTooLong: isOfflineTooLong,
@@ -157,6 +165,7 @@ class DeviceManager {
         return {
           success: true,
           isOnline: isOnline,
+          isLeaveBed:isLeaveBed,
           isOfflineTooLong: isOfflineTooLong,
           timeSinceLastUpdate: timeSinceLastUpdate,
           deviceInfo: result.data,
@@ -268,6 +277,35 @@ class DeviceManager {
       });
   }
 
+  /**
+   * 获取设备预警信息
+   * @param {string} mac 设备MAC地址
+   * @param {number} index 页码，默认1
+   * @param {number} size 每页数量，默认20
+   * @returns {Promise} 获取结果
+   */
+  getDeviceWarningInfo(mac, index = 1, size = 20) {
+    const method = 'GetDeviceWarningInfo';
+    const dataObj = {
+      key: "1f3e1d08bac85daf08eca14e72cde665",
+      mac: mac,
+      index: index,
+      size: size
+    };
+    
+    console.log('[deviceManager] 获取设备预警信息请求数据：', JSON.stringify(dataObj));
+    
+    return soapRequest(method, dataObj, 'POST')
+      .then(res => {
+        console.log('[deviceManager] 获取设备预警信息成功：', res);
+        return res;
+      })
+      .catch(err => {
+        console.error('[deviceManager] 获取设备预警信息失败：', err);
+        throw err;
+      });
+  }
+
 /**
  * 设置设备的预警信息
  * @param {*} healthConfig 
@@ -326,23 +364,46 @@ voiceNotifation(params){
    * @param {string} params.end_date 结束日期
    */
   getSleepReportData(params) {
-    const method = 'GetSleepReportsByDateRange';
-    const dataObj = {
-      key: key,
-      mac: params.mac || '',
-      start_date: params.start_date,
-      end_date: params.end_date
-    };
-    console.log('请求数据：',JSON.stringify(dataObj))
-    return soapRequest(method, dataObj, 'POST')
-      .then(res => {
-        console.log('获取睡眠报告列表数据===', res);
-        return res;
-      })
-      .catch(err => {
-        console.error('获取睡眠报告失败:', err);
-        throw err;
-      });
+	  const token = getLatestToken();
+	  return new Promise((resolve, reject) => {
+	    wx.request({
+	      url: `${BASE_URL}/shopapi/UserEquipment/getSleepReportsByDateRange`,
+	      method: 'POST',
+	      header: {
+	        'content-type': 'application/json',
+	        'version': '3.1.1',
+			"token": token
+	      },
+	      data: {
+	          mac: params.mac || '',
+	          start_date: params.start_date,
+	          end_date: params.end_date
+	      },
+	      success: (res) => {
+	        resolve(res.data);
+	      },
+	      fail: (error) => {
+	        reject(error);
+	      }
+	    });
+	  });
+    // const method = 'GetSleepReportsByDateRange';
+    // const dataObj = {
+    //   key: key,
+    //   mac: params.mac || '',
+    //   start_date: params.start_date,
+    //   end_date: params.end_date
+    // };
+    // console.log('请求数据：',JSON.stringify(dataObj))
+    // return soapRequest(method, dataObj, 'POST')
+    //   .then(res => {
+    //     console.log('获取睡眠报告列表数据===', res);
+    //     return res;
+    //   })
+    //   .catch(err => {
+    //     console.error('获取睡眠报告失败:', err);
+    //     throw err;
+    //   });
   }
 
   /**
@@ -375,8 +436,8 @@ voiceNotifation(params){
   getDeviceRealtimeData(mac) {
     console.log('设备mac信息:',mac)
     const method = 'GetDeviceRealtimeData';
-    const dataObj = { key, mac, timestamp: 1, waveform: false };
-    soapRequest(method, dataObj, 'POST')
+    const dataObj = { key, mac, timestamp: 1, waveform: true };
+    return soapRequest(method, dataObj, 'POST')
       .then(result => {
         if (result && result.ret === 0 && result.data && result.data.length > 0) {
           // 獲取最新的一條數據（數組的最後一個元素）
@@ -421,6 +482,8 @@ voiceNotifation(params){
               // 保持连接状态不变，仅清空指标展示
               heartRate: null,
               breathRate: null,
+              heartRateHistory: [],
+              breathRateHistory: [],
               turnOver: null,
               isLeavePillow: null
             });
@@ -428,21 +491,136 @@ voiceNotifation(params){
           }
           
           let heartRate = null, breathRate = null;
-          if (d.left && d.left.heart_rate) heartRate = d.left.heart_rate;
-          else if (d.right && d.right.heart_rate) heartRate = d.right.heart_rate;
-          if (d.left && d.left.respiration_rate) breathRate = d.left.respiration_rate;
-          else if (d.right && d.right.respiration_rate) breathRate = d.right.respiration_rate;
+          let heartRateWave = null, respiratoryWave = null;
+          
+          // 判断 left 数据是否完整有效
+          const isLeftValid = d.left && 
+                              d.left.heart_rate && d.left.heart_rate !== 0 && 
+                              d.left.respiration_rate && d.left.respiration_rate !== 0;
+          
+          // 判断 right 数据是否完整有效
+          const isRightValid = d.right && 
+                               d.right.heart_rate && d.right.heart_rate !== 0 && 
+                               d.right.respiration_rate && d.right.respiration_rate !== 0;
+          
+          // 优先使用 left，如果 left 无效则使用 right
+          if (isLeftValid) {
+            // 使用 left 的所有数据
+            // 确保 heartRate 是整数，breathRate 是浮点数
+            const hr = parseInt(d.left.heart_rate, 10);
+            const br = parseFloat(d.left.respiration_rate);
+            heartRate = (!isNaN(hr) && isFinite(hr)) ? hr : null;
+            breathRate = (!isNaN(br) && isFinite(br)) ? br : null;
+            // 提取 left 的波形数据
+            if (d.left.heart_rate_wave && Array.isArray(d.left.heart_rate_wave) && d.left.heart_rate_wave.length > 0) {
+              heartRateWave = d.left.heart_rate_wave;
+            }
+            if (d.left.respiratory_wave && Array.isArray(d.left.respiratory_wave) && d.left.respiratory_wave.length > 0) {
+              respiratoryWave = d.left.respiratory_wave;
+            }
+          } else if (isRightValid) {
+            // 使用 right 的所有数据
+            // 确保 heartRate 是整数，breathRate 是浮点数
+            const hr = parseInt(d.right.heart_rate, 10);
+            const br = parseFloat(d.right.respiration_rate);
+            heartRate = (!isNaN(hr) && isFinite(hr)) ? hr : null;
+            breathRate = (!isNaN(br) && isFinite(br)) ? br : null;
+            // 提取 right 的波形数据
+            if (d.right.heart_rate_wave && Array.isArray(d.right.heart_rate_wave) && d.right.heart_rate_wave.length > 0) {
+              heartRateWave = d.right.heart_rate_wave;
+            }
+            if (d.right.respiratory_wave && Array.isArray(d.right.respiratory_wave) && d.right.respiratory_wave.length > 0) {
+              respiratoryWave = d.right.respiratory_wave;
+            }
+          }
+          // 如果 left 和 right 都无效，heartRate、breathRate、heartRateWave、respiratoryWave 保持为 null 或 null
+          
+          // 检查设备状态：如果状态ID是3（离床），则显示为 "--" 并让曲线图显示为直线
+          const isLeaveBed = this._deviceStatusId === 3;
+          
+          if (isLeaveBed) {
+            console.log('[deviceManager] 检测到设备离床状态（status.id === 3），实时数据显示为 --');
+            // 离床状态：设置特殊值用于显示 "--"，曲线图显示为直线
+            const leaveBedValue = 0; // 使用 0 作为离床状态的标识值
+            
+            this.page.setData({
+              deviceConnected: true,
+              heartRate: leaveBedValue, // 特殊值，页面显示为 "--"
+              breathRate: leaveBedValue, // 特殊值，页面显示为 "--"
+              turnOver: d.body_movement ? 1 : 0,
+              isLeavePillow: !d.inbed
+            }, () => {
+              // 添加历史数据，让曲线图显示为直线（值为 0）
+              if (typeof this.page.addToHeartRateHistory === 'function') {
+                this.page.addToHeartRateHistory(leaveBedValue);
+              }
+              if (typeof this.page.addToBreathRateHistory === 'function') {
+                this.page.addToBreathRateHistory(leaveBedValue);
+              }
+            });
+            return;
+          }
+          
+          console.log('[deviceManager] 准备设置实时数据:', {
+            heartRate: heartRate,
+            breathRate: breathRate,
+            heartRateType: typeof heartRate,
+            breathRateType: typeof breathRate,
+            isLeftValid: isLeftValid,
+            isRightValid: isRightValid,
+            deviceStatusId: this._deviceStatusId,
+            isLeaveBed: isLeaveBed,
+            leftData: d.left ? { heart_rate: d.left.heart_rate, respiration_rate: d.left.respiration_rate } : null,
+            rightData: d.right ? { heart_rate: d.right.heart_rate, respiration_rate: d.right.respiration_rate } : null
+          });
+          
           this.page.setData({
             deviceConnected: true,  // 確保設備連接狀態為在線
             heartRate,
             breathRate,
             turnOver: d.body_movement ? 1 : 0,
             isLeavePillow: !d.inbed
+          }, () => {
+            console.log('[deviceManager] setData 完成，当前页面数据:', {
+              heartRate: this.page.data.heartRate,
+              breathRate: this.page.data.breathRate
+            });
+            
+            // 手动添加历史数据（不依赖 observers）
+            if (heartRate !== null && heartRate !== undefined) {
+              const numValue = typeof heartRate === 'number' ? heartRate : parseInt(heartRate, 10);
+              if (!isNaN(numValue) && isFinite(numValue)) {
+                console.log('[deviceManager] 手动添加心率到历史数组:', numValue);
+                if (typeof this.page.addToHeartRateHistory === 'function') {
+                  this.page.addToHeartRateHistory(numValue);
+                }
+              }
+            }
+            
+            if (breathRate !== null && breathRate !== undefined) {
+              const numValue = typeof breathRate === 'number' ? breathRate : parseFloat(breathRate);
+              if (!isNaN(numValue) && isFinite(numValue)) {
+                console.log('[deviceManager] 手动添加呼吸率到历史数组:', numValue);
+                if (typeof this.page.addToBreathRateHistory === 'function') {
+                  this.page.addToBreathRateHistory(numValue);
+                }
+              }
+            }
+            
+            // 更新折线图（使用历史数据数组）
+            console.log('[deviceManager] 准备更新折线图（使用历史数据数组）');
+            if (typeof this.page.updateWaveformCharts === 'function') {
+              this.page.updateWaveformCharts(heartRateWave, respiratoryWave);
+            } else {
+              console.warn('[deviceManager] updateWaveformCharts 方法不存在');
+            }
           });
         } else {
           this.page.setData({
             heartRate: null,
             breathRate: null,
+            heartRateHistory: [],
+            breathRateHistory: [],
             turnOver: null,
             isLeavePillow: true
           });
@@ -453,6 +631,8 @@ voiceNotifation(params){
         this.page.setData({
           heartRate: null,
           breathRate: null,
+          heartRateHistory: [],
+          breathRateHistory: [],
           turnOver: null,
           isLeavePillow: true
         });
@@ -463,7 +643,7 @@ voiceNotifation(params){
     this.clearRealtimeTimer();
     this._realtimeTimer = setInterval(() => {
       this.getDeviceRealtimeData(mac);
-    }, 3000);
+    }, 1000);
     this.page.setData({ _realtimeTimer: this._realtimeTimer });
   }
 
@@ -481,272 +661,376 @@ voiceNotifation(params){
    * @param {Object} reportDetail 原始报告详情数据
    * @returns {Object} 格式化后的数据
    */
-  formatSleepReportDetail(reportDetail) {
-    if (!reportDetail || !reportDetail.data) {
-      return null;
-    }
-
-    const data = reportDetail.data;
-    const left = data.left || {};
-    const right = data.right || {};
-
-    // 辅助函数：检查数据是否有效（不是全0或空数组）
-    const isDataValid = (data) => {
-      if (!data || data.length === 0) return false;
-
-      // 检查是否全为0
-      const hasNonZero = data.some(value => value !== 0);
-      return hasNonZero;
-    };
-
-    // 辅助函数：检查数据是否有异常（包含异常值）
-    const hasAbnormalData = (data) => {
-      if (!data || data.length === 0) return false;
-
-      // 检查是否包含异常值（如负数、极大值等）
-      const hasAbnormal = data.some(value => {
-        if (typeof value === 'number') {
-          // 检查数值异常：负数、NaN、无穷大、极大值
-          return value < 0 || isNaN(value) || !isFinite(value) || value > 10000;
+    formatSleepReportDetail(reportDetail) {
+      if (!reportDetail || !reportDetail.data) {
+        return null;
+      }
+  
+      const data = reportDetail.data;
+      const left = data.left || {};
+      const right = data.right || {};
+  
+      // 辅助函数：检查数据是否有效
+      const isDataValid = (data) => {
+        if (!data || data.length === 0) return false;
+  
+        // 检查是否全为0
+        const hasNonZero = data.some(value => value !== 0);
+        return hasNonZero;
+      };
+  
+      // 辅助函数：检查数据是否有异常
+      const hasAbnormalData = (data) => {
+        if (!data || data.length === 0) return false;
+  
+        const hasAbnormal = data.some(value => {
+          if (typeof value === 'number') {
+            return value < 0 || isNaN(value) || !isFinite(value) || value > 10000;
+          }
+          return false;
+        });
+  
+        return hasAbnormal;
+      };
+  
+      // 辅助函数：优先使用left数据，如果left无效或异常则使用right数据
+      // 对于独立的生理数据字段（如心率、呼吸率、体动），即使整体数据异常，只要字段本身有效就使用
+      const getValue = (leftKey, rightKey, allowAbnormalData = false) => {
+        const leftValue = left[leftKey];
+        const rightValue = right[rightKey];
+  
+        // 检查数据是否异常
+        const leftDataAbnormal = this.isReportDataAbnormal(left);
+        const rightDataAbnormal = this.isReportDataAbnormal(right);
+  
+        const leftValid = leftValue !== null && leftValue !== undefined && leftValue !== 0;
+        const leftNormal = typeof leftValue === 'number' ? 
+          (leftValue >= 0 && leftValue <= 10000 && isFinite(leftValue)) : true;
+        // 如果允许异常数据，只要字段本身有效就使用；否则需要整体数据无异常
+        const leftCanUse = leftValid && leftNormal && (allowAbnormalData || !leftDataAbnormal);
+  
+        const rightValid = rightValue !== null && rightValue !== undefined && rightValue !== 0;
+        const rightNormal = typeof rightValue === 'number' ? 
+          (rightValue >= 0 && rightValue <= 10000 && isFinite(rightValue)) : true;
+        const rightCanUse = rightValid && rightNormal && (allowAbnormalData || !rightDataAbnormal);
+  
+        // 如果left有有效值且（允许异常数据 或 无异常），使用left
+        if (leftCanUse) {
+          return leftValue;
         }
-        return false;
-      });
-
-      return hasAbnormal;
-    };
-
-    // 辅助函数：检查睡眠报告数据是否有异常
-    const hasAbnormalSleepReport = (sleepReport) => {
-      if (!sleepReport || sleepReport.length === 0) return false;
-
-      return sleepReport.some(item => {
-        // 检查value字段是否异常
-        if (item.value && (item.value < 0 || item.value > 10000 || isNaN(item.value))) {
-          return true;
+        // 如果right有有效值且（允许异常数据 或 无异常），使用right
+        if (rightCanUse) {
+          return rightValue;
         }
-        // 检查state字段是否异常（应该在1-5之间）
-        if (item.state && (item.state < 1 || item.state > 5)) {
-          return true;
+        // 如果都无效或异常，返回0或空字符串
+        return typeof leftValue === 'string' ? '' : 0;
+      };
+  
+      // 辅助函数：获取数组数据，优先使用有效且无异常的数据
+      const getArrayValue = (leftKey, rightKey) => {
+        const leftValue = left[leftKey] || [];
+        const rightValue = right[rightKey] || [];
+  
+        // 检查数据是否异常
+        const leftDataAbnormal = this.isReportDataAbnormal(left);
+        const rightDataAbnormal = this.isReportDataAbnormal(right);
+  
+        const leftValid = isDataValid(leftValue);
+        const leftNormal = !hasAbnormalData(leftValue);
+        const leftCanUse = leftValid && leftNormal && !leftDataAbnormal;
+  
+        const rightValid = isDataValid(rightValue);
+        const rightNormal = !hasAbnormalData(rightValue);
+        const rightCanUse = rightValid && rightNormal && !rightDataAbnormal;
+  
+        if (leftCanUse) {
+          return leftValue;
         }
-        return false;
-      });
-    };
+        if (rightCanUse) {
+          return rightValue;
+        }
+        // 如果都无效或异常，返回空数组
+        return [];
+      };
+  
+      // 辅助函数：获取other_data中的数组数据，优先使用有效且无异常的数据
+      // 即使整体数据异常，只要数组数据本身有效就使用（因为折线图数据独立于综合评分）
+      const getOtherDataArray = (key) => {
+        const leftOtherData = left.other_data || {};
+        const rightOtherData = right.other_data || {};
 
-    // 辅助函数：优先使用left数据，如果left无效或异常则使用right数据
-    const getValue = (leftKey, rightKey) => {
-      const leftValue = left[leftKey];
-      const rightValue = right[rightKey];
+        const leftValue = leftOtherData[key] || [];
+        const rightValue = rightOtherData[key] || [];
 
-      // 检查left数据是否有效且无异常
-      const leftValid = leftValue !== null && leftValue !== undefined && leftValue !== 0;
-      const leftNormal = typeof leftValue === 'number' ? 
-        (leftValue >= 0 && leftValue <= 10000 && isFinite(leftValue)) : true;
+        // 检查数据是否异常
+        const leftDataAbnormal = this.isReportDataAbnormal(left);
+        const rightDataAbnormal = this.isReportDataAbnormal(right);
 
-      // 检查right数据是否有效且无异常
-      const rightValid = rightValue !== null && rightValue !== undefined && rightValue !== 0;
-      const rightNormal = typeof rightValue === 'number' ? 
-        (rightValue >= 0 && rightValue <= 10000 && isFinite(rightValue)) : true;
+        const leftValid = isDataValid(leftValue);
+        const leftNormal = !hasAbnormalData(leftValue);
+        // 优先使用无异常的数据，如果都异常但数据有效，也使用
+        const leftCanUse = leftValid && leftNormal && !leftDataAbnormal;
+        const leftCanUseEvenAbnormal = leftValid && leftNormal && leftDataAbnormal;
 
-      // 如果left有有效值且无异常，使用left
-      if (leftValid && leftNormal) {
-        return leftValue;
+        const rightValid = isDataValid(rightValue);
+        const rightNormal = !hasAbnormalData(rightValue);
+        const rightCanUse = rightValid && rightNormal && !rightDataAbnormal;
+        const rightCanUseEvenAbnormal = rightValid && rightNormal && rightDataAbnormal;
+
+        // 优先使用无异常的数据
+        if (leftCanUse) {
+          return leftValue;
+        }
+        if (rightCanUse) {
+          return rightValue;
+        }
+        
+        // 如果都异常但数据有效，也使用（因为折线图数据独立于综合评分）
+        if (leftCanUseEvenAbnormal) {
+          return leftValue;
+        }
+        if (rightCanUseEvenAbnormal) {
+          return rightValue;
+        }
+        
+        // 如果都无效，返回空数组
+        return [];
+      };
+  
+      // 辅助函数：获取字符串值
+      const getStringValue = (leftKey, rightKey) => {
+        return left[leftKey] || right[rightKey] || '';
+      };
+  
+      // 合并other_data
+      const mergedOtherData = {
+        turn: getOtherDataArray('turn'),
+        heartrate: getOtherDataArray('heartrate'),
+        breathrate: getOtherDataArray('breathrate')
+      };
+  
+      // 确定数据来源
+      const dataSource = {
+        heartRate: left.heart_rate ? 'left' : (right.heart_rate ? 'right' : 'none'),
+        breathRate: left.breath_rate ? 'left' : (right.breath_rate ? 'right' : 'none'),
+        sleepScore: left.sleep_score ? 'left' : (right.sleep_score ? 'right' : 'none'),
+        turnCount: left.turn_count ? 'left' : (right.turn_count ? 'right' : 'none'),
+        otherData: {
+          turn: isDataValid(left.other_data?.turn) ? 'left' : (isDataValid(right.other_data?.turn) ? 'right' : 'none'),
+          heartrate: isDataValid(left.other_data?.heartrate) ? 'left' : (isDataValid(right.other_data?.heartrate) ? 'right' : 'none'),
+          breathrate: isDataValid(left.other_data?.breathrate) ? 'left' : (isDataValid(right.other_data?.breathrate) ? 'right' : 'none')
+        }
+      };
+  
+    // 辅助函数：将中文日期格式转换为标准格式
+    const convertChineseDateToStandard = (chineseDateStr) => {
+      if (!chineseDateStr || typeof chineseDateStr !== 'string') {
+        return chineseDateStr;
       }
-      // 如果right有有效值且无异常，使用right
-      if (rightValid && rightNormal) {
-        return rightValue;
-      }
-      // 如果都无效或异常，返回0或空字符串
-      return typeof leftValue === 'string' ? '' : 0;
-    };
-
-    // 辅助函数：获取数组数据，优先使用有效且无异常的数据
-    const getArrayValue = (leftKey, rightKey) => {
-      const leftValue = left[leftKey] || [];
-      const rightValue = right[rightKey] || [];
-
-      // 检查left数据是否有效且无异常
-      const leftValid = isDataValid(leftValue);
-      const leftNormal = !hasAbnormalData(leftValue);
-
-      // 检查right数据是否有效且无异常
-      const rightValid = isDataValid(rightValue);
-      const rightNormal = !hasAbnormalData(rightValue);
-
-      // 如果left数据有效且无异常，使用left
-      if (leftValid && leftNormal) {
-        return leftValue;
-      }
-      // 如果right数据有效且无异常，使用right
-      if (rightValid && rightNormal) {
-        return rightValue;
-      }
-      // 如果都无效或异常，返回空数组
-      return [];
-    };
-
-    // 辅助函数：获取other_data中的数组数据，优先使用有效且无异常的数据
-    const getOtherDataArray = (key) => {
-      const leftOtherData = left.other_data || {};
-      const rightOtherData = right.other_data || {};
-
-      const leftValue = leftOtherData[key] || [];
-      const rightValue = rightOtherData[key] || [];
-
-      // 检查left数据是否有效且无异常
-      const leftValid = isDataValid(leftValue);
-      const leftNormal = !hasAbnormalData(leftValue);
-
-      // 检查right数据是否有效且无异常
-      const rightValid = isDataValid(rightValue);
-      const rightNormal = !hasAbnormalData(rightValue);
-
-      // 如果left数据有效且无异常，使用left
-      if (leftValid && leftNormal) {
-        return leftValue;
-      }
-      // 如果right数据有效且无异常，使用right
-      if (rightValid && rightNormal) {
-        return rightValue;
-      }
-      // 如果都无效或异常，返回空数组
-      return [];
-    };
-
-    // 辅助函数：获取字符串值
-    const getStringValue = (leftKey, rightKey) => {
-      return left[leftKey] || right[rightKey] || '';
-    };
-
-    // 辅助函数：获取对象值
-    const getObjectValue = (leftKey, rightKey) => {
-      return left[leftKey] || right[rightKey] || {};
-    };
-
-    // 合并other_data
-    const mergedOtherData = {
-      turn: getOtherDataArray('turn'),
-      heartrate: getOtherDataArray('heartrate'),
-      breathrate: getOtherDataArray('breathrate')
-    };
-
-    // 确定数据来源
-    const dataSource = {
-      heartRate: left.heart_rate ? 'left' : (right.heart_rate ? 'right' : 'none'),
-      breathRate: left.breath_rate ? 'left' : (right.breath_rate ? 'right' : 'none'),
-      sleepScore: left.sleep_score ? 'left' : (right.sleep_score ? 'right' : 'none'),
-      turnCount: left.turn_count ? 'left' : (right.turn_count ? 'right' : 'none'),
-      otherData: {
-        turn: isDataValid(left.other_data?.turn) ? 'left' : (isDataValid(right.other_data?.turn) ? 'right' : 'none'),
-        heartrate: isDataValid(left.other_data?.heartrate) ? 'left' : (isDataValid(right.other_data?.heartrate) ? 'right' : 'none'),
-        breathrate: isDataValid(left.other_data?.breathrate) ? 'left' : (isDataValid(right.other_data?.breathrate) ? 'right' : 'none')
-      }
-    };
-
-    // 计算基于起床日期的报告日期
-    const getReportDate = () => {
-      const startSleepTime = getStringValue('start_sleep_time', 'start_sleep_time');
-      const endSleepTime = getStringValue('end_sleep_time', 'end_sleep_time');
       
-      // 如果开始时间和结束时间都存在，判断是否跨天
-      if (startSleepTime && endSleepTime) {
-        try {
-          // 解析时间
-          const [startHour, startMinute] = startSleepTime.split(':').map(Number);
-          const [endHour, endMinute] = endSleepTime.split(':').map(Number);
-          
-          const startMinutes = startHour * 60 + startMinute;
-          const endMinutes = endHour * 60 + endMinute;
-          
+      // 匹配格式：2025年12月01日 或 2025年12月1日
+      const match = chineseDateStr.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
+      if (match) {
+        const year = match[1];
+        const month = match[2].padStart(2, '0');
+        const day = match[3].padStart(2, '0');
+        const standardDate = `${year}-${month}-${day}`;
+        console.log('[convertChineseDateToStandard] 转换:', chineseDateStr, '->', standardDate);
+        return standardDate;
+      }
+      
+      // 如果不是中文格式，直接返回原值
+      console.log('[convertChineseDateToStandard] 不是中文格式，保持原值:', chineseDateStr);
+      return chineseDateStr;
+    };
+
+      // 计算基于起床日期的报告日期
+      const getReportDate = () => {
+        // 从 left 或 right 获取日期字段
+        const reportDate = getStringValue('date', 'date');
+        const startSleepTime = getStringValue('start_sleep_time', 'start_sleep_time');
+        const endSleepTime = getStringValue('end_sleep_time', 'end_sleep_time');
+        
+        // 如果开始时间和结束时间都存在，判断是否跨天
+        if (startSleepTime && endSleepTime) {
+          try {
+            // 解析时间
+            const [startHour, startMinute] = startSleepTime.split(':').map(Number);
+            const [endHour, endMinute] = endSleepTime.split(':').map(Number);
+            
+          // 验证解析结果
+          if (isNaN(startHour) || isNaN(startMinute) || isNaN(endHour) || isNaN(endMinute)) {
+            console.error('[getReportDate] 时间解析失败，存在 NaN 值');
+            return reportDate;
+          }
+
+            const startMinutes = startHour * 60 + startMinute;
+            const endMinutes = endHour * 60 + endMinute;
+            
           // 如果结束时间小于开始时间，说明跨天了
           if (endMinutes < startMinutes) {
+            console.log('[getReportDate] 检测到跨天睡眠，开始计算下一天日期');
+            console.log('[getReportDate] reportDate 值:', reportDate, '类型:', typeof reportDate);
+            
             // 跨天情况：使用起床日期（原日期的下一天）
-            const originalDate = new Date(data.date);
-            originalDate.setDate(originalDate.getDate() + 1);
-            return originalDate.toISOString().split('T')[0];
+            if (!reportDate) {
+              console.error('[getReportDate] reportDate 为空，无法计算跨天日期');
+              return reportDate;
+            }
+            
+            try {
+              // 将中文日期格式转换为标准格式
+              const standardDateStr = convertChineseDateToStandard(reportDate);
+              console.log('[getReportDate] 转换后的日期字符串:', standardDateStr);
+              
+              console.log('[getReportDate] 创建 Date 对象，输入:', standardDateStr);
+              const originalDate = new Date(standardDateStr);
+              
+              console.log('[getReportDate] Date 对象创建结果:', {
+                originalDate,
+                getTime: originalDate.getTime(),
+                isValid: !isNaN(originalDate.getTime()),
+                toString: originalDate.toString()
+              });
+              
+              // 检查日期是否有效
+              if (isNaN(originalDate.getTime())) {
+                console.error('[getReportDate] 无效的日期格式，reportDate:', reportDate, '转换后:', standardDateStr);
+                return reportDate;
+              }
+              
+              const currentDate = originalDate.getDate();
+              console.log('[getReportDate] 当前日期:', currentDate, '月份:', originalDate.getMonth() + 1, '年份:', originalDate.getFullYear());
+              
+              originalDate.setDate(originalDate.getDate() + 1);
+              
+              console.log('[getReportDate] 加一天后的日期:', {
+                date: originalDate.getDate(),
+                month: originalDate.getMonth() + 1,
+                year: originalDate.getFullYear(),
+                getTime: originalDate.getTime(),
+                isValid: !isNaN(originalDate.getTime())
+              });
+              
+              const result = originalDate.toISOString().split('T')[0];
+              
+              console.log('[getReportDate] 最终结果:', result);
+              
+              // 再次验证结果日期是否有效
+              if (!result || result === 'Invalid Date') {
+                console.error('[getReportDate] 日期计算失败，返回原日期:', reportDate);
+                return reportDate;
+              }
+              
+              return result;
+            } catch (dateError) {
+              console.error('[getReportDate] 日期计算异常:', {
+                error: dateError,
+                errorMessage: dateError.message,
+                errorStack: dateError.stack,
+                reportDate: reportDate,
+                reportDateType: typeof reportDate
+              });
+              return reportDate;
+            }
+          } else {
+            console.log('[getReportDate] 非跨天睡眠，返回原日期');
           }
         } catch (error) {
-          console.error('解析睡眠时间失败:', error);
+          console.error('[getReportDate] 解析睡眠时间失败:', {
+            error: error,
+            errorMessage: error.message,
+            errorStack: error.stack,
+            startSleepTime: startSleepTime,
+            endSleepTime: endSleepTime,
+            reportDate: reportDate
+          });
         }
+      } else {
+        console.log('[getReportDate] 开始时间或结束时间为空，返回原日期');   
       }
       
       // 非跨天情况或解析失败，使用原日期
-      return data.date;
+      console.log('[getReportDate] 返回原日期:', reportDate);
+      return reportDate;
     };
-
-    return {
-      // 基本信息
-      reportId: data.report_id,
-      mac: data.mac,
-      date: data.date,
-      date: getReportDate(), // 使用基于起床日期的日期
-      originalDate: data.date, // 保留原始日期用于调试
-      dayOfWeek: data.day_of_week,
-
-      // 睡眠时长数据 - 使用左右数据合并逻辑
-      bedDuration: getValue('bed_duration', 'bed_duration'),
-      sleepDuration: getValue('sleep_duration', 'sleep_duration'),
-      deepSleepDuration: getValue('deep_sleep_duration', 'deep_sleep_duration'),
-      remSleepDuration: getValue('rem_sleep_duration', 'rem_sleep_duration'),
-      lightSleepDuration: getValue('light_sleep_duration', 'light_sleep_duration'),
-
-      // 睡眠评分
-      sleepScore: getValue('sleep_score', 'sleep_score'),
-      scoreEvaluate: getStringValue('score_evaluate', 'score_evaluate'),
-
-      // 时间信息
-      startSleepTime: getStringValue('start_sleep_time', 'start_sleep_time'),
-      endSleepTime: getStringValue('end_sleep_time', 'end_sleep_time'),
-      sleepOnsetTime: getValue('sleep_onset_time', 'sleep_onset_time'),
-
-      // 生理数据
-      turnCount: getValue('turn_count', 'turn_count'),
-      snoreDuration: getValue('snore_duration', 'snore_duration'),
-      snoreCount: getValue('snore_count', 'snore_count'),
-      breathRate: getValue('breath_rate', 'breath_rate'),
-      heartRate: getValue('heart_rate', 'heart_rate'),
-      sleepAge: getValue('sleep_age', 'sleep_age'),
-
-      // 其他数据 - 使用合并后的数据，特別處理睡眠報告異常檢測
-      sleepReport: this.getValidSleepReport(left, right),
-      otherData: mergedOtherData,
-
-      // 睡眠评估 - 使用異常檢測
-      sleepAssessmentTags: this.getValidSleepAssessmentTags(left, right),
-      sleepAssessment: this.getValidSleepAssessment(left, right),
-      advice: this.getValidAdvice(left, right),
-      questions: getArrayValue('questions', 'questions'),
-
-      // 保留原始数据用于调试
-      leftData: left,
-      rightData: right,
-      rawData: data,
-
-      // 添加合并状态信息
-      dataSource: dataSource,
-
-      // 添加调试信息
-      debugInfo: {
-        leftOtherDataValid: {
-          turn: isDataValid(left.other_data?.turn),
-          heartrate: isDataValid(left.other_data?.heartrate),
-          breathrate: isDataValid(left.other_data?.breathrate)
-        },
-        rightOtherDataValid: {
-          turn: isDataValid(right.other_data?.turn),
-          heartrate: isDataValid(right.other_data?.heartrate),
-          breathrate: isDataValid(right.other_data?.breathrate)
-        },
-        mergedOtherDataLength: {
-          turn: mergedOtherData.turn.length,
-          heartrate: mergedOtherData.heartrate.length,
-          breathrate: mergedOtherData.breathrate.length
+      // 获取原始日期（从 left 或 right）
+      const originalReportDate = getStringValue('date', 'date');
+  
+      return {
+        // 基本信息
+        reportId: data.report_id,
+        mac: data.mac,
+        date: getReportDate(), // 使用基于起床日期的日期
+        originalDate: originalReportDate, // 保留原始日期用于调试
+        dayOfWeek: getStringValue('day_of_week', 'day_of_week'),
+  
+        // 睡眠时长数据 - 使用左右数据合并逻辑
+        bedDuration: getValue('bed_duration', 'bed_duration'),
+        sleepDuration: getValue('sleep_duration', 'sleep_duration'),
+        deepSleepDuration: getValue('deep_sleep_duration', 'deep_sleep_duration'),
+        remSleepDuration: getValue('rem_sleep_duration', 'rem_sleep_duration'),
+        lightSleepDuration: getValue('light_sleep_duration', 'light_sleep_duration'),
+  
+        // 睡眠评分
+        sleepScore: getValue('sleep_score', 'sleep_score'),
+        scoreEvaluate: getStringValue('score_evaluate', 'score_evaluate'),
+  
+        // 时间信息
+        startSleepTime: getStringValue('start_sleep_time', 'start_sleep_time'),
+        endSleepTime: getStringValue('end_sleep_time', 'end_sleep_time'),
+        sleepOnsetTime: getValue('sleep_onset_time', 'sleep_onset_time'),
+  
+        // 生理数据 - 即使整体数据异常，只要字段本身有效就使用
+        turnCount: getValue('turn_count', 'turn_count', true),
+        snoreDuration: getValue('snore_duration', 'snore_duration', true),
+        snoreCount: getValue('snore_count', 'snore_count', true),
+        breathRate: getValue('breath_rate', 'breath_rate', true),
+        heartRate: getValue('heart_rate', 'heart_rate', true),
+        sleepAge: getValue('sleep_age', 'sleep_age', true),
+  
+        // 其他数据 - 使用合并后的数据，特別處理睡眠報告異常檢測
+        sleepReport: this.getValidSleepReport(left, right),
+        otherData: mergedOtherData,
+  
+        // 睡眠评估 - 使用異常檢測
+        sleepAssessmentTags: this.getValidSleepAssessmentTags(left, right),
+        sleepAssessment: this.getValidSleepAssessment(left, right),
+        advice: this.getValidAdvice(left, right),
+        questions: getArrayValue('questions', 'questions'),
+  
+        // 保留原始数据用于调试
+        leftData: left,
+        rightData: right,
+        rawData: data,
+  
+        // 添加合并状态信息
+        dataSource: dataSource,
+  
+        // 添加调试信息
+        debugInfo: {
+          leftOtherDataValid: {
+            turn: isDataValid(left.other_data?.turn),
+            heartrate: isDataValid(left.other_data?.heartrate),
+            breathrate: isDataValid(left.other_data?.breathrate)
+          },
+          rightOtherDataValid: {
+            turn: isDataValid(right.other_data?.turn),
+            heartrate: isDataValid(right.other_data?.heartrate),
+            breathrate: isDataValid(right.other_data?.breathrate)
+          },
+          mergedOtherDataLength: {
+            turn: mergedOtherData.turn.length,
+            heartrate: mergedOtherData.heartrate.length,
+            breathrate: mergedOtherData.breathrate.length
+          }
         }
-      }
-    };
-  }
-
+      };
+    }
+    
   /**
    * 获取有效的睡眠报告数据，剔除异常数据
+   * 即使整体数据异常，只要睡眠报告数组本身有效就使用（因为睡眠阶段数据独立于综合评分）
    * @param {Object} left left数据
    * @param {Object} right right数据
    * @returns {Array} 有效的睡眠报告数据
@@ -757,33 +1041,49 @@ voiceNotifation(params){
     
     // 检查left数据是否有效且无异常
     const leftValid = leftSleepReport.length > 0;
-    const leftNormal = !this.hasAbnormalSleepReport(leftSleepReport) && !this.isReportDataAbnormal(left);
+    const leftReportNormal = !this.hasAbnormalSleepReport(leftSleepReport);
+    const leftDataAbnormal = this.isReportDataAbnormal(left);
+    const leftNormal = leftReportNormal && !leftDataAbnormal;
     
     // 检查right数据是否有效且无异常
     const rightValid = rightSleepReport.length > 0;
-    const rightNormal = !this.hasAbnormalSleepReport(rightSleepReport) && !this.isReportDataAbnormal(right);
+    const rightReportNormal = !this.hasAbnormalSleepReport(rightSleepReport);
+    const rightDataAbnormal = this.isReportDataAbnormal(right);
+    const rightNormal = rightReportNormal && !rightDataAbnormal;
     
     console.log('睡眠报告数据检查:', {
       leftValid,
       leftNormal,
+      leftReportNormal,
+      leftDataAbnormal,
       leftLength: leftSleepReport.length,
-      leftAbnormal: this.isReportDataAbnormal(left),
       rightValid,
       rightNormal,
-      rightLength: rightSleepReport.length,
-      rightAbnormal: this.isReportDataAbnormal(right)
+      rightReportNormal,
+      rightDataAbnormal,
+      rightLength: rightSleepReport.length
     });
     
-    // 如果left数据有效且无异常，使用left
+    // 优先使用无异常的数据
     if (leftValid && leftNormal) {
-      console.log('使用left睡眠报告数据');
+      console.log('使用left睡眠报告数据（无异常）');
       return leftSleepReport;
     }
-    // 如果right数据有效且无异常，使用right
     if (rightValid && rightNormal) {
-      console.log('使用right睡眠报告数据');
+      console.log('使用right睡眠报告数据（无异常）');
       return rightSleepReport;
     }
+    
+    // 如果都异常但睡眠报告数组本身有效，也使用（因为睡眠阶段数据独立于综合评分）
+    if (leftValid && leftReportNormal && leftDataAbnormal) {
+      console.log('使用left睡眠报告数据（整体异常但报告数据有效）');
+      return leftSleepReport;
+    }
+    if (rightValid && rightReportNormal && rightDataAbnormal) {
+      console.log('使用right睡眠报告数据（整体异常但报告数据有效）');
+      return rightSleepReport;
+    }
+    
     // 如果都无效或异常，返回空数组
     console.log('睡眠报告数据无效或异常，返回空数组');
     return [];
@@ -966,6 +1266,7 @@ voiceNotifation(params){
 
   /**
    * 获取有效的建议数据，当一边出现异常时使用正常一边的数据
+   * 如果两边都异常，仍然显示建议（因为异常时的建议通常更有价值）
    * @param {Object} left left数据
    * @param {Object} right right数据
    * @returns {Array|string} 有效的建议数据
@@ -1029,8 +1330,25 @@ voiceNotifation(params){
       console.log('right有异常，使用left建议数据');
       return leftAdvice;
     }
-    // 如果都无效或异常，返回空数组或空字符串
-    console.log('建议数据无效或异常，返回空值');
+    
+    // 如果两边都异常，但建议数据存在且有效，仍然显示建议
+    // 因为异常时的建议通常更有价值（如"检查设备连接"等）
+    if (leftValid && leftHasAbnormal && rightValid && rightHasAbnormal) {
+      // 两边都有建议且都异常，优先使用left，如果left为空则使用right
+      console.log('两边都异常，但建议数据存在，使用left建议数据');
+      return leftAdvice;
+    }
+    if (leftValid && leftHasAbnormal) {
+      console.log('left异常但有建议数据，显示left建议');
+      return leftAdvice;
+    }
+    if (rightValid && rightHasAbnormal) {
+      console.log('right异常但有建议数据，显示right建议');
+      return rightAdvice;
+    }
+    
+    // 如果都无效，返回空数组或空字符串
+    console.log('建议数据无效，返回空值');
     return Array.isArray(leftAdvice) ? [] : '';
   }
 
@@ -1183,4 +1501,5 @@ voiceNotifation(params){
   }
 }
 
+module.exports = DeviceManager; 
 module.exports = DeviceManager; 

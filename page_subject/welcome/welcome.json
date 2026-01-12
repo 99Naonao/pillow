@@ -1,10 +1,12 @@
 {
+  "navigationBarTitleText": "欢迎",
+  "navigationBarBackgroundColor": "#083869",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#083869",
   "navigationStyle": "custom",
-  "backgroundColor": "#06142b",
-  "backgroundColorTop": "#061a3a",
-  "backgroundColorBottom": "#06142b",
   "usingComponents": {
     "nav-bar": "/components/HeaderNavBar/headerNav",
     "protocol-viewer": "/components/ProtocolViewer/protocolViewer"
   }
 }
+

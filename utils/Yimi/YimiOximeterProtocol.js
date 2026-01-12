@@ -135,9 +135,6 @@ class YimiOximeterProtocol {
       receivedBytes.push(byte);
     }
     
-    // const hexString = receivedBytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-    // console.log(`[协议] 收到原始数据 (${data.byteLength}字节): ${hexString}`);
-    
     // 直接处理这个数据包，不使用缓冲区
     this.parseSinglePacket(receivedBytes);
   }
@@ -147,29 +144,23 @@ class YimiOximeterProtocol {
    * @param {Array} packet 数据包字节数组
    */
   parseSinglePacket(packet) {
-    // console.log(`[协议] 直接解析数据包，长度: ${packet.length}`);
-    
     // 检查最小帧长度
     if (packet.length < 5) {
-      // console.log(`[协议] 数据包太短，跳过: ${packet.length}字节`);
       return;
     }
     
     // 检查帧头
     if (packet[0] !== this.FRAME_HEADER) {
-      // console.log(`[协议] 帧头不匹配，期望0x${this.FRAME_HEADER.toString(16).padStart(2, '0')}，实际0x${packet[0].toString(16).padStart(2, '0')}`);
+
       return;
     }
     
     // 解析帧长度
     const frameLength = packet[1];
     const frameTotalLength = 1 + 1 + frameLength; // 帧头 + 长度字段 + 数据长度
-    
-    // console.log(`[协议] 帧长度: 0x${frameLength.toString(16).padStart(2, '0')}, 总长度: ${frameTotalLength}字节`);
-    
+      
     // 检查数据包长度
     if (packet.length < frameTotalLength) {
-      // console.log(`[协议] 数据包不完整，需要${frameTotalLength}字节，实际${packet.length}字节`);
       return;
     }
     
@@ -182,7 +173,6 @@ class YimiOximeterProtocol {
     const receivedChecksum = frame[frame.length - 1];
     
     if (calculatedChecksum !== receivedChecksum) {
-      // console.log(`[协议] 校验和失败: 计算值=0x${calculatedChecksum.toString(16).padStart(2, '0')}, 接收值=0x${receivedChecksum.toString(16).padStart(2, '0')}`);
       return;
     }
     
@@ -190,8 +180,6 @@ class YimiOximeterProtocol {
     const moduleAndAck = frame[2];
     const commandId = frame[3];
     const data = frame.slice(4, frame.length - 1);
-    
-    // console.log(`[协议] 解析帧 - moduleAndAck: 0x${moduleAndAck.toString(16).padStart(2, '0')}, commandId: 0x${commandId.toString(16).padStart(2, '0')}, data长度: ${data.length}`);
     
     // 检查commandId是否有效
     if (commandId === undefined || isNaN(commandId)) {
@@ -210,8 +198,6 @@ class YimiOximeterProtocol {
     this.stats.totalFrames++;
     this.stats.validFrames++;
     this.stats.lastValidTime = Date.now();
-    
-    // console.log(`[协议] 数据包解析成功`);
   }
 
   /**
@@ -246,20 +232,9 @@ class YimiOximeterProtocol {
       if (this.receiveBuffer.length < 5) {
         break;
       }
-
-      // 解析帧结构：[0xFF] [帧长] [Module-ID+ACK] [Command-ID] [Command-Data...] [校验和]
       const frameLength = this.receiveBuffer[1];
-      
-      // 打印当前缓冲区状态以便调试
-      // const bufferHex = this.receiveBuffer.slice(0, Math.min(20, this.receiveBuffer.length))
-      //   .map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-      // console.log(`[协议] 当前缓冲区: ${bufferHex}... (共${this.receiveBuffer.length}字节)`);
-      
-      // 根据协议：帧长 = Module-ID + Command-ID + Command-Data + Frame-CheckSum 的总长度
-      // 总帧长 = 1(帧头) + 1(帧长字节) + frameLength
+
       const frameTotalLength = 1 + 1 + frameLength;
-      
-      // console.log(`[协议] 解析帧 - 帧长字段: 0x${frameLength.toString(16).padStart(2, '0')}, 计算总长度: ${frameTotalLength}字节`);
       
       // 检查是否有完整的帧
       if (this.receiveBuffer.length < frameTotalLength) {
@@ -276,9 +251,6 @@ class YimiOximeterProtocol {
       const receivedChecksum = frame[frame.length - 1];
 
       if (calculatedChecksum !== receivedChecksum) {
-        // console.log(`[协议] 校验和失败: 计算值=0x${calculatedChecksum.toString(16).padStart(2, '0')}, 接收值=0x${receivedChecksum.toString(16).padStart(2, '0')}`);
-        // console.log(`[协议] 移除帧头，尝试下一个帧头`);
-        // 校验失败，只移除帧头，继续查找下一个帧头
         this.receiveBuffer.splice(0, 1);
         this.stats.errorFrames++;
         continue;
@@ -288,8 +260,6 @@ class YimiOximeterProtocol {
       const moduleAndAck = frame[2];
       const commandId = frame[3];
       const data = frame.slice(4, frame.length - 1);
-      
-      // console.log(`[协议] 解析帧 - moduleAndAck: 0x${moduleAndAck.toString(16).padStart(2, '0')}, commandId: 0x${commandId.toString(16).padStart(2, '0')}, data长度: ${data.length}`);
       
       // 检查commandId是否有效
       if (commandId === undefined || isNaN(commandId)) {

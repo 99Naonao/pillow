@@ -391,6 +391,7 @@ Page({
             console.log('开始跳转到登录页面');
             wx.redirectTo({
               url: '/page_subject/login/login',
+			  // url: '/page_subject/welcome/welcome',
               success: () => {
                 console.log('跳转到登录页面成功');
               },
@@ -400,6 +401,9 @@ Page({
                 wx.reLaunch({
                   url: '/page_subject/login/login'
                 });
+				// wx.reLaunch({
+				//   url: '/page_subject/welcome/welcome'
+				// });
               }
             });
           }, 700);

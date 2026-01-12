@@ -132,9 +132,11 @@ function request_(url, data) {
 
     // 组装请求头
     const header = {
-      "Content-Type": "application/json;charset=UTF-8"
+      "Content-Type": "application/json;charset=UTF-8",
+	  "token":storedUserInfo.token ? `Bearer ${storedUserInfo.token}` : ""
       // 如需携带token，可在此处添加
       // "Authorization": storedUserInfo.token ? `Bearer ${storedUserInfo.token}` : ""
+	  
     };
 
     // 微信原生网络请求

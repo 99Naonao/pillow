@@ -1,6 +1,8 @@
 /**
  * 蓝牙管理工具类
  */
+const BASE_URL = 'https://zhongshu.xinglu.shop';
+const { getLatestToken } = require('./tokenHelper.js');
 class BluetoothManager {
     constructor() {
         this.isPageActive = false;
@@ -403,6 +405,277 @@ class BluetoothManager {
         
         return '';
     }
+	
+	/**
+	 * 设备注册
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} bluetoothDeviceId 蓝牙设备ID（MAC地址格式）
+	 * @returns {string} WiFi MAC地址，失败返回 空字符串
+	 */
+	static calculateWifiMacRegister(bluetoothDeviceId) {
+	    return new Promise((resolve, reject) => {
+	      wx.request({
+	        url: `${BASE_URL}/shopapi/UserEquipment/register`,
+	        method: 'POST',
+        header: {
+          'version': '3.1.1',
+		  "token": getLatestToken()
+        },
+	        data: {
+	          device_id: bluetoothDeviceId
+	        },
+	        success: (res) => {
+	          console.log('设备注册成功:', res);
+	          resolve(res.data);
+	        },
+	        fail: (error) => {
+	          console.error('设备注册失败:', error);
+	          reject(error);
+	        }
+	      });
+	    });
+  }
+  
+  	/**
+	 * 设备命名
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} user_equipment_id ID
+	 * @param {string} name 命名
+	 * @returns {string} WiFi MAC地址，失败返回 空字符串
+	 */
+	static ChangeName(user_equipment_id,name) {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `${BASE_URL}/shopapi/UserEquipment/changeName`,
+        method: 'POST',
+    header: {
+      'version': '3.1.1',
+      "token": getLatestToken()
+    },
+        data: {
+          user_equipment_id: user_equipment_id,
+      name:name
+        },
+        success: (res) => {
+          console.log('成功:', res);
+          resolve(res.data);
+        },
+        fail: (error) => {
+          console.error('失败:', error);
+          reject(error);
+        }
+      });
+    });
+}
+	
+	/**
+	 * 设备解绑
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} user_equipment_id 蓝牙设备ID（MAC地址格式）
+	 * @returns {string} WiFi MAC地址，失败返回 空字符串
+	 */
+	static calculateWifiMacUnbind(user_equipment_id) {
+	    return new Promise((resolve, reject) => {
+	      wx.request({
+	        url: `${BASE_URL}/shopapi/UserEquipment/unbind`,
+	        method: 'POST',
+	    header: {
+	      'version': '3.1.1',
+		  "token": getLatestToken()
+	    },
+	        data: {
+	          user_equipment_id: user_equipment_id
+	        },
+	        success: (res) => {
+	          console.log('设备注册成功:', res);
+	          resolve(res.data);
+	        },
+	        fail: (error) => {
+	          console.error('设备注册失败:', error);
+	          reject(error);
+	        }
+	      });
+	    });
+	}
+	
+	/**
+	 * 设备列表
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} page_no 蓝牙设备ID（MAC地址格式）
+	 * * @param {string} page_size 蓝牙设备ID（MAC地址格式）
+	 * @returns {string} WiFi MAC地址，失败返回 空字符串
+	 */
+	static GetEquipmentLists(page_no,page_size) {
+	    return new Promise((resolve, reject) => {
+	      wx.request({
+	        url: `${BASE_URL}/shopapi/UserEquipment/getEquipmentLists`,
+	        method: 'POST',
+        header: {
+          'version': '3.1.1',
+		  "token": getLatestToken()
+        },
+	        data: {
+	          page_no: page_no,
+			  page_size:page_size
+	        },
+	        success: (res) => {
+	          resolve(res.data);
+	        },
+	        fail: (error) => {
+	          reject(error);
+	        }
+	      });
+	    });
+	}
+	
+	/**
+	 * 获取快捷用户列表
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} page_no 蓝牙设备ID（MAC地址格式）
+	 * * @param {string} page_size 蓝牙设备ID（MAC地址格式）
+	 * @returns {string} WiFi MAC地址，失败返回 空字符串
+	 */
+	static GetFastUserList(page_no,page_size) {
+	    return new Promise((resolve, reject) => {
+	      wx.request({
+	        url: `${BASE_URL}/shopapi/UserEquipment/getFastUserList`,
+	        method: 'POST',
+        header: {
+          'version': '3.1.1',
+		  "token": getLatestToken()
+        },
+	        data: {
+	          page_no: page_no,
+			  page_size:page_size
+	        },
+	        success: (res) => {
+	          resolve(res.data);
+	        },
+	        fail: (error) => {
+	          reject(error);
+	        }
+	      });
+	    });
+	}
+	
+	/**
+	 * 添加快捷用户
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} account 账号
+	 * @param {string} password 密码
+	 * @returns {Promise<object>} 接口响应
+	 */
+	static AddFastUser(account,password) {
+	    return new Promise((resolve, reject) => {
+	      wx.request({
+	        url: `${BASE_URL}/shopapi/UserEquipment/addFastUser`,
+	        method: 'POST',
+        header: {
+          'version': '3.1.1',
+		  "token": getLatestToken()
+        },
+	        data: {
+	          account: account,
+			  password:password
+	        },
+	        success: (res) => {
+	          resolve(res.data);
+	        },
+	        fail: (error) => {
+	          reject(error);
+	        }
+	      });
+	    });
+	}
+	
+	/**
+	 * 解绑快捷用户
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} target_user_id id
+	 * @returns {Promise<object>} 接口响应
+	 */
+	static UnbindFast(target_user_id) {
+	    return new Promise((resolve, reject) => {
+	      wx.request({
+	        url: `${BASE_URL}/shopapi/UserEquipment/unbindFast`,
+	        method: 'POST',
+	    header: {
+	      'version': '3.1.1',
+		  "token": getLatestToken()
+	    },
+	        data: {
+	          target_user_id: target_user_id,
+	        },
+	        success: (res) => {
+	          resolve(res.data);
+	        },
+	        fail: (error) => {
+	          reject(error);
+	        }
+	      });
+	    });
+	}
+	
+	
+	
+	
+	/**
+	 * 获取重置密码短信
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} mobile 手机号
+	 * @returns {Promise<object>} 接口响应
+	 */
+	static ResetPasswordCaptcha(mobile) {
+	    return new Promise((resolve, reject) => {
+	      wx.request({
+	        url: `${BASE_URL}/shopapi/user/resetPasswordCaptcha`,
+	        method: 'POST',
+	    header: {
+	      'version': '3.1.1',
+		  "token": getLatestToken()
+	    },
+	        data: {
+	          mobile: mobile,
+	        },
+	        success: (res) => {
+	          resolve(res.data);
+	        },
+	        fail: (error) => {
+	          reject(error);
+	        }
+	      });
+	    });
+	}
+	
+	/**
+	 * 重置密码
+	 * WiFi MAC = 蓝牙MAC尾数 - 1
+	 * @param {string} mobile 手机号
+	 * @returns {Promise<object>} 接口响应
+	 */
+	static ResetPassword(password,code,mobile) {
+	    return new Promise((resolve, reject) => {
+	      wx.request({
+	        url: `${BASE_URL}/shopapi/user/resetPassword`,
+	        method: 'POST',
+	    header: {
+	      'version': '3.1.1',
+		  "token": getLatestToken()
+	    },
+	        data: {
+				password:password,
+				code:code,
+				mobile: mobile,
+	        },
+	        success: (res) => {
+	          resolve(res.data);
+	        },
+	        fail: (error) => {
+	          reject(error);
+	        }
+	      });
+	    });
+	}
 }
 
 module.exports = BluetoothManager; 
