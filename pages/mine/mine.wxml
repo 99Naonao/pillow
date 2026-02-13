@@ -47,29 +47,6 @@
 			  </view>
 		    </view>
 		  </view>
-		  <!-- 个人信息卡片 -->
-	<!-- 	  <view class="mine-card glass-card">
-		    <block wx:if="{{isLogin}}">
-		      <view class="user-profile-container">
-		        <view class="avatar-section" bindtap="editAvatar">
-		          <image class="mine-avatar" src="{{avatarUrl}}" mode="aspectFill"/>
-		          <image class="edit-icon" src="../../static/update.png"/>
-		        </view>
-		        <view class="user-info-section">
-		          <text class="user-id">{{userName}}</text>
-		        </view>
-		      </view>
-		    </block>
-		    <block wx:else>
-		      <view class="not-login-content" bindtap="goLogin">
-		        <view class="not-login-left">
-		          <text class="not-login-title">立即登录</text>
-		          <text class="not-login-tip">登录享受更多功能</text>
-		        </view>
-		        <image class="not-login-arrow" src="../../static/right.png"/>
-		      </view>
-		    </block>
-		  </view> -->
 		
 		  <!-- 功能区卡片 -->
 		  <view class="mine-func-card glass-card">
