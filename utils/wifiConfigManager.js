@@ -2,6 +2,8 @@
  * WiFi配置管理模块
  */
 const WifiManager = require('./wifiManager');
+const CommonUtil = require('./commonUtil');
+const { showWechatAppLocationPermissionModal, isSystemLocationPermissionError } = require('./permissionUtil');
 
 // 引用airkiss插件
 const airkiss = requirePlugin('airkiss');
@@ -70,10 +72,14 @@ class WifiConfigManager {
             await this.checkWifiStatus();
         } catch (error) {
             console.error('初始化WiFi步骤失败:', error);
-            
+
+            if (isSystemLocationPermissionError(error)) {
+                showWechatAppLocationPermissionModal();
+                return;
+            }
+
             // 检查是否是WiFi未打开的错误
-            const systemInfo = wx.getDeviceInfo();
-            const isIOS = systemInfo.platform === 'ios';
+            const isIOS = CommonUtil.isIOS();
             
             if (error.errCode === 12005 || error.errCode === 12006) {
                 // Android WiFi未打开
@@ -102,7 +108,7 @@ class WifiConfigManager {
                     // 处理5G WiFi
                     console.log('检测到5G WiFi');
                     const systemInfo = wx.getDeviceInfo();
-                    if (systemInfo.platform === 'ios') {
+                    if (CommonUtil.isIOS()) {
                         this.wifiManager.handleIOS5GWifi();
                     } else {
                         this.wifiManager.handleAndroid5GWifi();
@@ -136,33 +142,14 @@ class WifiConfigManager {
             console.error('检查WiFi状态失败:', error);
             
             // 处理权限错误（错误代码 12012 或 errno 1505004）
-            if (error.errCode === 12012 || error.errno === 1505004 || error.type === 'permission' || error.type === 'system_permission') {
+            if (isSystemLocationPermissionError(error)) {
                 console.log('WiFi权限错误，显示权限提示');
-                wx.showModal({
-                    title: '权限提醒',
-                    content: '需要开启微信App的位置权限才能使用WiFi功能。\n\n请按以下步骤操作：\n1. 打开手机系统设置\n2. 找到"微信"应用\n3. 开启"位置信息"权限\n4. 返回小程序重试',
-                    confirmText: '知道了',
-                    cancelText: '取消',
-                    showCancel: true,
-                    success: (modalRes) => {
-                        if (modalRes.confirm) {
-                            wx.openSetting({
-                                success: () => {
-                                    // 用户从设置返回后，重试检查WiFi状态
-                                    setTimeout(() => {
-                                        this.checkWifiStatus();
-                                    }, 500);
-                                }
-                            });
-                        }
-                    }
-                });
+                showWechatAppLocationPermissionModal();
                 return;
             }
             
             // 检查是否是WiFi未打开的错误（iOS）
-            const systemInfo = wx.getDeviceInfo();
-            const isIOS = systemInfo.platform === 'ios';
+            const isIOS = CommonUtil.isIOS();
             
             if (isIOS && (error.errno === 1505002)) {
                 // iOS WiFi未打开，直接显示弹窗
@@ -207,23 +194,86 @@ class WifiConfigManager {
     }
 
     /**
+     * 鸿蒙等系统无法扫描 WiFi 列表时，读取当前连接的 WiFi 供配网
+     */
+    async fallbackToConnectedWifi() {
+        console.log('[WifiConfigManager] 使用当前连接 WiFi 降级方案');
+        try {
+            await this.wifiManager.startWifi();
+            const res = await this.wifiManager.getConnectedWifi();
+            const ssid = (res.wifi && res.wifi.SSID) || '';
+            let is5G = false;
+            if (ssid) {
+                if (CommonUtil.isIOS()) {
+                    is5G = this.wifiManager.is5GWifiBySSID(ssid);
+                } else {
+                    is5G = res.wifi.frequency && res.wifi.frequency >= 4900;
+                }
+            }
+
+            this.page.setData({
+                wifiName: ssid,
+                wifiSelected: !!ssid,
+                showWifiList: false,
+                wifiPassword: '',
+                wifiConfigDisabled: false,
+                is5GConnected: is5G
+            });
+
+            wx.showModal({
+                title: '更换WiFi',
+                content: ssid
+                    ? `当前系统暂不支持在小程序内扫描 WiFi 列表。\n\n当前连接：${ssid}\n\n请先在手机「设置 → WLAN」中切换到 2.4G WiFi，返回后点击「更换WiFi」刷新，或直接输入密码继续配网。`
+                    : '当前系统暂不支持扫描 WiFi 列表。请先在手机「设置 → WLAN」中连接 2.4G WiFi，返回小程序后点击「更换WiFi」重试。',
+                confirmText: '知道了',
+                showCancel: false
+            });
+            return !!ssid;
+        } catch (error) {
+            console.error('[WifiConfigManager] 读取当前 WiFi 失败:', error);
+            if (isSystemLocationPermissionError(error)) {
+                showWechatAppLocationPermissionModal();
+            } else {
+                wx.showToast({ title: '获取WiFi信息失败', icon: 'none' });
+            }
+            return false;
+        }
+    }
+
+    /**
      * 显示WiFi列表
      */
     async showWifiList() {
         try {
-            console.log('开始获取WiFi列表');
-            const wifiList = await this.wifiManager.getWifiList();
-            console.log('获取到的WiFi列表:', wifiList);
-            
+            console.log('[WifiConfigManager] 开始获取WiFi列表, platform:', CommonUtil.getSystemType());
+            const timeoutMs = CommonUtil.isOhos() ? 8000 : 12000;
+            const wifiList = await this.wifiManager.getWifiList({ timeoutMs });
+            console.log('[WifiConfigManager] 获取到的WiFi列表数量:', wifiList.length);
+
+            if (CommonUtil.isOhos() && (!wifiList || wifiList.length === 0)) {
+                await this.fallbackToConnectedWifi();
+                return;
+            }
+
             this.page.setData({
                 wifiList: wifiList,
                 showWifiList: true,
                 wifiSelected: false
             });
-            console.log('WiFi列表已设置到页面');
+            console.log('[WifiConfigManager] WiFi列表已设置到页面');
         } catch (error) {
-            console.error('获取WiFi列表失败:', error);
-            
+            console.error('[WifiConfigManager] 获取WiFi列表失败:', error);
+
+            if (isSystemLocationPermissionError(error)) {
+                showWechatAppLocationPermissionModal();
+                return;
+            }
+
+            if (CommonUtil.isOhos() || error.type === 'wifi_list_timeout') {
+                await this.fallbackToConnectedWifi();
+                return;
+            }
+
             // 防止重复显示错误提示
             if (this.page.data._isShowingWifiError) {
                 return;
@@ -234,8 +284,7 @@ class WifiConfigManager {
             let showRetry = false;
             
             // iOS WiFi未打开时的错误码是 1505002，错误信息包含 "wifi is disabled"
-            const systemInfo = wx.getDeviceInfo();
-            const isIOS = systemInfo.platform === 'ios';
+            const isIOS = CommonUtil.isIOS();
             
             if (error.errCode === 12005) {
                 errorMessage = 'WiFi功能被禁用，请在手机设置中开启WiFi';

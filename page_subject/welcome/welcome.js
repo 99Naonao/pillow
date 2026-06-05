@@ -1,5 +1,6 @@
 // page_subject/welcome/welcome.js
 const AuthApi = require('../../utils/authApi.js');
+const CommonUtil = require('../../utils/commonUtil');
 
 Page({
   /**
@@ -63,9 +64,7 @@ Page({
 
   // 返回上一页
   onBack() {
-    wx.navigateBack({
-      delta: 1
-    });
+    CommonUtil.navigateBackSafe('/page_subject/welcome/welcome');
   },
 
   // 跳转到账号登录页面

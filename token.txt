@@ -1,0 +1,48 @@
+# 获取设备token
+
+## OpenAPI Specification
+
+```yaml
+openapi: 3.0.1
+info:
+  title: ''
+  description: ''
+  version: 1.0.0
+paths:
+  /shopapi/Detection/token:
+    get:
+      summary: 获取设备token
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: version
+          in: header
+          description: ''
+          required: false
+          example: '1'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+          x-apifox-name: 成功
+      security: []
+      x-apifox-folder: ''
+      x-apifox-status: developing
+      x-run-in-apifox: https://app.apifox.com/web/project/6546009/apis/api-306425505-run
+components:
+  schemas: {}
+  securitySchemes: {}
+servers:
+  - url: https://zhongshu.xinglu.shop
+    description: 正式环境
+security: []
+
+```

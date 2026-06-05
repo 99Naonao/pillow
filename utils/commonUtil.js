@@ -193,15 +193,77 @@ class CommonUtil {
   }
 
   /**
-   * 获取系统类型（android/ios/other）
+   * 获取系统类型（android/ios/ohos/other）
    * @returns {string}
    */
   static getSystemType() {
     const sys = wx.getDeviceInfo();
     const platform = (sys.platform || '').toLowerCase();
+    const system = sys.system || '';
+    if (platform === 'ohos') return 'ohos';
     if (platform === 'android') return 'android';
     if (platform === 'ios') return 'ios';
+    // 开发者工具模拟鸿蒙时 platform 为 devtools
+    if (platform === 'devtools' && system.includes('HarmonyOS')) return 'ohos';
     return 'other';
+  }
+
+  /**
+   * 是否与 Android 共用蓝牙/WiFi 逻辑（含鸿蒙）
+   * @param {string} [type] 不传则自动读取当前系统类型
+   * @returns {boolean}
+   */
+  static isAndroidLike(type) {
+    const platform = type || this.getSystemType();
+    return platform === 'android' || platform === 'ohos' || platform === 'other';
+  }
+
+  /**
+   * 是否 iOS
+   * @param {string} [type]
+   * @returns {boolean}
+   */
+  static isIOS(type) {
+    return (type || this.getSystemType()) === 'ios';
+  }
+
+  /**
+   * 是否鸿蒙
+   * @param {string} [type]
+   * @returns {boolean}
+   */
+  static isOhos(type) {
+    return (type || this.getSystemType()) === 'ohos';
+  }
+
+  /**
+   * WiFi MAC 统一从 BLE advertisData 广播解析（全平台）
+   * @returns {boolean}
+   */
+  static usesAdvertisDataMac() {
+    return true;
+  }
+
+  /**
+   * 标准化 BLE UUID 便于比较
+   * @param {string} uuid
+   * @returns {string}
+   */
+  static normalizeBleUuid(uuid) {
+    return (uuid || '').toUpperCase().replace(/-/g, '');
+  }
+
+  /**
+   * 判断 BLE UUID 是否匹配（支持完整 UUID 或短 ID 如 FFFF、FF01）
+   * @param {string} uuid
+   * @param {string} shortOrFullId
+   * @returns {boolean}
+   */
+  static bleUuidMatches(uuid, shortOrFullId) {
+    const normalized = this.normalizeBleUuid(uuid);
+    const target = this.normalizeBleUuid(shortOrFullId);
+    if (!normalized || !target) return false;
+    return normalized === target || normalized.includes(target) || target.includes(normalized);
   }
 
   /**
@@ -328,6 +390,145 @@ class CommonUtil {
       isValid: true,
       message: '密码格式正确'
     };
+  }
+
+  /**
+   * 安全返回上一页；若无上一页则跳转 fallback（tab 用 switchTab）
+   * @param {string} [fallbackTab='/pages/mine/mine']
+   */
+  static navigateBackSafe(fallbackTab = '/pages/mine/mine') {
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      wx.navigateBack({
+        delta: 1,
+        fail: (err) => {
+          console.warn('[navigateBackSafe] navigateBack 失败，跳转兜底页:', err);
+          CommonUtil._openFallbackPage(fallbackTab);
+        }
+      });
+      return;
+    }
+    CommonUtil._openFallbackPage(fallbackTab);
+  }
+
+  static _openFallbackPage(url) {
+    const tabPages = ['/pages/home/home', '/pages/report/report', '/pages/mine/mine'];
+    if (tabPages.includes(url)) {
+      wx.switchTab({ url });
+      return;
+    }
+    wx.redirectTo({
+      url,
+      fail: () => {
+        wx.switchTab({ url: '/pages/mine/mine' });
+      }
+    });
+  }
+
+  /** 实时数据单侧摘要（日志用） */
+  static snapshotRealtimeSide(side) {
+    if (!side || typeof side !== 'object') {
+      return null;
+    }
+    return {
+      heart_rate: side.heart_rate,
+      respiratory_rate: side.respiratory_rate ?? side.respiration_rate,
+      is_move: side.is_move
+    };
+  }
+
+  /** 实时数据整包摘要（日志用） */
+  static snapshotRealtimePayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return {};
+    }
+    return {
+      is_bed: payload.is_bed ?? payload.inbed,
+      left: CommonUtil.snapshotRealtimeSide(payload.left),
+      right: CommonUtil.snapshotRealtimeSide(payload.right)
+    };
+  }
+
+  /**
+   * 完整实时数据（日志用，wave 过长时只保留长度与前几项预览）
+   * @param {object} payload
+   * @param {number} [maxWavePoints=10]
+   */
+  static cloneRealtimePayloadForLog(payload, maxWavePoints = 10) {
+    if (!payload || typeof payload !== 'object') {
+      return payload;
+    }
+
+    const trimSide = (side) => {
+      if (!side || typeof side !== 'object') {
+        return side;
+      }
+      const next = {
+        heart_rate: side.heart_rate,
+        respiratory_rate: side.respiratory_rate ?? side.respiration_rate,
+        respiration_rate: side.respiration_rate,
+        is_move: side.is_move,
+        body_movement: side.body_movement
+      };
+      const wave = side.wave ?? side.heart_rate_wave;
+      if (Array.isArray(wave)) {
+        if (wave.length <= maxWavePoints) {
+          next.wave = wave;
+        } else {
+          next.wave = {
+            _truncated: true,
+            length: wave.length,
+            preview: wave.slice(0, maxWavePoints)
+          };
+        }
+      } else if (wave != null) {
+        next.wave = wave;
+      }
+      const extraKeys = Object.keys(side).filter(
+        (k) => !['heart_rate', 'respiratory_rate', 'respiration_rate', 'is_move', 'body_movement', 'wave', 'heart_rate_wave'].includes(k)
+      );
+      extraKeys.forEach((k) => {
+        next[k] = side[k];
+      });
+      return next;
+    };
+
+    const result = {
+      is_bed: payload.is_bed ?? payload.inbed,
+      inbed: payload.inbed,
+      body_movement: payload.body_movement
+    };
+    if (payload.left) {
+      result.left = trimSide(payload.left);
+    }
+    if (payload.right) {
+      result.right = trimSide(payload.right);
+    }
+    Object.keys(payload).forEach((key) => {
+      if (!['is_bed', 'inbed', 'left', 'right', 'body_movement'].includes(key)) {
+        result[key] = payload[key];
+      }
+    });
+    return result;
+  }
+
+  /**
+   * 单侧有效数据评分：心率、呼吸率非 0 各 +2，用于选有效侧
+   */
+  static scoreRealtimeSide(side) {
+    if (!side || typeof side !== 'object') {
+      return -1;
+    }
+    let score = 0;
+    const hr = Number(side.heart_rate);
+    const br = Number(side.respiratory_rate ?? side.respiration_rate);
+    if (Number.isFinite(hr) && hr !== 0) {
+      score += 2;
+    }
+    if (Number.isFinite(br) && br !== 0) {
+      score += 2;
+    }
+    return score;
   }
 }
 

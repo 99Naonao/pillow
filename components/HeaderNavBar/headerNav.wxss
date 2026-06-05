@@ -18,13 +18,16 @@
 }
 
 .navbar-btn {
-  width: 64rpx;
-  height: 64rpx;
-  z-index: 100;
+  min-width: 88rpx;
+  min-height: 88rpx;
+  padding: 12rpx;
+  z-index: 200;
   position: absolute;
-  left: 24rpx;
+  left: 12rpx;
   display: flex;
   align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .navbar-icon {

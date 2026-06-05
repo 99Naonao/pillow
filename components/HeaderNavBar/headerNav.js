@@ -144,9 +144,8 @@ Component({
   },
   // 组件的方法列表
   methods: {
-    // 回退
+    // 回退（仅通知页面，避免与 bind:onBack 重复调用 navigateBack）
     navBack() {
-      wx.navigateBack()
       this.triggerEvent('onBack')
     },
     // 回主页

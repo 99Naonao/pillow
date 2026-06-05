@@ -1,6 +1,7 @@
 ﻿// page_subject/ring/ring.js
 const HealthConfig = require('../../utils/healthConfig');
 const DeviceManager = require('../../utils/deviceManager');
+const CommonUtil = require('../../utils/commonUtil');
 
 Page({
   /**
@@ -50,7 +51,7 @@ Page({
    * 返回按钮点击事件
    */
   onBack() {
-    wx.navigateBack();
+    CommonUtil.navigateBackSafe('/pages/mine/mine');
   },
 
   /**

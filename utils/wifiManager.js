@@ -1,4 +1,5 @@
-const { checkWifiAuth } = require('./permissionUtil');
+const { checkWifiAuth, isSystemLocationPermissionError } = require('./permissionUtil');
+const CommonUtil = require('./commonUtil');
 
 /**
  * WiFi管理工具类
@@ -47,27 +48,9 @@ class WifiManager {
                 wx.getConnectedWifi({
                     success: resolve,
                     fail: (error) => {
-                        // 处理权限错误
-                        if (error.errCode === 12012 || error.errno === 1505004 || error.type === 'system_permission') {
+                        if (isSystemLocationPermissionError(error)) {
                             console.error('获取WiFi信息需要位置权限:', error);
-                            // 权限被拒绝，提示用户去系统设置开启微信App的位置权限
-                            wx.showModal({
-                                title: '权限提醒',
-                                content: '需要开启微信App的位置权限才能使用WiFi功能。\n\n请按以下步骤操作：\n1. 打开手机系统设置\n2. 找到"微信"应用\n3. 开启"位置信息"权限\n4. 返回小程序重试',
-                                confirmText: '知道了',
-                                cancelText: '取消',
-                                showCancel: true,
-                                success: (modalRes) => {
-                                    if (modalRes.confirm) {
-                                        // 打开小程序设置页面，用户可以手动去系统设置
-                                        wx.openSetting({
-                                            success: () => {
-                                                console.log('用户进入设置页面');
-                                            }
-                                        });
-                                    }
-                                }
-                            });
+                            error.type = error.type || 'system_permission';
                         }
                         reject(error);
                     }
@@ -85,65 +68,78 @@ class WifiManager {
     }
 
     /**
-     * 获取WiFi列表
+     * 获取WiFi列表（含超时，避免鸿蒙等平台 onGetWifiList 不回调导致一直 loading）
+     * @param {{ timeoutMs?: number }} [options]
      */
-    getWifiList() {
+    async getWifiList(options = {}) {
+        const timeoutMs = options.timeoutMs || 12000;
+        await checkWifiAuth();
+        await this.startWifi();
+
         return new Promise((resolve, reject) => {
-            // 先移除之前的监听，防止多次注册
-            wx.offGetWifiList && wx.offGetWifiList();
-            
+            let settled = false;
+            let timer = null;
+
+            const cleanup = () => {
+                if (timer) {
+                    clearTimeout(timer);
+                    timer = null;
+                }
+                if (wx.offGetWifiList) {
+                    wx.offGetWifiList(onWifiList);
+                }
+            };
+
+            const finish = (fn, value) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                fn(value);
+            };
+
+            const onWifiList = (listRes) => {
+                const systemInfo = wx.getDeviceInfo();
+                console.log('[WifiManager] onGetWifiList, platform:', systemInfo.platform);
+
+                let wifiList = [];
+                if (CommonUtil.isIOS()) {
+                    wifiList = (listRes.wifiList || []).filter(item => {
+                        if (!item.SSID) return false;
+                        return !this.is5GWifiBySSID(item.SSID);
+                    });
+                } else {
+                    wifiList = (listRes.wifiList || []).filter(item => {
+                        if (!item.SSID) return false;
+                        const is5G = item.frequency && item.frequency >= 4900;
+                        return !is5G;
+                    });
+                }
+
+                console.log('[WifiManager] 过滤后的WiFi列表数量:', wifiList.length);
+                finish(resolve, wifiList);
+            };
+
+            timer = setTimeout(() => {
+                console.warn('[WifiManager] getWifiList 超时，未收到 onGetWifiList');
+                finish(reject, {
+                    errCode: -1,
+                    errMsg: 'getWifiList:timeout',
+                    type: 'wifi_list_timeout'
+                });
+            }, timeoutMs);
+
+            wx.onGetWifiList(onWifiList);
+
             wx.getWifiList({
                 success: () => {
-                    wx.onGetWifiList((listRes) => {
-                        // 获取系统信息
-                        const systemInfo = wx.getDeviceInfo();
-                        console.log('获取WiFi列表 - 当前系统:', systemInfo.platform);
-                        
-                        // 根据平台过滤WiFi列表
-                        let wifiList = [];
-                        if (systemInfo.platform === 'ios') {
-                            // iOS 设备通过SSID名称过滤5G WiFi
-                            wifiList = (listRes.wifiList || []).filter(item => {
-                                if (!item.SSID) return false;
-                                
-                                const is5G = this.is5GWifiBySSID(item.SSID);
-                                const isValidWifi = !is5G;
-                                
-                                console.log('iOS WiFi过滤:', item.SSID, '是否5G:', is5G, '是否有效:', isValidWifi);
-                                return isValidWifi;
-                            });
-                        } else {
-                            // Android 设备通过频率过滤5G WiFi
-                            wifiList = (listRes.wifiList || []).filter(item => {
-                                if (!item.SSID) return false;
-                                
-                                const is5G = item.frequency && item.frequency >= 4900;
-                                const isValidWifi = !is5G;
-                                
-                                console.log('Android WiFi过滤:', item.SSID, '频率:', item.frequency, '是否5G:', is5G, '是否有效:', isValidWifi);
-                                return isValidWifi;
-                            });
-                        }
-                        
-                        console.log('过滤后的WiFi列表:', wifiList);
-                        resolve(wifiList);
-                    });
+                    console.log('[WifiManager] getWifiList 请求已发出，等待 onGetWifiList');
                 },
                 fail: (error) => {
-                    console.error('获取WiFi列表失败:', error);
-                    
-                    // 根据错误码提供具体的解决方案
-                    let errorMessage = '获取WiFi列表失败';
-                    if (error.errCode === 12005) {
-                        errorMessage = 'WiFi功能被禁用，请在手机设置中开放WiFi';
-                    } else if (error.errCode === 12006) {
-                        errorMessage = '请先打开手机WiFi开关并授权位置信息';
+                    console.error('[WifiManager] getWifiList 失败:', error);
+                    if (isSystemLocationPermissionError(error)) {
+                        error.type = error.type || 'system_permission';
                     }
-                    
-                    // 只记录错误，不显示提示框，让调用方处理
-                    console.log('WiFi列表获取失败，错误信息:', errorMessage);
-                    
-                    reject(error);
+                    finish(reject, error);
                 }
             });
         });
@@ -206,7 +202,7 @@ class WifiManager {
             const systemInfo = wx.getDeviceInfo();
             let is5G = false;
             
-            if (systemInfo.platform === 'ios') {
+            if (CommonUtil.isIOS()) {
                 is5G = this.is5GWifiBySSID(res.wifi.SSID);
             } else {
                 is5G = res.wifi.frequency && res.wifi.frequency >= 4900;
@@ -226,20 +222,19 @@ class WifiManager {
         } catch (error) {
             console.error('检查WiFi状态失败:', error);
             
-            // 处理权限错误（错误代码 12012 或 errno 1505004）
-            if (error.errCode === 12012 || error.errno === 1505004) {
+            // 处理权限错误（含鸿蒙 errCode 12010）
+            if (isSystemLocationPermissionError(error)) {
                 console.error('WiFi权限错误，需要位置权限');
-                // 抛出权限错误，让上层处理
                 throw {
                     ...error,
-                    type: 'permission',
+                    type: 'system_permission',
                     message: '需要位置权限才能获取WiFi信息'
                 };
             }
             
             // iOS WiFi未打开时，抛出错误让上层处理
             const systemInfo = wx.getDeviceInfo();
-            const isIOS = systemInfo.platform === 'ios';
+            const isIOS = CommonUtil.isIOS();
             
             if (isIOS && (error.errno === 1505002)) {
                 // iOS WiFi未打开，抛出错误

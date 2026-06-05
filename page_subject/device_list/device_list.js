@@ -32,7 +32,7 @@ Page({
   },
 
   onBack() {
-    wx.navigateBack({ delta: 1 });
+    CommonUtil.navigateBackSafe('/pages/mine/mine');
   },
 
   onRefreshTap() {

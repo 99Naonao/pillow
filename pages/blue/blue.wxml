@@ -1,4 +1,4 @@
-<nav-bar title="设备连接" bgColor="#0b2853" titleColor="#fff" bind:tap="onBack"></nav-bar>
+<nav-bar title="设备连接" bgColor="#0b2853" titleColor="#fff" bind:onBack="onBack"></nav-bar>
 <view class="page-container">
   <!-- 进度条 -->
   <view class="progress-container"></view>
@@ -42,6 +42,12 @@
             <view class="wifi-name">{{wifiName}}</view>
             <view wx:if="{{is5GConnected}}" class="wifi-5g-badge">5G</view>
           </view>
+          <view wx:if="{{is5GConnected}}" class="wifi-5g-tip">
+            当前WiFi为5G信号，仅支持2.4G WiFi，请更换WiFi
+          </view>
+          <view wx:if="{{wifiConfigDisabled}}" class="wifi-5g-tip">
+            设备已连接到WiFi"{{wifiName}}"，无需重复配网
+          </view>
           <view class="wifi-password-container" wx:if="{{!wifiConfigDisabled}}">
             <input
               class="wifi-password-input"
@@ -65,22 +71,22 @@
             </view>
           </view>
           <view class="wifi-btn-row">
-            <button
-              class="wifi-action-btn"
-              type="primary"
+            <view
+              class="wifi-action-btn wifi-action-btn-primary {{activeWifiBtn === 'next' ? 'wifi-action-btn--active-primary' : ''}} {{is5GConnected || wifiConfigDisabled ? 'wifi-action-btn--disabled' : ''}}"
               bindtap="nextStep"
-              disabled="{{is5GConnected || wifiConfigDisabled}}"
-            >下一步</button>
-            <button 
-              class="wifi-action-btn" 
+              bindtouchstart="onWifiBtnTouchStart"
+              bindtouchend="onWifiBtnTouchEnd"
+              bindtouchcancel="onWifiBtnTouchEnd"
+              data-btn="next"
+            >下一步</view>
+            <view
+              class="wifi-action-btn change-wifi-btn {{activeWifiBtn === 'change' ? 'wifi-action-btn--active-secondary' : ''}} {{isChangingWifi ? 'wifi-action-btn--loading' : ''}}"
               bindtap="showWifiList"
-            >更换WiFi</button>
-          </view>
-          <view wx:if="{{is5GConnected}}" class="wifi-5g-tip">
-            当前WiFi为5G信号，仅支持2.4G WiFi，请更换WiFi
-          </view>
-          <view wx:if="{{wifiConfigDisabled}}" class="wifi-5g-tip">
-            设备已连接到WiFi"{{wifiName}}"，无需重复配网
+              bindtouchstart="onWifiBtnTouchStart"
+              bindtouchend="onWifiBtnTouchEnd"
+              bindtouchcancel="onWifiBtnTouchEnd"
+              data-btn="change"
+            >{{isChangingWifi ? '加载中...' : '更换WiFi'}}</view>
           </view>
         </view>
       </view>
@@ -172,11 +178,18 @@
         </view>
       </view>
       <!-- 配网完成 -->
-      <view wx:else>
+      <view wx:elif="{{wifiConfigSuccess}}">
         <view class="finish-card">
           <image src="/static/success.png" class="finish-icon" mode="aspectFit" />
           <view class="finish-title">配网成功</view>
           <button type="primary" class="finish-btn" bindtap="finishAndReturn">完成并返回首页</button>
+        </view>
+      </view>
+      <!-- 蓝牙已连接，等待/初始化 -->
+      <view wx:else>
+        <view class="wifi-loading">
+          <view class="wifi-loading-text">正在准备配网...</view>
+          <view class="wifi-loading-subtext">设备连接成功，请稍候</view>
         </view>
       </view>
     </view>

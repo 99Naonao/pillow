@@ -618,6 +618,12 @@ Page({
 			return;
 		}
 
+		const latestPayload = this.deviceManager.getLatestRealtimePayload();
+		if (latestPayload) {
+			this._processBreathRateData(latestPayload);
+			return;
+		}
+
 		const promise = this.deviceManager.getDeviceRealtimeData(wifiMac);
 		if (!promise || typeof promise.then !== 'function') {
 			console.error('[mine] getDeviceRealtimeData 未返回 Promise');
@@ -626,30 +632,41 @@ Page({
 		
 		promise.then(result => {
 			if (result && result.ret === 0 && result.data && result.data.length > 0) {
-				const deviceData = result.data[0];
-				let breathRate = null;
-				let heartRate = null;
+				this._processBreathRateData(result.data[0]);
+			}
+		}).catch(err => {
+			console.error('[mine] 获取实时数据失败:', err);
+		});
+	},
 
-        // 判断 left 数据是否完整有效（heart_rate 和 respiration_rate 都不为 0）
-        const isLeftValid = deviceData.left && 
-                            deviceData.left.heart_rate && deviceData.left.heart_rate !== 0 && 
-                            deviceData.left.respiration_rate && deviceData.left.respiration_rate !== 0;
-        
-        // 判断 right 数据是否完整有效（heart_rate 和 respiration_rate 都不为 0）
-        const isRightValid = deviceData.right && 
-                             deviceData.right.heart_rate && deviceData.right.heart_rate !== 0 && 
-                             deviceData.right.respiration_rate && deviceData.right.respiration_rate !== 0;
-        
-        // 优先使用 left，如果 left 无效则使用 right
-        if (isLeftValid) {
-          // 使用 left 的所有数据
-          heartRate = deviceData.left.heart_rate;
-          breathRate = deviceData.left.respiration_rate;
-        } else if (isRightValid) {
-          // 使用 right 的所有数据
-          heartRate = deviceData.right.heart_rate;
-          breathRate = deviceData.right.respiration_rate;
-        }
+	_processBreathRateData(deviceData) {
+		if (!deviceData) {
+			return;
+		}
+
+		if (deviceData.is_bed !== 1 && deviceData.is_bed !== true) {
+			console.log('[mine] 当前离床，跳过呼吸/心率告警检查');
+			return;
+		}
+
+		let breathRate = null;
+		let heartRate = null;
+
+		const isLeftValid = deviceData.left && 
+							deviceData.left.heart_rate && deviceData.left.heart_rate !== 0 && 
+							deviceData.left.respiration_rate && deviceData.left.respiration_rate !== 0;
+		
+		const isRightValid = deviceData.right && 
+							 deviceData.right.heart_rate && deviceData.right.heart_rate !== 0 && 
+							 deviceData.right.respiration_rate && deviceData.right.respiration_rate !== 0;
+		
+		if (isLeftValid) {
+			heartRate = deviceData.left.heart_rate;
+			breathRate = deviceData.left.respiration_rate;
+		} else if (isRightValid) {
+			heartRate = deviceData.right.heart_rate;
+			breathRate = deviceData.right.respiration_rate;
+		}
 
 				// 检查呼吸频率
 				if (breathRate !== null) {
@@ -730,12 +747,6 @@ Page({
 						alarmed: false
 					});
 				}
-			} else {
-				console.log('设备数据获取失败或为空');
-			}
-		}).catch(error => {
-			console.error('获取设备数据失败:', error);
-		});
 	},
 
 	/**

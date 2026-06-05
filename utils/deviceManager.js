@@ -1,6 +1,8 @@
 const key = '1f3e1d08bac85daf08eca14e72cde665';
 const BASE_URL = 'https://zhongshu.xinglu.shop';
 const { getLatestToken } = require('./tokenHelper');
+const { getDeviceRealtimeSocket } = require('./deviceRealtimeSocket');
+const CommonUtil = require('./commonUtil');
 /**
  * 通用SOAP请求
  * @param {string} method SOAP方法名
@@ -89,6 +91,238 @@ class DeviceManager {
     this.page = page; // 传入页面实例
     this._realtimeTimer = null;
     this._deviceStatusId = null; // 保存设备状态ID，用于判断是否离床
+    this._realtimeMac = '';
+    this._realtimeSocket = getDeviceRealtimeSocket();
+  }
+
+  /**
+   * 统一 WebSocket / SOAP 实时数据字段
+   */
+  _normalizeRealtimeRecord(record) {
+    if (!record) return null;
+
+    const normalizeSide = (side) => {
+      if (!side) return side;
+      const breathRate = side.respiratory_rate ?? side.respiration_rate;
+      return {
+        ...side,
+        heart_rate: side.heart_rate,
+        respiratory_rate: breathRate,
+        respiration_rate: breathRate,
+        is_move: side.is_move ?? (side.body_movement ? 1 : 0),
+        wave: side.wave ?? side.heart_rate_wave ?? []
+      };
+    };
+
+    const inBed = record.is_bed ?? record.inbed;
+    return {
+      ...record,
+      is_bed: inBed === true || inBed === 1 ? 1 : 0,
+      left: normalizeSide(record.left),
+      right: normalizeSide(record.right)
+    };
+  }
+
+  /**
+   * 解析 WebSocket 实时数据中的有效侧（优先心率+呼吸率更完整、非 0 的一侧）
+   */
+  _pickValidSideData(record) {
+    const leftScore = CommonUtil.scoreRealtimeSide(record.left);
+    const rightScore = CommonUtil.scoreRealtimeSide(record.right);
+
+    if (leftScore < 0 && rightScore < 0) {
+      return null;
+    }
+    if (rightScore > leftScore) {
+      return { side: record.right, sideName: 'right' };
+    }
+    if (leftScore > rightScore) {
+      return { side: record.left, sideName: 'left' };
+    }
+
+    const sideMetricRank = (side) => {
+      if (!side) return -1;
+      const br = Number(side.respiratory_rate ?? side.respiration_rate);
+      const hr = Number(side.heart_rate);
+      if (Number.isFinite(br) && br !== 0) return 2;
+      if (Number.isFinite(hr) && hr !== 0) return 1;
+      return 0;
+    };
+
+    const leftRank = sideMetricRank(record.left);
+    const rightRank = sideMetricRank(record.right);
+    if (rightRank > leftRank && record.right) {
+      return { side: record.right, sideName: 'right' };
+    }
+    if (record.left) {
+      return { side: record.left, sideName: 'left' };
+    }
+    if (record.right) {
+      return { side: record.right, sideName: 'right' };
+    }
+    return null;
+  }
+
+  /**
+   * 将 WebSocket 推送数据应用到页面
+   */
+  _applyWsRealtimePayload(record) {
+    if (!record || !this.page) {
+      return;
+    }
+
+    record = this._normalizeRealtimeRecord(record);
+    const picked = this._pickValidSideData(record);
+    let heartRate = null;
+    let breathRate = null;
+    let heartRateWave = null;
+
+    if (picked) {
+      const hr = parseInt(picked.side.heart_rate, 10);
+      const br = parseFloat(picked.side.respiratory_rate ?? picked.side.respiration_rate);
+      heartRate = (!isNaN(hr) && isFinite(hr) && hr !== 0) ? hr : null;
+      breathRate = (!isNaN(br) && isFinite(br) && br !== 0) ? br : null;
+      if (Array.isArray(picked.side.wave) && picked.side.wave.length > 0) {
+        heartRateWave = picked.side.wave;
+      }
+    }
+
+    const isInBed = record.is_bed === 1 || record.is_bed === true;
+    const isMove = picked && (picked.side.is_move === 1 || picked.side.is_move === true);
+    const turnOver = record.body_movement || isMove ? 1 : 0;
+
+    if (!isInBed) {
+      const hiddenValue = 0;
+      console.log('[deviceManager] WebSocket 检测到离床，实时数据显示为 --');
+      this.page.setData({
+        deviceConnected: true,
+        heartRate: hiddenValue,
+        breathRate: hiddenValue,
+        turnOver,
+        isLeavePillow: true
+      }, () => {
+        if (typeof this.page.addToHeartRateHistory === 'function') {
+          this.page.addToHeartRateHistory(hiddenValue);
+        }
+        if (typeof this.page.addToBreathRateHistory === 'function') {
+          this.page.addToBreathRateHistory(hiddenValue);
+        }
+      });
+      return;
+    }
+
+    console.log('[deviceManager] WebSocket 实时数据:', {
+      raw: CommonUtil.snapshotRealtimePayload(record),
+      pickedSide: picked ? picked.sideName : 'none',
+      heartRate,
+      breathRate,
+      is_move: picked ? picked.side.is_move : null,
+      isInBed,
+      turnOver
+    });
+
+    this.page.setData({
+      deviceConnected: true,
+      heartRate,
+      breathRate,
+      turnOver,
+      isLeavePillow: false
+    }, () => {
+      if (heartRate !== null && heartRate !== undefined) {
+        const numValue = typeof heartRate === 'number' ? heartRate : parseInt(heartRate, 10);
+        if (!isNaN(numValue) && isFinite(numValue) &&
+          typeof this.page.addToHeartRateHistory === 'function') {
+          this.page.addToHeartRateHistory(numValue);
+        }
+      }
+
+      if (breathRate !== null && breathRate !== undefined) {
+        const numValue = typeof breathRate === 'number' ? breathRate : parseFloat(breathRate);
+        if (!isNaN(numValue) && isFinite(numValue) &&
+          typeof this.page.addToBreathRateHistory === 'function') {
+          this.page.addToBreathRateHistory(numValue);
+        }
+      }
+
+      if (typeof this.page.updateWaveformCharts === 'function') {
+        this.page.updateWaveformCharts(heartRateWave, null);
+      }
+    });
+  }
+
+  /**
+   * SOAP 拉取实时数据（timestamp: 0 表示取最新一条）
+   * @param {string} mac
+   * @returns {Promise<{ret:number,data:Array}>}
+   */
+  _fetchSoapRealtimeData(mac) {
+    if (!mac) {
+      return Promise.resolve({ ret: 0, data: [] });
+    }
+
+    const method = 'GetDeviceRealtimeData';
+    const dataObj = { key, mac, timestamp: 0, waveform: true };
+    return soapRequest(method, dataObj, 'POST')
+      .then((result) => {
+        if (result && result.ret === 0 && result.data && result.data.length > 0) {
+          const record = result.data[result.data.length - 1];
+          console.log('[deviceManager] SOAP 获取到实时数据:', CommonUtil.snapshotRealtimePayload(record));
+          if (this.page) {
+            this._applyWsRealtimePayload(record);
+          }
+          return { ret: 0, data: [record] };
+        }
+        return { ret: 0, data: [] };
+      })
+      .catch((err) => {
+        console.warn('[deviceManager] SOAP 拉取实时数据失败:', err.message || err);
+        return { ret: -1, data: [], error: err };
+      });
+  }
+
+  _pollSoapRealtimeData(mac) {
+    this._fetchSoapRealtimeData(mac);
+  }
+
+  /**
+   * 启动 WebSocket 实时数据连接
+   */
+  startRealtimeConnection(mac) {
+    if (!mac) {
+      return Promise.reject(new Error('设备 MAC 不能为空'));
+    }
+
+    this._realtimeMac = mac;
+    this._realtimeSocket.setMessageHandler((payload) => {
+      this._applyWsRealtimePayload(payload);
+    });
+
+    return this._realtimeSocket.connect(mac).catch((error) => {
+      console.error('[deviceManager] WebSocket 实时连接失败:', error);
+      if (this.page) {
+        wx.showToast({
+          title: error.message || '实时连接失败',
+          icon: 'none'
+        });
+      }
+      throw error;
+    });
+  }
+
+  /**
+   * 停止 WebSocket 实时数据连接
+   */
+  stopRealtimeConnection() {
+    this._realtimeSocket.setMessageHandler(null);
+    this._realtimeSocket.disconnect(true);
+    this._realtimeMac = '';
+  }
+
+  /**
+   * 获取最近一次 WebSocket 原始实时数据
+   */
+  getLatestRealtimePayload() {
+    return this._realtimeSocket.getLastPayload();
   }
 
   /**
@@ -430,192 +664,30 @@ voiceNotifation(params){
   }
 
   /**
-   * 获取设备mac
-   * @param {*} mac 
+   * 获取设备实时数据（调试：仅 WebSocket）
+   * @param {*} mac
    */
   getDeviceRealtimeData(mac) {
-    console.log('设备mac信息:',mac)
-    const method = 'GetDeviceRealtimeData';
-    const dataObj = { key, mac, timestamp: 1, waveform: true };
-    return soapRequest(method, dataObj, 'POST')
-      .then(result => {
-        if (result && result.ret === 0 && result.data && result.data.length > 0) {
-          // 獲取最新的一條數據（數組的最後一個元素）
-          const d = result.data[result.data.length - 1];
+    console.log('[deviceManager] 获取实时数据(WebSocket), mac:', mac);
+    this._realtimeMac = mac;
+    this._realtimeSocket.setMessageHandler((payload) => {
+      this._applyWsRealtimePayload(payload);
+    });
 
-          // 提取時間戳（盡量兼容多種字段名與格式）
-          const extractTimestampMs = (record) => {
-            // 優先使用 date（字串時間）或 id（可能是時間戳）
-            let ts = record?.date
-              ?? record?.id
-              ?? record?.timestamp
-              ?? record?.time
-              ?? record?.ts
-              ?? record?.time_stamp
-              ?? record?.datetime
-              ?? record?.timeStr
-              ?? record?.time_string
-              ?? record?.left?.timestamp
-              ?? record?.right?.timestamp
-              ?? record?.left?.time
-              ?? record?.right?.time;
-            if (ts == null) return NaN;
-            // 字符串 -> Date 解析
-            if (typeof ts === 'string') {
-              const ms = Date.parse(ts);
-              return isNaN(ms) ? NaN : ms;
-            }
-            // 數字：可能是秒或毫秒
-            if (typeof ts === 'number') {
-              // 小於 10^12 視為秒
-              return ts < 1e12 ? ts * 1000 : ts;
-            }
-            return NaN;
-          };
-
-          const dataTsMs = extractTimestampMs(d);
-          const nowMs = Date.now();
-          const isStale = !isNaN(dataTsMs) && (nowMs - dataTsMs > 60000);
-          if (isStale) {
-            console.log('[实时数据] 最新数据时间过旧，已超过1分钟，清空页面展示。数据时间:', new Date(dataTsMs).toLocaleString());
-            this.page.setData({
-              // 保持连接状态不变，仅清空指标展示
-              heartRate: null,
-              breathRate: null,
-              heartRateHistory: [],
-              breathRateHistory: [],
-              turnOver: null,
-              isLeavePillow: null
-            });
-            return;
-          }
-          
-          let heartRate = null, breathRate = null;
-          let heartRateWave = null, respiratoryWave = null;
-          
-          // 判断 left 数据是否完整有效
-          const isLeftValid = d.left && 
-                              d.left.heart_rate && d.left.heart_rate !== 0 && 
-                              d.left.respiration_rate && d.left.respiration_rate !== 0;
-          
-          // 判断 right 数据是否完整有效
-          const isRightValid = d.right && 
-                               d.right.heart_rate && d.right.heart_rate !== 0 && 
-                               d.right.respiration_rate && d.right.respiration_rate !== 0;
-          
-          // 优先使用 left，如果 left 无效则使用 right
-          if (isLeftValid) {
-            // 使用 left 的所有数据
-            // 确保 heartRate 是整数，breathRate 是浮点数
-            const hr = parseInt(d.left.heart_rate, 10);
-            const br = parseFloat(d.left.respiration_rate);
-            heartRate = (!isNaN(hr) && isFinite(hr)) ? hr : null;
-            breathRate = (!isNaN(br) && isFinite(br)) ? br : null;
-            // 提取 left 的波形数据
-            if (d.left.heart_rate_wave && Array.isArray(d.left.heart_rate_wave) && d.left.heart_rate_wave.length > 0) {
-              heartRateWave = d.left.heart_rate_wave;
-            }
-            if (d.left.respiratory_wave && Array.isArray(d.left.respiratory_wave) && d.left.respiratory_wave.length > 0) {
-              respiratoryWave = d.left.respiratory_wave;
-            }
-          } else if (isRightValid) {
-            // 使用 right 的所有数据
-            // 确保 heartRate 是整数，breathRate 是浮点数
-            const hr = parseInt(d.right.heart_rate, 10);
-            const br = parseFloat(d.right.respiration_rate);
-            heartRate = (!isNaN(hr) && isFinite(hr)) ? hr : null;
-            breathRate = (!isNaN(br) && isFinite(br)) ? br : null;
-            // 提取 right 的波形数据
-            if (d.right.heart_rate_wave && Array.isArray(d.right.heart_rate_wave) && d.right.heart_rate_wave.length > 0) {
-              heartRateWave = d.right.heart_rate_wave;
-            }
-            if (d.right.respiratory_wave && Array.isArray(d.right.respiratory_wave) && d.right.respiratory_wave.length > 0) {
-              respiratoryWave = d.right.respiratory_wave;
-            }
-          }
-          // 如果 left 和 right 都无效，heartRate、breathRate、heartRateWave、respiratoryWave 保持为 null 或 null
-          
-          // 检查设备状态：如果状态ID是3（离床），则显示为 "--" 并让曲线图显示为直线
-          const isLeaveBed = this._deviceStatusId === 3;
-          
-          if (isLeaveBed) {
-            console.log('[deviceManager] 检测到设备离床状态（status.id === 3），实时数据显示为 --');
-            // 离床状态：设置特殊值用于显示 "--"，曲线图显示为直线
-            const leaveBedValue = 0; // 使用 0 作为离床状态的标识值
-            
-            this.page.setData({
-              deviceConnected: true,
-              heartRate: leaveBedValue, // 特殊值，页面显示为 "--"
-              breathRate: leaveBedValue, // 特殊值，页面显示为 "--"
-              turnOver: d.body_movement ? 1 : 0,
-              isLeavePillow: !d.inbed
-            }, () => {
-              // 添加历史数据，让曲线图显示为直线（值为 0）
-              if (typeof this.page.addToHeartRateHistory === 'function') {
-                this.page.addToHeartRateHistory(leaveBedValue);
-              }
-              if (typeof this.page.addToBreathRateHistory === 'function') {
-                this.page.addToBreathRateHistory(leaveBedValue);
-              }
-            });
-            return;
-          }
-          
-          console.log('[deviceManager] 准备设置实时数据:', {
-            heartRate: heartRate,
-            breathRate: breathRate,
-            heartRateType: typeof heartRate,
-            breathRateType: typeof breathRate,
-            isLeftValid: isLeftValid,
-            isRightValid: isRightValid,
-            deviceStatusId: this._deviceStatusId,
-            isLeaveBed: isLeaveBed,
-            leftData: d.left ? { heart_rate: d.left.heart_rate, respiration_rate: d.left.respiration_rate } : null,
-            rightData: d.right ? { heart_rate: d.right.heart_rate, respiration_rate: d.right.respiration_rate } : null
-          });
-          
-          this.page.setData({
-            deviceConnected: true,  // 確保設備連接狀態為在線
-            heartRate,
-            breathRate,
-            turnOver: d.body_movement ? 1 : 0,
-            isLeavePillow: !d.inbed
-          }, () => {
-            console.log('[deviceManager] setData 完成，当前页面数据:', {
-              heartRate: this.page.data.heartRate,
-              breathRate: this.page.data.breathRate
-            });
-            
-            // 手动添加历史数据（不依赖 observers）
-            if (heartRate !== null && heartRate !== undefined) {
-              const numValue = typeof heartRate === 'number' ? heartRate : parseInt(heartRate, 10);
-              if (!isNaN(numValue) && isFinite(numValue)) {
-                console.log('[deviceManager] 手动添加心率到历史数组:', numValue);
-                if (typeof this.page.addToHeartRateHistory === 'function') {
-                  this.page.addToHeartRateHistory(numValue);
-                }
-              }
-            }
-            
-            if (breathRate !== null && breathRate !== undefined) {
-              const numValue = typeof breathRate === 'number' ? breathRate : parseFloat(breathRate);
-              if (!isNaN(numValue) && isFinite(numValue)) {
-                console.log('[deviceManager] 手动添加呼吸率到历史数组:', numValue);
-                if (typeof this.page.addToBreathRateHistory === 'function') {
-                  this.page.addToBreathRateHistory(numValue);
-                }
-              }
-            }
-            
-            // 更新折线图（使用历史数据数组）
-            console.log('[deviceManager] 准备更新折线图（使用历史数据数组）');
-            if (typeof this.page.updateWaveformCharts === 'function') {
-              this.page.updateWaveformCharts(heartRateWave, respiratoryWave);
-            } else {
-              console.warn('[deviceManager] updateWaveformCharts 方法不存在');
-            }
-          });
-        } else {
+    return this._realtimeSocket.connect(mac)
+      .then(() => {
+        const payload = this.getLatestRealtimePayload();
+        if (payload) {
+          this._applyWsRealtimePayload(payload);
+          return { ret: 0, data: [payload] };
+        }
+        // SOAP 兜底（调试 WebSocket 时暂时关闭）
+        // return this._fetchSoapRealtimeData(mac);
+        return { ret: 0, data: [] };
+      })
+      .catch((err) => {
+        console.error('[deviceManager] WebSocket 实时连接失败:', err);
+        if (this.page) {
           this.page.setData({
             heartRate: null,
             breathRate: null,
@@ -625,32 +697,39 @@ voiceNotifation(params){
             isLeavePillow: true
           });
         }
-      })
-      .catch(err => {
-        wx.showToast({ title: err.message || '接口异常', icon: 'none' });
-        this.page.setData({
-          heartRate: null,
-          breathRate: null,
-          heartRateHistory: [],
-          breathRateHistory: [],
-          turnOver: null,
-          isLeavePillow: true
-        });
+        throw err;
       });
   }
 
   startRealtimeTimer(mac) {
-    this.clearRealtimeTimer();
-    this._realtimeTimer = setInterval(() => {
-      this.getDeviceRealtimeData(mac);
-    }, 1000);
-    this.page.setData({ _realtimeTimer: this._realtimeTimer });
+    if (this._realtimeTimer) {
+      clearInterval(this._realtimeTimer);
+      this._realtimeTimer = null;
+    }
+    this._realtimeMac = mac;
+    this._realtimeSocket.setMessageHandler((payload) => {
+      this._applyWsRealtimePayload(payload);
+    });
+    this.startRealtimeConnection(mac).catch((error) => {
+      console.error('[deviceManager] WebSocket 实时连接失败:', error);
+    });
+    // SOAP 轮询（调试 WebSocket 时暂时关闭）
+    // this._pollSoapRealtimeData(mac);
+    // this._realtimeTimer = setInterval(() => {
+    //   this._pollSoapRealtimeData(mac);
+    // }, 1000);
+    if (this.page) {
+      this.page.setData({ _realtimeTimer: null });
+    }
   }
 
   clearRealtimeTimer() {
     if (this._realtimeTimer) {
       clearInterval(this._realtimeTimer);
       this._realtimeTimer = null;
+    }
+    this.stopRealtimeConnection();
+    if (this.page) {
       this.page.setData({ _realtimeTimer: null });
     }
   }

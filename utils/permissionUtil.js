@@ -2,6 +2,175 @@
 // 注意：小程序位置权限和微信App系统位置权限是两个不同的权限
 // 小程序权限：在小程序设置中授权
 // 微信App系统权限：在手机系统设置中授权给微信App
+
+let _locationPermissionModalVisible = false;
+let _locationPermissionAwaitingReturn = false;
+
+function isSystemLocationPermissionError(error) {
+  if (!error) return false;
+  const errCode = Number(error.errCode);
+  const errno = Number(error.errno);
+  const errMsg = String(error.errMsg || '').toLowerCase();
+  return errCode === 12012
+    || errCode === 12010 // 鸿蒙 / 部分 Android
+    || errno === 1505004
+    || errno === 1505001
+    || error.type === 'system_permission'
+    || error.type === 'permission'
+    || errMsg.includes('gps permission')
+    || errMsg.includes('location permission')
+    || errMsg.includes('obtain gps');
+}
+
+/**
+ * 打开微信 App 系统授权设置（位置/蓝牙等）；低版本回退到小程序设置页
+ */
+function openWechatAppAuthSetting() {
+  return new Promise((resolve) => {
+    if (typeof wx.openAppAuthorizeSetting === 'function') {
+      wx.openAppAuthorizeSetting({
+        success: () => resolve(true),
+        fail: () => {
+          wx.openSetting({
+            success: () => resolve(true),
+            fail: () => resolve(false)
+          });
+        }
+      });
+      return;
+    }
+    wx.openSetting({
+      success: () => resolve(true),
+      fail: () => resolve(false)
+    });
+  });
+}
+
+/**
+ * 微信 App 未授予系统位置权限时的引导弹窗（防重复）
+ */
+function showWechatAppLocationPermissionModal() {
+  if (_locationPermissionModalVisible) {
+    return Promise.resolve(false);
+  }
+  _locationPermissionModalVisible = true;
+
+  return new Promise((resolve) => {
+    wx.showModal({
+      title: '权限提醒',
+      content: '需要开启微信App的位置权限才能使用WiFi功能。\n\n请按以下步骤操作：\n1. 打开手机系统设置\n2. 找到"微信"应用\n3. 开启"位置信息"权限\n4. 返回小程序重试',
+      confirmText: '前往开启',
+      cancelText: '取消',
+      showCancel: true,
+      complete: () => {
+        _locationPermissionModalVisible = false;
+      },
+      success: async (modalRes) => {
+        if (modalRes.confirm) {
+          _locationPermissionAwaitingReturn = true;
+          await openWechatAppAuthSetting();
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      }
+    });
+  });
+}
+
+function isAwaitingLocationPermissionReturn() {
+  return _locationPermissionAwaitingReturn;
+}
+
+function clearLocationPermissionAwaitingReturn() {
+  _locationPermissionAwaitingReturn = false;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getSettingAsync() {
+  return new Promise((resolve) => {
+    wx.getSetting({
+      success: resolve,
+      fail: () => resolve(null)
+    });
+  });
+}
+
+function startWifiAsync() {
+  return new Promise((resolve) => {
+    wx.startWifi({
+      success: () => resolve(true),
+      fail: (error) => {
+        console.warn('[permission] startWifi 探测失败:', error);
+        resolve(!isSystemLocationPermissionError(error));
+      }
+    });
+  });
+}
+
+function getConnectedWifiForProbe() {
+  return new Promise((resolve) => {
+    wx.getConnectedWifi({
+      success: () => resolve(true),
+      fail: (error) => {
+        console.warn('[permission] getConnectedWifi 探测失败:', error);
+        resolve(!isSystemLocationPermissionError(error));
+      }
+    });
+  });
+}
+
+/** 探测系统位置权限是否已可用（不弹窗） */
+async function probeWifiLocationPermission(options = {}) {
+  const retries = options.retries || 5;
+  const intervalMs = options.intervalMs || 800;
+
+  for (let i = 0; i < retries; i += 1) {
+    const setting = await getSettingAsync();
+    if (!setting || !setting.authSetting['scope.userLocation']) {
+      return false;
+    }
+
+    // 从微信系统授权页返回后，WiFi 模块和位置权限状态可能需要重新同步。
+    await startWifiAsync();
+    const granted = await getConnectedWifiForProbe();
+    if (granted) {
+      return true;
+    }
+
+    if (i < retries - 1) {
+      await delay(intervalMs);
+    }
+  }
+
+  return false;
+}
+
+/** 鸿蒙/Android 上 BLE 扫描常依赖系统定位已激活，扫描前触发一次 */
+function ensureLocationForBleScan() {
+  const type = CommonUtil.getSystemType();
+  if (type !== 'ohos') {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    wx.getLocation({
+      type: 'gcj02',
+      isHighAccuracy: false,
+      success: () => {
+        console.log('[BLE] 鸿蒙扫描前 getLocation 成功');
+        resolve();
+      },
+      fail: (err) => {
+        console.warn('[BLE] 鸿蒙扫描前 getLocation 失败，可能影响 BLE 扫描:', err);
+        resolve();
+      }
+    });
+  });
+}
+
 function checkLocationAuth() {
   return new Promise((resolve, reject) => {
       wx.getSetting({
@@ -233,11 +402,11 @@ function checkBluetoothAndLocationByDeviceType() {
         }
       });
     });
-  } else if (type === 'android') {
-    // Android 需先申请位置权限再申请蓝牙
+  } else if (type === 'android' || type === 'ohos') {
+    // Android / 鸿蒙：需先申请位置权限再申请蓝牙
     return checkBluetoothAuth();
   } else {
-    // 其它设备类型，默认都申请
+    // 其它设备类型，默认与 Android 相同
     return checkBluetoothAuth();
   }
 }
@@ -247,5 +416,12 @@ module.exports = {
   checkLocationAuth,
   checkBluetoothAuth,
   checkWifiAuth,
-  checkBluetoothAndLocationByDeviceType
+  checkBluetoothAndLocationByDeviceType,
+  isSystemLocationPermissionError,
+  openWechatAppAuthSetting,
+  showWechatAppLocationPermissionModal,
+  isAwaitingLocationPermissionReturn,
+  clearLocationPermissionAwaitingReturn,
+  probeWifiLocationPermission,
+  ensureLocationForBleScan
 };

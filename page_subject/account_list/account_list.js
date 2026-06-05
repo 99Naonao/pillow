@@ -1,6 +1,7 @@
 const AuthApi = require('../../utils/authApi');
 const AccountManager = require('../../utils/accountManager');
 const BluetoothManager = require('../../utils/bluetoothManager');
+const CommonUtil = require('../../utils/commonUtil');
 
 Page({
   data: {
@@ -38,9 +39,7 @@ Page({
   },
 
   onBack() {
-    wx.navigateBack({
-      delta: 1
-    });
+    CommonUtil.navigateBackSafe('/pages/mine/mine');
   },
 
   onRefreshTap() {

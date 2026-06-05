@@ -906,7 +906,6 @@ Page({
    * 添加心率到历史数组
    */
   addToHeartRateHistory(value) {
-    console.log('[home] 添加心率到历史数组:', value);
     if (!this.data.heartRateHistory) {
       this.data.heartRateHistory = [];
     }
@@ -916,7 +915,6 @@ Page({
     if (this.data.heartRateHistory.length > maxLength) {
       this.data.heartRateHistory = this.data.heartRateHistory.slice(-maxLength);
     }
-    console.log('[home] 心率历史数组长度:', this.data.heartRateHistory.length);
     // 更新折线图
     this.updateHeartRateChart();
   },
@@ -925,7 +923,6 @@ Page({
    * 添加呼吸率到历史数组
    */
   addToBreathRateHistory(value) {
-    console.log('[home] 添加呼吸率到历史数组:', value);
     if (!this.data.breathRateHistory) {
       this.data.breathRateHistory = [];
     }
@@ -935,7 +932,6 @@ Page({
     if (this.data.breathRateHistory.length > maxLength) {
       this.data.breathRateHistory = this.data.breathRateHistory.slice(-maxLength);
     }
-    console.log('[home] 呼吸率历史数组长度:', this.data.breathRateHistory.length);
     // 更新折线图
     this.updateRespiratoryChart();
   },
@@ -979,7 +975,6 @@ Page({
         console.log('[home] 心率数据超出100，动态调整Y轴范围到:', yMax, '间隔:', interval);
       }
       
-      console.log('[home] 更新心率折线图，数据点数量:', history.length, '范围:', minValue, '-', maxValue, 'Y轴范围: 0 -', yMax);
       this._heartRateChart.setOption({
         xAxis: {
           data: xData,
@@ -1004,7 +999,6 @@ Page({
           data: history
         }]
       });
-      console.log('[home] 心率折线图数据更新成功');
     } catch (error) {
       console.error('[home] 更新心率折线图失败:', error);
     }
@@ -1050,7 +1044,6 @@ Page({
         console.log('[home] 呼吸率数据超出40，动态调整Y轴范围到:', yMax, '间隔:', interval);
       }
       
-      console.log('[home] 更新呼吸折线图，数据点数量:', history.length, '范围:', minValue, '-', maxValue, 'Y轴范围: 0 -', yMax);
       this._respiratoryChart.setOption({
         xAxis: {
           data: xData,
@@ -1075,7 +1068,6 @@ Page({
           data: history
         }]
       });
-      console.log('[home] 呼吸折线图数据更新成功');
     } catch (error) {
       console.error('[home] 更新呼吸折线图失败:', error);
     }
@@ -1085,10 +1077,10 @@ Page({
    * 更新折线图数据（兼容旧方法，使用历史数据）
    */
   updateWaveformCharts(heartRateWave, respiratoryWave) {
-    console.log('[home] ========== updateWaveformCharts被调用 ==========');
-    console.log('[home] 注意：现在使用历史数据数组来更新折线图');
-    console.log('[home] 心率历史数组长度:', this.data.heartRateHistory ? this.data.heartRateHistory.length : 0);
-    console.log('[home] 呼吸率历史数组长度:', this.data.breathRateHistory ? this.data.breathRateHistory.length : 0);
+    // console.log('[home] ========== updateWaveformCharts被调用 ==========');
+    // console.log('[home] 注意：现在使用历史数据数组来更新折线图');
+    // console.log('[home] 心率历史数组长度:', this.data.heartRateHistory ? this.data.heartRateHistory.length : 0);
+    // console.log('[home] 呼吸率历史数组长度:', this.data.breathRateHistory ? this.data.breathRateHistory.length : 0);
     
     // 使用历史数据更新折线图
     this.updateHeartRateChart();

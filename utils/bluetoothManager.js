@@ -94,14 +94,42 @@ class BluetoothManager {
     }
 
     /**
+     * 是否为蓝牙未初始化类错误（停止/关闭时可直接忽略）
+     */
+    static isBleNotInitError(error) {
+        if (!error) return false;
+        const errCode = Number(error.errCode);
+        const errMsg = String(error.errMsg || error.message || '').toLowerCase();
+        return errCode === 10000 || errMsg.includes('not init') || errMsg.includes('未初始化');
+    }
+
+    /**
      * 停止蓝牙设备搜索
      */
     stopBluetoothDevicesDiscovery() {
         return new Promise((resolve, reject) => {
             wx.stopBluetoothDevicesDiscovery({
                 success: resolve,
-                fail: reject
+                fail: (err) => {
+                    if (BluetoothManager.isBleNotInitError(err)) {
+                        resolve(err);
+                        return;
+                    }
+                    reject(err);
+                }
             });
+        });
+    }
+
+    /**
+     * 安全停止搜索（未 init / 未 start 时不抛错）
+     */
+    stopBluetoothDevicesDiscoverySafe() {
+        return this.stopBluetoothDevicesDiscovery().catch((err) => {
+            if (BluetoothManager.isBleNotInitError(err)) {
+                return null;
+            }
+            throw err;
         });
     }
 

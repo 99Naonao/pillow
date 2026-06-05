@@ -1,5 +1,6 @@
 // app.js
 const EnvUtil = require('./utils/envUtil');
+const { checkForUpdate } = require('./utils/updateManager');
 
 App({
   onLaunch() {
@@ -7,6 +8,9 @@ App({
     
     // 打印環境信息
     EnvUtil.logEnvInfo();
+
+    // 检查小程序版本更新
+    checkForUpdate();
     
     // 根據環境設置全局配置
     this.globalData = {

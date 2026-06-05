@@ -8,18 +8,23 @@ class EnvUtil {
      */
     static getEnvVersion() {
         try {
-            // 方法1：使用 __wxConfig
             if (typeof __wxConfig !== 'undefined' && __wxConfig.envVersion) {
                 return __wxConfig.envVersion;
             }
-            
-            // 方法2：使用 wx.getAccountInfoSync()
-            const accountInfo = wx.getAccountInfoSync();
-            return accountInfo.miniProgram.envVersion;
         } catch (error) {
-            console.warn('获取环境版本失败:', error);
-            return 'unknown';
+            console.warn('读取 __wxConfig.envVersion 失败:', error);
         }
+
+        try {
+            const accountInfo = wx.getAccountInfoSync();
+            if (accountInfo && accountInfo.miniProgram && accountInfo.miniProgram.envVersion) {
+                return accountInfo.miniProgram.envVersion;
+            }
+        } catch (error) {
+            console.warn('getAccountInfoSync 获取环境版本失败:', error);
+        }
+
+        return 'unknown';
     }
     
     /**

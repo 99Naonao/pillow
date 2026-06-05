@@ -71,6 +71,10 @@ Page({
     }
   },
 
+  onBack() {
+    CommonUtil.navigateBackSafe('/page_subject/welcome/welcome');
+  },
+
   // 返回上一页
   goBack() {
     wx.navigateBack({

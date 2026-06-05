@@ -1,5 +1,5 @@
 ﻿<!--page_subject/ring/ring.wxml-->
-<nav-bar title="预警设置" bgColor="#0b2853" titleColor="#fff" bind:tap="onBack"></nav-bar>
+<nav-bar title="预警设置" bgColor="#0b2853" titleColor="#fff" bind:onBack="onBack"></nav-bar>
 <scroll-view class="page-container" scroll-y="true" enhanced="true" show-scrollbar="false">
   <!-- 心率异常提醒 -->
   <view class="section-header">
