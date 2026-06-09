@@ -63,9 +63,7 @@ Page({
   },
 
   // 返回上一页
-  onBack() {
-    CommonUtil.navigateBackSafe('/page_subject/welcome/welcome');
-  },
+  onBack() {},
 
   // 跳转到账号登录页面
   goToAccountLogin() {

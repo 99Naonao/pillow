@@ -1,7 +1,7 @@
 <!--page_subject/login/login.wxml-->
 <view class="login-container">
   <!-- 頂部導航欄 -->
-  <nav-bar title="登录" bgColor="#0b2853" titleColor="#fff" bind:onBack="onBack"></nav-bar>
+  <nav-bar title="登录" bgColor="#0b2853" titleColor="#fff" backFallback="/page_subject/welcome/welcome" bind:onBack="onBack"></nav-bar>
 
   <!-- 主要內容區域 -->
   <view class="main-content">

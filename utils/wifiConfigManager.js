@@ -74,7 +74,7 @@ class WifiConfigManager {
             console.error('初始化WiFi步骤失败:', error);
 
             if (isSystemLocationPermissionError(error)) {
-                showWechatAppLocationPermissionModal();
+                showWechatAppLocationPermissionModal(error);
                 return;
             }
 
@@ -144,7 +144,7 @@ class WifiConfigManager {
             // 处理权限错误（错误代码 12012 或 errno 1505004）
             if (isSystemLocationPermissionError(error)) {
                 console.log('WiFi权限错误，显示权限提示');
-                showWechatAppLocationPermissionModal();
+                showWechatAppLocationPermissionModal(error);
                 return;
             }
             
@@ -232,7 +232,7 @@ class WifiConfigManager {
         } catch (error) {
             console.error('[WifiConfigManager] 读取当前 WiFi 失败:', error);
             if (isSystemLocationPermissionError(error)) {
-                showWechatAppLocationPermissionModal();
+                showWechatAppLocationPermissionModal(error);
             } else {
                 wx.showToast({ title: '获取WiFi信息失败', icon: 'none' });
             }
@@ -265,7 +265,7 @@ class WifiConfigManager {
             console.error('[WifiConfigManager] 获取WiFi列表失败:', error);
 
             if (isSystemLocationPermissionError(error)) {
-                showWechatAppLocationPermissionModal();
+                showWechatAppLocationPermissionModal(error);
                 return;
             }
 

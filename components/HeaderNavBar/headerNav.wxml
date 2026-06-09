@@ -10,7 +10,7 @@
       <view class="navbar-btn" wx:elif="{{navHome}}" bindtap="navHome">
         <image class="navbar-icon custom-icon-class" src="./images/home.png"></image>
       </view>
-      <view class="navbar-btn" wx:else catchtap="navBack">
+      <view class="navbar-btn" wx:else bindtap="navBack" hover-class="navbar-btn-active">
         <image class="navbar-icon custom-icon-class" src="./images/back.png"></image>
       </view>
     </view>

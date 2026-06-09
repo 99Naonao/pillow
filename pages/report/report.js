@@ -89,46 +89,18 @@ Page({
 	},
 
 	onShow() {
-		// 初始化设备管理器
-		this.deviceManager = new DeviceManager(this);
-		// 初始化图表管理器
-		this.chartManager = new ChartManager(this);
-
-		// 从 CommonUtil 获取保存的 WiFi MAC 地址
-		const CommonUtil = require('../../utils/commonUtil');
-		const wifiMac = CommonUtil.getSavedWifiMac();
-		// const wifiMac = 'b4:c2:e0:e4:c9:9f';
-		const convertedIds = wx.getStorageSync('convertedCharacteristicIds');
-
-		console.log('[report] WiFi MAC地址:', wifiMac);
-		console.log('[report] WiFi MAC 類型:', typeof wifiMac);
-		console.log('[report] WiFi MAC 是否為空:', !wifiMac);
-		console.log('[report] 转换后的特征值ID:', convertedIds);
-
-		// 默认日期为今天
-		const today = DataProcessor.formatDate(new Date());
-		this.setData({
-			wifiMac: wifiMac,
-			shallowPercent: 0,
-			awakePercent: 0,
-			deepPercent: 0,
-			remPercent: 0,
-			currentDate: today.replace(/-/g, '.'),
-			calendarValue: today
-		});
-
-		// 加载今天的睡眠报告，查询范围包含昨天到明天（确保能查到跨夜睡眠）
-		const startDate = DataProcessor.getPreviousDay(today);
-		const endDate = DataProcessor.getNextDay(today);
-
-		this.loadSleepReports(startDate, endDate, wifiMac, today)
+		this.loadTodaySleepReports();
 	},
 	onLoad() {
 		// 初始化设备管理器
 		this.deviceManager = new DeviceManager(this);
 		// 初始化图表管理器
 		this.chartManager = new ChartManager(this);
+		this._sleepReportRequestSeq = 0;
+		this._noReportModalVisible = false;
+	},
 
+	loadTodaySleepReports() {
 		// 从 CommonUtil 获取保存的 WiFi MAC 地址
 		const CommonUtil = require('../../utils/commonUtil');
 		const wifiMac = CommonUtil.getSavedWifiMac();
@@ -157,11 +129,6 @@ Page({
 		const endDate = DataProcessor.getNextDay(today);
 
 		this.loadSleepReports(startDate, endDate, wifiMac, today)
-    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e4:c9:9f", today);
-    // this.loadSleepReports(startDate, endDate, "b4:c2:e0:e5:3a:13", today);
-
-		// 知道睡眠报告id以后的获取详细睡眠报告详情测试方法
-		// this.testSleepReportDetail("f4:cf:a2:80:9f:ac", 41250);
 	},
 
 	// 日历相关事件处理
@@ -236,6 +203,9 @@ Page({
 			return;
 		}
 
+		const requestId = (this._sleepReportRequestSeq || 0) + 1;
+		this._sleepReportRequestSeq = requestId;
+
 		this.setData({
 			loading: true
 		});
@@ -246,6 +216,10 @@ Page({
 				end_date: endDate
 			})
 			.then(result => {
+				if (requestId !== this._sleepReportRequestSeq) {
+					console.log('[report] 忽略过期睡眠报告请求:', requestId);
+					return;
+				}
 				console.log('获取到的睡眠报告:', result);
 				const reports = result && result.data ? result.data.data : [];
 				// 以睡眠结束日期为准，筛选出在选中日期结束的睡眠报告
@@ -268,15 +242,14 @@ Page({
 				} else {
 					// 没有数据时，清空页面显示并显示提示
 					this.clearReportData();
-					wx.showModal({
-						title: '提示',
-						content: `该日期范围内无睡眠报告数据`,
-						showCancel: false,
-						confirmText: '确定'
-					});
+					this.showNoReportModal();
 				}
 			})
 			.catch(error => {
+				if (requestId !== this._sleepReportRequestSeq) {
+					console.log('[report] 忽略过期睡眠报告失败:', requestId);
+					return;
+				}
 				console.error('获取睡眠报告失败:', error);
 				this.setData({
 					loading: false
@@ -292,6 +265,23 @@ Page({
 					icon: 'none'
 				});
 			});
+	},
+
+	showNoReportModal() {
+		if (this._noReportModalVisible) {
+			return;
+		}
+
+		this._noReportModalVisible = true;
+		wx.showModal({
+			title: '提示',
+			content: '该日期范围内无睡眠报告数据',
+			showCancel: false,
+			confirmText: '确定',
+			complete: () => {
+				this._noReportModalVisible = false;
+			}
+		});
 	},
 
 	/**

@@ -71,9 +71,7 @@ Page({
     }
   },
 
-  onBack() {
-    CommonUtil.navigateBackSafe('/page_subject/welcome/welcome');
-  },
+  onBack() {},
 
   // 返回上一页
   goBack() {

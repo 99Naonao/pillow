@@ -50,9 +50,7 @@ Page({
   /**
    * 返回按钮点击事件
    */
-  onBack() {
-    CommonUtil.navigateBackSafe('/pages/mine/mine');
-  },
+  onBack() {},
 
   /**
    * 加载配置

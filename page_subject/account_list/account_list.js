@@ -38,9 +38,7 @@ Page({
     this.loadAccounts(false, { append: true });
   },
 
-  onBack() {
-    CommonUtil.navigateBackSafe('/pages/mine/mine');
-  },
+  onBack() {},
 
   onRefreshTap() {
     this.loadAccounts(true);

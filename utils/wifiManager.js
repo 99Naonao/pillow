@@ -36,35 +36,38 @@ class WifiManager {
     }
 
     /**
-     * 获取已连接的WiFi（需要位置权限）
+     * 获取已连接的WiFi（需要位置权限，且须先 startWifi）
      */
     async getConnectedWifi() {
+        await checkWifiAuth();
+        await this.startWifi();
         try {
-            // 先检查并请求位置权限
-            await checkWifiAuth();
-            
-            // 权限已授权，获取WiFi信息
-            return new Promise((resolve, reject) => {
-                wx.getConnectedWifi({
-                    success: resolve,
-                    fail: (error) => {
-                        if (isSystemLocationPermissionError(error)) {
-                            console.error('获取WiFi信息需要位置权限:', error);
-                            error.type = error.type || 'system_permission';
-                        }
-                        reject(error);
-                    }
-                });
-            });
-        } catch (permissionError) {
-            // 权限请求失败，直接拒绝
-            console.error('WiFi权限请求失败:', permissionError);
-            return Promise.reject({
-                errCode: 12012,
-                errno: 1505004,
-                errMsg: 'getConnectedWifi:fail:may be not obtain GPS Permission'
-            });
+            return await this._requestConnectedWifi();
+        } catch (error) {
+            // 部分机型 startWifi 后需短暂同步，12000 时重试一次
+            if (Number(error.errCode) === 12000) {
+                await this.startWifi();
+                return await this._requestConnectedWifi();
+            }
+            throw error;
         }
+    }
+
+    _requestConnectedWifi() {
+        return new Promise((resolve, reject) => {
+            wx.getConnectedWifi({
+                success: resolve,
+                fail: (error) => {
+                    if (isSystemLocationPermissionError(error)) {
+                        console.error('获取WiFi信息需要位置权限:', error);
+                        error.type = error.type || 'system_permission';
+                    } else if (Number(error.errCode) === 12000) {
+                        console.warn('getConnectedWifi 失败：未先 startWifi（应由调用方保证）:', error);
+                    }
+                    reject(error);
+                }
+            });
+        });
     }
 
     /**

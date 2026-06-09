@@ -8,18 +8,55 @@ let _locationPermissionAwaitingReturn = false;
 
 function isSystemLocationPermissionError(error) {
   if (!error) return false;
+  if (error.type === 'miniprogram_permission') return false;
+
   const errCode = Number(error.errCode);
   const errno = Number(error.errno);
   const errMsg = String(error.errMsg || '').toLowerCase();
-  return errCode === 12012
-    || errCode === 12010 // 鸿蒙 / 部分 Android
-    || errno === 1505004
-    || errno === 1505001
-    || error.type === 'system_permission'
-    || error.type === 'permission'
-    || errMsg.includes('gps permission')
-    || errMsg.includes('location permission')
-    || errMsg.includes('obtain gps');
+
+  // WiFi API 调用顺序/状态问题，不是权限问题
+  if (errCode === 12000 || errMsg.includes('not invoke startwifi')) return false;
+  // WiFi 未开、未连 WiFi、系统定位服务未开等
+  if (errCode === 12003 || errCode === 12005 || errCode === 12006) return false;
+  if (error.type === 'wifi_list_timeout') return false;
+
+  if (errCode === 12012 || errCode === 12010) return true;
+  // errno 不能单独判定：1505001 也出现在 errCode 12000（未 startWifi）等场景
+  if (errno === 1505004 && (errCode === 12012 || errMsg.includes('permission'))) return true;
+  if (error.type === 'system_permission' && (errCode === 12012 || errCode === 12010 || errMsg.includes('permission'))) {
+    return true;
+  }
+
+  if (errMsg.includes('permission denied') || errMsg.includes('auth deny')) {
+    return true;
+  }
+  // 避免 Android「may be not obtain GPS」在已授权时误判为 App 权限问题
+  if (errMsg.includes('gps permission') && !errMsg.includes('may be')) {
+    return true;
+  }
+  return false;
+}
+
+function isLocationServiceDisabledError(error) {
+  if (!error) return false;
+  const errCode = Number(error.errCode);
+  const errMsg = String(error.errMsg || '').toLowerCase();
+  return errCode === 12006
+    || errMsg.includes('location service')
+    || errMsg.includes('gps is disabled')
+    || errMsg.includes('may be not obtain gps');
+}
+
+function showLocationServiceDisabledModal() {
+  return new Promise((resolve) => {
+    wx.showModal({
+      title: '位置服务未开启',
+      content: '微信 App 位置权限已开启，但系统定位服务/GPS 可能未打开。\n\n请打开手机「设置 → 位置信息」，开启定位服务后返回小程序重试。',
+      confirmText: '知道了',
+      showCancel: false,
+      success: () => resolve(false)
+    });
+  });
 }
 
 /**
@@ -49,10 +86,27 @@ function openWechatAppAuthSetting() {
 /**
  * 微信 App 未授予系统位置权限时的引导弹窗（防重复）
  */
-function showWechatAppLocationPermissionModal() {
+async function showWechatAppLocationPermissionModal(error) {
   if (_locationPermissionModalVisible) {
-    return Promise.resolve(false);
+    return false;
   }
+
+  const setting = await getSettingAsync();
+  const hasMiniProgramLocation = !!(setting && setting.authSetting['scope.userLocation']);
+  if (!hasMiniProgramLocation) {
+    try {
+      await checkLocationAuth();
+      return true;
+    } catch (authErr) {
+      console.warn('[permission] 小程序位置权限未授予:', authErr);
+      return false;
+    }
+  }
+
+  if (error && isLocationServiceDisabledError(error)) {
+    return showLocationServiceDisabledModal();
+  }
+
   _locationPermissionModalVisible = true;
 
   return new Promise((resolve) => {

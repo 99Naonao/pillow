@@ -1,4 +1,4 @@
-<nav-bar title="设备连接" bgColor="#0b2853" titleColor="#fff" bind:onBack="onBack"></nav-bar>
+<nav-bar title="设备连接" bgColor="#0b2853" titleColor="#fff" backFallback="/pages/home/home" bind:onBack="onBack"></nav-bar>
 <view class="page-container">
   <!-- 进度条 -->
   <view class="progress-container"></view>

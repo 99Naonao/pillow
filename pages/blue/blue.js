@@ -480,7 +480,7 @@ Page({
       } catch (error) {
         console.error('检查WiFi连接状态失败:', error);
         if (isSystemLocationPermissionError(error)) {
-          showWechatAppLocationPermissionModal();
+          showWechatAppLocationPermissionModal(error);
           return;
         }
         // 如果获取WiFi信息失败，重置禁用状态并继续正常流程
@@ -1100,15 +1100,19 @@ Page({
     setTimeout(() => this.finishAndReturn(), 2000);
   },
 
-  // 完成并返回
+  // 完成并返回首页（switchTab 关闭配网页；navigateBack 在单页栈或鸿蒙上可能无效）
   finishAndReturn() {
-    wx.navigateBack();
+    wx.switchTab({
+      url: '/pages/home/home',
+      fail: (err) => {
+        console.warn('[finishAndReturn] switchTab 失败，尝试安全返回:', err);
+        commonUtil.navigateBackSafe('/pages/home/home');
+      }
+    });
   },
 
-  // 返回
-  onBack() {
-    commonUtil.navigateBackSafe('/pages/mine/mine');
-  },
+  // 返回（导航由 nav-bar 组件统一处理）
+  onBack() {},
 
   // 断开当前设备
   async disconnectCurrentDevice() {
@@ -1828,7 +1832,7 @@ Page({
       
       // 处理权限错误
       if (isSystemLocationPermissionError(res)) {
-        showWechatAppLocationPermissionModal();
+        showWechatAppLocationPermissionModal(res);
       }
       
       this.setData({

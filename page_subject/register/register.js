@@ -62,9 +62,7 @@ Page({
     }
   },
 
-  onBack() {
-    CommonUtil.navigateBackSafe('/page_subject/login/login');
-  },
+  onBack() {},
 
   // 手机号输入处理
   onPhoneInput(e) {

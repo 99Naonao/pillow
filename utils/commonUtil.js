@@ -398,17 +398,31 @@ class CommonUtil {
    */
   static navigateBackSafe(fallbackTab = '/pages/mine/mine') {
     const pages = getCurrentPages();
+    const openFallback = () => CommonUtil._openFallbackPage(fallbackTab);
+
     if (pages.length > 1) {
+      const currentRoute = pages[pages.length - 1].route;
       wx.navigateBack({
         delta: 1,
         fail: (err) => {
           console.warn('[navigateBackSafe] navigateBack 失败，跳转兜底页:', err);
-          CommonUtil._openFallbackPage(fallbackTab);
+          openFallback();
         }
       });
+      // 鸿蒙上 navigateBack 偶发无响应，短时校验后走兜底跳转
+      if (CommonUtil.isOhos()) {
+        setTimeout(() => {
+          const stack = getCurrentPages();
+          const top = stack[stack.length - 1];
+          if (top && top.route === currentRoute) {
+            console.warn('[navigateBackSafe] 鸿蒙 navigateBack 未生效，跳转兜底页:', fallbackTab);
+            openFallback();
+          }
+        }, 400);
+      }
       return;
     }
-    CommonUtil._openFallbackPage(fallbackTab);
+    openFallback();
   }
 
   static _openFallbackPage(url) {
@@ -466,10 +480,14 @@ class CommonUtil {
       const next = {
         heart_rate: side.heart_rate,
         respiratory_rate: side.respiratory_rate ?? side.respiration_rate,
-        respiration_rate: side.respiration_rate,
-        is_move: side.is_move,
-        body_movement: side.body_movement
+        is_move: side.is_move ?? side.body_movement
       };
+      if (side.respiration_rate != null && side.respiration_rate !== side.respiratory_rate) {
+        next.respiration_rate = side.respiration_rate;
+      }
+      if (side.body_movement != null && side.body_movement !== side.is_move) {
+        next.body_movement = side.body_movement;
+      }
       const wave = side.wave ?? side.heart_rate_wave;
       if (Array.isArray(wave)) {
         if (wave.length <= maxWavePoints) {
@@ -494,10 +512,14 @@ class CommonUtil {
     };
 
     const result = {
-      is_bed: payload.is_bed ?? payload.inbed,
-      inbed: payload.inbed,
-      body_movement: payload.body_movement
+      is_bed: payload.is_bed ?? payload.inbed
     };
+    if (payload.inbed != null && payload.inbed !== payload.is_bed) {
+      result.inbed = payload.inbed;
+    }
+    if (payload.body_movement != null) {
+      result.body_movement = payload.body_movement;
+    }
     if (payload.left) {
       result.left = trimSide(payload.left);
     }

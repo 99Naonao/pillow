@@ -1,7 +1,7 @@
 <!--page_subject/welcome/welcome.wxml-->
 <view class="welcome-container">
   <!-- 頂部導航欄 -->
-  <nav-bar title="快捷登录" bgColor="#0b2853" titleColor="#fff" bind:onBack="onBack"></nav-bar>
+  <nav-bar title="快捷登录" bgColor="#0b2853" titleColor="#fff" backFallback="/pages/mine/mine" bind:onBack="onBack"></nav-bar>
 
   <!-- 主要內容區域 -->
   <view class="main-content">

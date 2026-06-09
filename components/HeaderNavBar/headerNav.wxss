@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 100;
+  z-index: 1000;
   box-sizing: border-box;
 }
 
@@ -21,13 +21,17 @@
   min-width: 88rpx;
   min-height: 88rpx;
   padding: 12rpx;
-  z-index: 200;
+  z-index: 1000;
   position: absolute;
   left: 12rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+}
+
+.navbar-btn-active {
+  opacity: 0.7;
 }
 
 .navbar-icon {

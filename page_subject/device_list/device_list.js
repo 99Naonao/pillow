@@ -31,9 +31,7 @@ Page({
     this.loadDevices(true);
   },
 
-  onBack() {
-    CommonUtil.navigateBackSafe('/pages/mine/mine');
-  },
+  onBack() {},
 
   onRefreshTap() {
     this.loadDevices(true);

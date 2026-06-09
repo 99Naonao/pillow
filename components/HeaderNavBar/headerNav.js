@@ -28,6 +28,7 @@
  */
 
 const app = getApp()
+const CommonUtil = require('../../utils/commonUtil')
 
 // 確保app對象可用
 function getAppInstance() {
@@ -82,6 +83,11 @@ Component({
     navHome: {
       type: Boolean,
       value: false
+    },
+    /** 无上一页或 navigateBack 失败时的兜底路径（tab 页用 switchTab） */
+    backFallback: {
+      type: String,
+      value: '/pages/mine/mine'
     },
   },
   options: {
@@ -144,9 +150,10 @@ Component({
   },
   // 组件的方法列表
   methods: {
-    // 回退（仅通知页面，避免与 bind:onBack 重复调用 navigateBack）
     navBack() {
-      this.triggerEvent('onBack')
+      const fallback = this.properties.backFallback || '/pages/mine/mine';
+      CommonUtil.navigateBackSafe(fallback);
+      this.triggerEvent('onBack');
     },
     // 回主页
     navHome() {
